@@ -1,16 +1,27 @@
 package org.example.utils;
 
+import com.google.common.cache.CacheBuilder;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Cache for SVG content to avoid repeated disk I/O.
- * Thread-safe implementation using ConcurrentHashMap.
+ * Thread-safe implementation using Google Guava Cache for advanced memory management.
  */
 public class SVGCache {
 
-    private static final Map<String, String> cache = new ConcurrentHashMap<>();
-    private static final Map<String, Map<String, String>> categorizedCache = new ConcurrentHashMap<>();
+    // Integración de Google Guava: Limita la memoria a 500 elementos y expira si no se usan
+    private static final Map<String, String> cache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .expireAfterAccess(30, TimeUnit.MINUTES)
+            .<String, String>build()
+            .asMap();
+
+    private static final Map<String, Map<String, String>> categorizedCache = CacheBuilder.newBuilder()
+            .maximumSize(200)
+            .expireAfterAccess(30, TimeUnit.MINUTES)
+            .<String, Map<String, String>>build()
+            .asMap();
 
     /**
      * Loads SVG path content from cache if available, otherwise loads from disk and
