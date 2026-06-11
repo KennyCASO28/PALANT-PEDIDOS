@@ -151,7 +151,7 @@ public class ShirtRenderer extends BaseGarmentRenderer {
         // Base Redondo (Sketch)
         String baseRedondoPath = org.example.logic.GarmentAssetManager.getBaseRedondoPath(g, c);
         if (baseRedondoPath != null) {
-            safeSetContent(baseRedondo, org.example.utils.SVGCache.loadPath(baseRedondoPath));
+            safeSetContent(baseRedondo, org.example.utils.SVGCache.loadOptionalPath(baseRedondoPath));
         } else {
             safeSetContent(baseRedondo, "");
         }
