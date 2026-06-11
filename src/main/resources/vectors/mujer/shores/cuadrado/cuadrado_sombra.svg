@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Creator: CorelDRAW -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="888px" height="598px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
+viewBox="0 0 888 598.5"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .str0 {stroke:#ED3237;stroke-width:0.9;stroke-miterlimit:22.9256}
+    .fil0 {fill:#FEFEFE}
+    .fil1 {fill:#373435}
+   ]]>
+  </style>
+   <mask id="id0">
+  <linearGradient id="id1" gradientUnits="userSpaceOnUse" x1="573.43" y1="353.09" x2="697.25" y2="370.12">
+   <stop offset="0" style="stop-opacity:1; stop-color:white"/>
+   <stop offset="0.501961" style="stop-opacity:0; stop-color:white"/>
+   <stop offset="1" style="stop-opacity:1; stop-color:white"/>
+  </linearGradient>
+    <rect style="fill:url(#id1)" x="573.62" y="362.58" width="123.48" height="14.31"/>
+   </mask>
+   <mask id="id2">
+  <linearGradient id="id3" gradientUnits="userSpaceOnUse" x1="175.02" y1="353.09" x2="298.84" y2="370.12">
+   <stop offset="0" style="stop-opacity:1; stop-color:white"/>
+   <stop offset="0.501961" style="stop-opacity:0; stop-color:white"/>
+   <stop offset="1" style="stop-opacity:1; stop-color:white"/>
+  </linearGradient>
+    <rect style="fill:url(#id3)" x="175.22" y="362.58" width="123.47" height="14.31"/>
+   </mask>
+ </defs>
+ <g id="Capa_x0020_1">
+  <metadata id="CorelCorpID_0Corel-Layer"/>
+  <rect class="fil0 str0" x="0.43" y="1.21" width="887.1" height="597.6"/>
+  <path class="fil1" style="mask:url(#id0)" d="M574.99 363.95c3.42,4.75 12.98,7.55 24.09,9.22 20.95,3.14 51.62,3.14 72.56,0 11.11,-1.67 20.67,-4.47 24.09,-9.22 -21.48,9.02 -99.25,9.02 -120.74,0z"/>
+  <path class="fil1" style="mask:url(#id2)" d="M176.59 363.95c3.41,4.75 12.97,7.55 24.08,9.22 20.95,3.14 51.62,3.14 72.56,0 11.11,-1.67 20.67,-4.47 24.09,-9.22 -21.48,9.02 -99.25,9.02 -120.73,0z"/>
+ </g>
+</svg>

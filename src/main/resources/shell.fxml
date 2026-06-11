@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.*?>
+<?import javafx.scene.input.*?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox fx:id="rootVBox" prefHeight="700.0" prefWidth="1100.0" stylesheets="@styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.controller.ShellController">
+   <children>
+      <!-- GLOBAL TITLE BAR (Chrome Style) -->
+      <StackPane fx:id="titleBarStack" prefHeight="38.0" minHeight="38.0" maxHeight="38.0" style="-fx-background-color: #0B213E;">
+          <children>
+              <!-- 1. BACKGROUND DRAG LAYER -->
+              <Region onMousePressed="#handleWindowDragPressed" onMouseDragged="#handleWindowDragDragged" onMouseReleased="#handleWindowDragReleased" onMouseClicked="#handleTitleBarClicked" 
+                      style="-fx-background-color: transparent;" pickOnBounds="true" />
+              
+              <!-- 2. CONTENT LAYER -->
+              <HBox fx:id="titleBar" alignment="CENTER_LEFT" spacing="0" pickOnBounds="false" onMousePressed="#handleWindowDragPressed" onMouseDragged="#handleWindowDragDragged" onMouseReleased="#handleWindowDragReleased">
+                  <children>
+                      <!-- Logo and Archivo Menu -->
+                      <HBox alignment="CENTER_LEFT" spacing="8" style="-fx-padding: 0 10 0 10;" pickOnBounds="false">
+                          <ImageView fitHeight="20.0" preserveRatio="true" pickOnBounds="false" mouseTransparent="true">
+                              <image><Image url="@vectors/logo_small.png" /></image>
+                          </ImageView>
+                          <MenuBar style="-fx-background-color: transparent; -fx-padding: 0;">
+                              <menus>
+                                  <Menu mnemonicParsing="false" text="Archivo">
+                                    <items>
+                                      <MenuItem onAction="#addNewTabAction" text="Nuevo Pedido">
+                                        <graphic><FontIcon iconLiteral="mdi2p-plus-circle-outline" iconSize="16" /></graphic>
+                                        <accelerator><KeyCodeCombination alt="UP" code="N" control="DOWN" meta="UP" shift="UP" shortcut="UP" /></accelerator>
+                                      </MenuItem>
+                                      <MenuItem onAction="#nuevoPedidoNuevaVentanaAction" text="Nueva Ventana">
+                                        <graphic><FontIcon iconLiteral="mdi2w-window-maximize" iconSize="16" /></graphic>
+                                        <accelerator><KeyCodeCombination alt="UP" code="N" control="DOWN" meta="UP" shift="DOWN" shortcut="UP" /></accelerator>
+                                      </MenuItem>
+                                      <SeparatorMenuItem />
+                                      <MenuItem onAction="#onAbrirProyecto" text="Abrir Proyecto...">
+                                        <graphic><FontIcon iconLiteral="mdi2f-folder-open-outline" iconSize="16" /></graphic>
+                                        <accelerator><KeyCodeCombination alt="UP" code="O" control="DOWN" meta="UP" shift="UP" shortcut="UP" /></accelerator>
+                                      </MenuItem>
+                                      <SeparatorMenuItem />
+                                      <MenuItem onAction="#onGuardarProyecto" text="Guardar">
+                                        <graphic><FontIcon iconLiteral="mdi2c-content-save-outline" iconSize="16" /></graphic>
+                                        <accelerator><KeyCodeCombination alt="UP" code="S" control="DOWN" meta="UP" shift="UP" shortcut="UP" /></accelerator>
+                                      </MenuItem>
+                                      <MenuItem onAction="#onGuardarProyectoComo" text="Guardar como...">
+                                        <graphic><FontIcon iconLiteral="mdi2c-content-save-all-outline" iconSize="16" /></graphic>
+                                      </MenuItem>
+                                      <SeparatorMenuItem />
+                                      <MenuItem onAction="#salirAction" text="Salir">
+                                        <graphic><FontIcon iconLiteral="mdi2e-exit-to-app" iconSize="16" /></graphic>
+                                      </MenuItem>
+                                    </items>
+                                  </Menu>
+                              </menus>
+                          </MenuBar>
+                          <Button onAction="#addNewTabAction" styleClass="title-bar-action-button">
+                              <graphic><FontIcon iconLiteral="mdi2p-plus-circle" /></graphic>
+                          </Button>
+                      </HBox>
+      
+<!-- TABS CONTAINER -->
+                       <ScrollPane fx:id="tabsScrollPane" hbarPolicy="NEVER" vbarPolicy="NEVER"
+                                   style="-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;"
+                                   HBox.hgrow="ALWAYS" pickOnBounds="false">
+                           <content>
+                               <HBox fx:id="tabsContainer" alignment="CENTER_LEFT" spacing="0"
+                                     style="-fx-background-color: transparent;" pickOnBounds="false" />
+                           </content>
+                       </ScrollPane>
+
+                       <!-- FILLER SPACE -->
+                       <Region HBox.hgrow="ALWAYS" mouseTransparent="true" />
+
+                       <!-- WINDOW CONTROLS -->
+                      <HBox alignment="CENTER_RIGHT" spacing="0" minWidth="140" pickOnBounds="false">
+                          <Button fx:id="btnWinMin" onMouseClicked="#minimizeApp" styleClass="window-button">
+                              <graphic><SVGPath content="M 4,8 L 12,8 L 12,9 L 4,9 Z" styleClass="window-icon" /></graphic>
+                          </Button>
+                          <Button fx:id="btnWinMax" onMouseClicked="#maximizeApp" styleClass="window-button">
+                              <graphic><SVGPath fx:id="iconWinMax" content="M 4,4 L 12,4 L 12,12 L 4,12 Z M 5,5 L 11,5 L 11,11 L 5,11 Z" styleClass="window-icon" /></graphic>
+                          </Button>
+                          <Button fx:id="btnWinClose" onMouseClicked="#closeApp" styleClass="window-button-close">
+                              <graphic><SVGPath content="M 4,4 L 12,12 M 12,4 L 4,12" stroke="white" strokeWidth="1" styleClass="window-icon" /></graphic>
+                          </Button>
+                      </HBox>
+                  </children>
+              </HBox>
+          </children>
+      </StackPane>
+
+<!-- CONTENT AREA -->
+       <StackPane fx:id="contentArea" VBox.vgrow="ALWAYS" style="-fx-background-color: #F8FAFC;" />
+   </children>
+</VBox>

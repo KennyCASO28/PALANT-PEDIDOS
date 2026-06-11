@@ -1,0 +1,35 @@
+{
+  "genders": {
+    "HOMBRE": "varon",
+    "MUJER": "mujer"
+  },
+  "cuts": {
+    "CUADRADO": "cuadrado",
+    "REDONDO": "redondo",
+    "RANGLAN": "ranglan",
+    "LICRA": "licra",
+    "PANTALONETA": "pantaloneta",
+    "NOVA": "cuadrado"
+  },
+  "lengths": {
+    "MANGA_CORTA": "corta",
+    "MANGA_LARGA": "larga",
+    "MANGA_3_4": "3_4",
+    "MANGA_CERO": "cero"
+  },
+  "templates": {
+    "shirt": "/vectors/{gender}/{cut}/{length}.svg",
+    "shorts": "/vectors/{gender}/shores/{cut}/{cut}.svg",
+    "socks": "/vectors/{gender}/medias/medias.svg",
+    "socks_top": "/vectors/{gender}/medias/medias_superior.svg",
+    "mesh": "/vectors/{gender}/extras/malla_{cut}.svg",
+    "cuffs": "/vectors/{gender}/extras/punos/{cut}/{length}.svg",
+    "number": "/vectors/{gender}/numeros/{location}/{cut}/{number}_",
+    "crest_shorts": "/vectors/{gender}/escudo/short/{cut}/escudo.svg",
+    "base_redondo": "/vectors/{gender}/{cut}/base_redondo.svg",
+    "brand_base": "/vectors/{gender}/marca/{location}/{cut}/{position}_base.svg",
+
+    "brand_cut": "/vectors/{gender}/marca/{location}/{cut}/{position}_corte.svg",
+    "base_redondo": "/vectors/{gender}/{cut}/base_redondo.svg"
+  }
+}

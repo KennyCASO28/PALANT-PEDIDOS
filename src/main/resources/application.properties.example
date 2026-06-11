@@ -1,0 +1,9 @@
+# Database Configuration
+# Copy this file to application.properties and fill in your credentials
+db.url=jdbc:postgresql://your-database-host:5432/your-database
+db.user=your-username
+db.password=your-password
+
+# Application Settings
+app.name=PALANT-PEDIDOS
+app.version=1.0-SNAPSHOT

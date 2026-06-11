@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.effect.*?>
+<?import javafx.scene.shape.*?>
+<?import javafx.scene.input.*?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
+
+<VBox fx:id="rootVBox" prefHeight="650.0" prefWidth="1024.0" stylesheets="@styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.controller.PedidoController">
+   <children>
+      <!-- UNIFIED TOP BAR (Logo + Menu + Window Controls) -->
+      <HBox fx:id="titleBar" alignment="CENTER_LEFT" spacing="5" style="-fx-background-color: #0B213E; -fx-padding: 0 10 0 10;" onMousePressed="#handleWindowDragPressed" onMouseDragged="#handleWindowDragDragged" onMouseReleased="#handleWindowDragReleased" onMouseClicked="#handleTitleBarClicked" prefHeight="30.0" minHeight="30.0" maxHeight="30.0">
+          <children>
+              <!-- Small Logo (Title Bar) -->
+              <ImageView fitHeight="18.0" preserveRatio="true" smooth="true">
+                 <image>
+                     <Image url="@vectors/logo_small.png" requestedHeight="40" preserveRatio="true" smooth="true" />
+                 </image>
+              </ImageView>
+              <!-- REMOVED "PALANT" LABEL AS REQUESTED -->
+              
+              <MenuBar style="-fx-background-color: transparent; -fx-padding: 0;">
+                <menus>
+                   <Menu mnemonicParsing="false" text="Archivo">
+                    <items>
+                      <MenuItem mnemonicParsing="false" onAction="#nuevoPedidoNuevaVentanaAction" text="Nuevo Pedido (Nueva ventana)">
+                             <accelerator>
+                                <KeyCodeCombination alt="UP" code="N" control="DOWN" meta="UP" shift="UP" shortcut="UP" />
+                             </accelerator>
+                      </MenuItem>
+                      <MenuItem mnemonicParsing="false" onAction="#guardarProyectoAction" text="Guardar Proyecto">
+                             <accelerator>
+                                <KeyCodeCombination alt="UP" code="S" control="DOWN" meta="UP" shift="UP" shortcut="UP" />
+                             </accelerator>
+                      </MenuItem>
+                      <MenuItem mnemonicParsing="false" onAction="#cargarProyectoAction" text="Abrir Proyecto">
+                             <accelerator>
+                                <KeyCodeCombination alt="UP" code="O" control="DOWN" meta="UP" shift="UP" shortcut="UP" />
+                             </accelerator>
+                      </MenuItem>
+                      <MenuItem mnemonicParsing="false" onAction="#cargarProyectoNuevaVentanaAction" text="Abrir Proyecto (Nueva ventana)">
+                             <accelerator>
+                                <KeyCodeCombination alt="UP" code="O" control="DOWN" meta="UP" shift="DOWN" shortcut="UP" />
+                             </accelerator>
+                      </MenuItem>
+                      <SeparatorMenuItem mnemonicParsing="false" />
+                      <MenuItem mnemonicParsing="false" onAction="#salirAction" text="Salir" />
+                    </items>
+                  </Menu>
+                </menus>
+              </MenuBar>
+
+              <!-- ADD NEW ORDER BUTTON (Plus) -->
+              <Button fx:id="btnAddOrder" onAction="#nuevoPedidoNuevaVentanaAction" styleClass="title-bar-action-button">
+                  <graphic>
+                      <FontIcon iconLiteral="mdi2p-plus-circle" />
+                  </graphic>
+                  <tooltip>
+                      <Tooltip text="Nuevo Pedido (Nueva ventana)" />
+                  </tooltip>
+              </Button>
+
+              <!-- FILE NAME (Next to Ayuda) -->
+              <Label fx:id="lblArchivoTitleBar" maxWidth="520.0" text="(sin guardar)" textOverrun="ELLIPSIS" style="-fx-text-fill: #ecfdf5; -fx-font-size: 12px; -fx-font-weight: bold; -fx-background-color: rgba(46, 204, 113, 0.18); -fx-border-color: #2ecc71; -fx-border-radius: 6; -fx-background-radius: 6; -fx-padding: 3 10;" />
+              <Region HBox.hgrow="ALWAYS" />
+
+              <!-- WINDOW CONTROLS -->
+              <HBox alignment="CENTER_RIGHT" spacing="0">
+                  <Button fx:id="btnWinMin" onMouseClicked="#minimizeApp" pickOnBounds="true" styleClass="window-button">
+                      <graphic>
+                          <SVGPath content="M 4,8 L 12,8 L 12,9 L 4,9 Z" styleClass="window-icon" />
+                      </graphic>
+                  </Button>
+                  <Button fx:id="btnWinMax" onMouseClicked="#maximizeApp" pickOnBounds="true" styleClass="window-button">
+                      <graphic>
+                          <!-- Default: Maximize (Square) -->
+                          <SVGPath fx:id="iconWinMax" content="M 4,4 L 12,4 L 12,12 L 4,12 Z M 5,5 L 11,5 L 11,11 L 5,11 Z" styleClass="window-icon" />
+                      </graphic>
+                  </Button>
+                  <Button fx:id="btnWinClose" onMouseClicked="#closeApp" pickOnBounds="true" styleClass="window-button-close">
+                      <graphic>
+                          <SVGPath content="M 4,4 L 12,12 M 12,4 L 4,12" stroke="white" strokeWidth="1" styleClass="window-icon" />
+                      </graphic>
+                  </Button>
+              </HBox>
+          </children>
+      </HBox>
+    
+      <AnchorPane VBox.vgrow="ALWAYS">
+         <children>
+    
+          <!-- HEADER FIXO (Compact, Height 50) -->
+          <HBox fx:id="headerContainer" alignment="CENTER_LEFT" layoutX="0.0" layoutY="0.0" prefHeight="50.0" spacing="10.0" styleClass="header-section" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+             <children>
+                <!-- RESTORED GREEN LOGO SECTION -->
+                <HBox alignment="CENTER_LEFT" spacing="10.0" minWidth="-Infinity">
+                   <children>
+                      <ImageView fitHeight="32.0" preserveRatio="true" smooth="true">
+                         <image>
+                            <Image url="@vectors/LOGO%20PALANT.png" requestedHeight="64" preserveRatio="true" smooth="true" />
+                         </image>
+                      </ImageView>
+                      <VBox alignment="CENTER_LEFT" spacing="0">
+                         <Label text="PALANT" style="-fx-font-family: 'Segoe UI Black'; -fx-font-size: 22px; -fx-text-fill: white;" />
+                         <Label text="SISTEMA DE PEDIDOS" style="-fx-font-family: 'Segoe UI'; -fx-font-size: 11px; -fx-text-fill: #bdc3c7; -fx-font-weight: bold; -fx-letter-spacing: 1px;" />
+                      </VBox>
+                   </children>
+                   <padding><Insets left="8" /></padding>
+                </HBox>
+
+                <!-- SPACER TO PUSH INPUTS TO CENTER -->
+                <Region HBox.hgrow="ALWAYS" />
+    
+                <!-- CENTERED INPUTS GROUP -->
+                <!-- Fixed spacing and centered, no growing inputs -->
+                <HBox fx:id="headerInputsSection" spacing="10" alignment="CENTER">
+                    <VBox spacing="2.0" alignment="CENTER_LEFT" visible="false" managed="false">
+                       <Label text="CLIENTE" styleClass="header-input-label" />
+                       <!-- Fixed Width, centered -->
+                       <TextField fx:id="txtCliente" prefWidth="200.0" minWidth="150.0" promptText="Nombre Cliente..." />
+                    </VBox>
+                    <VBox spacing="2.0" alignment="CENTER_LEFT" visible="false" managed="false">
+                       <Label text="VENDEDOR" styleClass="header-input-label" />
+                       <!-- Fixed Width -->
+                       <ComboBox fx:id="comboVendedor" prefWidth="140.0" minWidth="100.0" promptText="Seleccionar..." />
+                    </VBox>
+
+                     <!-- DATOS DE ENVIO (UNIFICADO) -->
+                    <VBox spacing="2.0" alignment="CENTER_LEFT" minWidth="-Infinity">
+                       <Label text="ENVÍO" styleClass="header-input-label" />
+                       <Button fx:id="btnDatosEnvio" onAction="#datosEnvioAction" minWidth="-Infinity" prefHeight="28.0" text="Datos de envío" styleClass="header-input-glass">
+                            <graphic>
+                                <FontIcon iconLiteral="mdi2t-truck-delivery" iconSize="16" />
+                            </graphic>
+                        </Button>
+                    </VBox>
+
+                    <!-- DESIGN MODE (DISEÑO) -->
+                    <VBox spacing="2.0" alignment="CENTER_LEFT" minWidth="-Infinity">
+                       <Label text="DISEÑO" styleClass="header-input-label" />
+                       <ComboBox fx:id="comboModoDiseno" minWidth="-Infinity" promptText="MODO" styleClass="header-input-glass" />
+                    </VBox>
+
+                    <!-- ORDER CODE (CÓDIGO) -->
+                    <VBox spacing="2.0" alignment="CENTER" minWidth="-Infinity">
+                         <Label text="CÓDIGO" styleClass="header-input-label" />
+                         <Label fx:id="lblCodigoPedido" text="P26-E01" styleClass="order-code-highlight" minWidth="-Infinity" alignment="CENTER" />
+                    </VBox>
+
+                    <!-- PRIORITY SELECTOR (PRIORIDAD) -->
+                    <VBox spacing="2.0" alignment="CENTER_LEFT" minWidth="-Infinity">
+                       <Label text="PRIORIDAD" styleClass="header-input-label" />
+                       <ComboBox fx:id="comboPrioridad" minWidth="-Infinity" promptText="Normal" styleClass="header-input-glass" />
+                    </VBox>
+
+                    <!-- DELIVERY DATE (ENTREGA) -->
+                    <VBox spacing="2.0" alignment="CENTER" minWidth="-Infinity">
+                       <Label text="ENTREGA" styleClass="header-input-label" />
+                       <Label fx:id="lblFechaEntrega" text="-" minWidth="-Infinity" style="-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 13px;" />
+                    </VBox>
+    
+                </HBox>
+     
+                <Region HBox.hgrow="ALWAYS" />
+    
+                 <!-- ACTION BUTTON (Right) -->
+                 <VBox spacing="4.0" alignment="CENTER_LEFT" HBox.hgrow="NEVER" minWidth="180.0">
+                     <Label text="" textFill="transparent"><font><Font size="10.0" /></font></Label> <!-- Invisible Label for Alignment -->
+                     <Button fx:id="btnFinalizar" prefHeight="28.0" styleClass="button-primary" text="CONTINUAR >">
+                         <font><Font size="13.0" /></font>
+                         <padding><Insets bottom="0" left="25" right="25" top="0" /></padding>
+                     </Button>
+                 </VBox>
+             </children>
+             <padding><Insets left="20" right="20" /></padding>
+          </HBox>
+    
+          <!-- MAIN TAB PANE (Ahora ocupa todo el ancho y alto) -->
+          <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" styleClass="main-workflow-tabs" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="50.0">
+            <tabs>
+    
+              <Tab text="1. Diseño y Técnica">
+                <content>
+                  <AnchorPane style="-fx-background-color: transparent;">
+                         <children>
+                            <!-- CONTENIDO TAB 1 -->
+                            <StackPane AnchorPane.bottomAnchor="5.0" AnchorPane.leftAnchor="5.0" AnchorPane.rightAnchor="5.0" AnchorPane.topAnchor="5.0">
+                               <children>
+                                  <HBox spacing="10.0" alignment="CENTER">
+                                     <children>
+                                        <!-- PANEL IZQUIERDO: CONFIGURACIÓN (Side-by-side) -->
+                                        <VBox fx:id="configSideWrapper" visible="${btnToggleDesignPanel.selected}" managed="${btnToggleDesignPanel.selected}" minHeight="0.0" minWidth="360.0" prefWidth="360.0" maxWidth="360.0" spacing="0.0" style="-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);" pickOnBounds="true">
+                                           <children>
+                                               <HBox alignment="CENTER_LEFT" spacing="10" prefHeight="60.0" minHeight="60.0" style="-fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0; -fx-padding: 0 15 0 65;">
+                                                  <Label style="-fx-text-fill: #1e293b; -fx-font-size: 16px; -fx-font-weight: bold;" text="Configuración" />
+                                               </HBox>
+                                               <ScrollPane fitToWidth="true" hbarPolicy="NEVER" style="-fx-background-color: transparent; -fx-background: transparent;" styleClass="custom-sidebar-scroll" VBox.vgrow="ALWAYS">
+                                                  <content>
+                                                      <VBox fx:id="configSidePanel" spacing="15.0" style="-fx-padding: 15;">
+                                                         <children>
+                                                             <VBox fx:id="dynamicFormContainer" alignment="TOP_CENTER" spacing="20.0">
+                                                               <!-- Botones inyectados dinámicamente -->
+                                                             </VBox>
+                                                         </children>
+                                                      </VBox>
+                                                  </content>
+                                               </ScrollPane>
+                                           </children>
+                                        </VBox>
+                                        
+                                        <!-- PANEL CENTRAL: VISTA PREVIA (Llenado automático) -->
+                                        <StackPane fx:id="stackVectorContainer" alignment="CENTER" minHeight="0.0" HBox.hgrow="ALWAYS" style="-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2;">
+                                           <children>
+                                              <!-- Imágenes centradas -->
+                                              <ImageView fx:id="imgBase" />
+                                              <ImageView fx:id="imgManga" />
+                                              <ImageView fx:id="imgCuello" />
+                                              <ImageView fx:id="imgMalla" visible="false" />
+                                              <ImageView fx:id="imgPuno" visible="false" />
+                                              <ImageView fx:id="imgMedias" visible="false" />
+          
+                                              <!-- Botón Flotante: Restablecer (Icono Rojo Solido - ARRIBA DERECHA) - Z-INDEX TOP -->
+                                              <Button fx:id="btnResetGlobal" style="-fx-background-color: #e74c3c; -fx-background-insets: 0; -fx-padding: 0; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-border-color: white; -fx-border-radius: 50; -fx-border-width: 2; -fx-min-width: 40px; -fx-min-height: 40px; -fx-max-width: 40px; -fx-max-height: 40px; -fx-background-radius: 50; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 3, 0, 0, 2);" text="↻" StackPane.alignment="TOP_RIGHT">
+                                                  <font><Font name="System Bold" size="22.0" /></font>
+                                                  <StackPane.margin><Insets right="15" top="15" /></StackPane.margin>
+                                                  <tooltip><Tooltip text="Restablecer Diseño" /></tooltip>
+                                              </Button>
+                                           </children>
+                                        </StackPane>
+                                     </children>
+                                  </HBox>
+
+                                  <!-- BOTÓN FLOTANTE PARA MOSTRAR/OCULTAR EL PANEL (Z-INDEX SUPERIOR) -->
+                                  <ToggleButton fx:id="btnToggleDesignPanel" selected="true" style="-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);" StackPane.alignment="TOP_LEFT" prefWidth="40" prefHeight="40" minWidth="40" minHeight="40" maxWidth="40" maxHeight="40">
+                                      <StackPane.margin><Insets top="10" left="10" /></StackPane.margin>
+                                      <graphic><FontIcon iconLiteral="mdi2m-menu" iconSize="24" iconColor="#1e293b"/></graphic>
+                                      <tooltip><Tooltip text="Alternar Panel de Configuración" /></tooltip>
+                                  </ToggleButton>
+                               </children>
+                            </StackPane>
+                         </children>
+                      </AnchorPane>
+                </content>
+              </Tab>
+    
+              <Tab text="2. Logos / Sponsors">
+                <content>
+                  <AnchorPane style="-fx-background-color: transparent;">
+                     <children>
+                        <StackPane AnchorPane.bottomAnchor="5.0" AnchorPane.leftAnchor="5.0" AnchorPane.rightAnchor="5.0" AnchorPane.topAnchor="5.0">
+                           <children>
+                              <HBox spacing="10.0" alignment="CENTER">
+                                 <children>
+                                    <!-- PANEL IZQUIERDO: HERRAMIENTAS DE LOGOS (Side-by-side) -->
+                                    <VBox fx:id="logosSideWrapper" visible="${btnToggleLogosPanel.selected}" managed="${btnToggleLogosPanel.selected}" minHeight="0.0" minWidth="360.0" prefWidth="360.0" maxWidth="360.0" spacing="0.0" style="-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);" pickOnBounds="true">
+                                       <children>
+                                          <HBox alignment="CENTER_LEFT" spacing="10" prefHeight="60.0" minHeight="60.0" style="-fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0; -fx-padding: 0 15 0 65;">
+                                              <Label style="-fx-text-fill: #1e293b; -fx-font-size: 16px; -fx-font-weight: bold;" text="Estampería y Logos" />
+                                          </HBox>
+                                          <ScrollPane fitToWidth="true" hbarPolicy="NEVER" style="-fx-background-color: transparent; -fx-background: transparent;" VBox.vgrow="ALWAYS">
+                                             <content>
+                                                 <VBox fx:id="logosSidePanel" spacing="15.0" style="-fx-padding: 15;">
+                                                   <children>
+                                                       <VBox fx:id="dynamicLogosContainer" alignment="TOP_CENTER" spacing="20.0">
+                                                         <!-- Tools will be injected here -->
+                                                      </VBox>
+                                                   </children>
+                                                </VBox>
+                                             </content>
+                                          </ScrollPane>
+                                       </children>
+                                    </VBox>
+                                    
+                                    <!-- PANEL DERECHO: VISTA PREVIA (Llenado automático) -->
+                                    <StackPane fx:id="stackVectorContainerLogos" alignment="CENTER" minHeight="0.0" HBox.hgrow="ALWAYS" style="-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2;">
+                                       <children>
+                                          <!-- Visualizer will be moved here dynamically -->
+                                       </children>
+                                    </StackPane>
+                                 </children>
+                              </HBox>
+
+                              <!-- BOTÓN FLOTANTE PARA MOSTRAR/OCULTAR EL PANEL (Z-INDEX SUPERIOR) -->
+                              <ToggleButton fx:id="btnToggleLogosPanel" selected="true" style="-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);" StackPane.alignment="TOP_LEFT" prefWidth="40" prefHeight="40" minWidth="40" minHeight="40" maxWidth="40" maxHeight="40">
+                                  <StackPane.margin><Insets top="10" left="10" /></StackPane.margin>
+                                  <graphic><FontIcon iconLiteral="mdi2m-menu" iconSize="24" iconColor="#1e293b"/></graphic>
+                                  <tooltip><Tooltip text="Alternar Panel de Propiedades" /></tooltip>
+                               </ToggleButton>
+                           </children>
+                        </StackPane>
+                     </children>
+                  </AnchorPane>
+                </content>
+              </Tab>
+              
+              <Tab text="3. Lista de Jugadores">
+                <content>
+                  <AnchorPane style="-fx-background-color: white;">
+                         <children>
+                            <TableView fx:id="tablaDetalles" layoutX="20.0" layoutY="60.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0" AnchorPane.topAnchor="80.0">
+                              <columns>
+                                <TableColumn fx:id="colNombre" prefWidth="400.0" text="Nombre / Apodo" />
+                                <TableColumn fx:id="colNumero" prefWidth="55.0" text="Número" styleClass="col-center" />
+                                <TableColumn fx:id="colTalla" prefWidth="55.0" text="Talla" styleClass="col-center" />
+                              </columns>
+                            </TableView>
+                            
+                            <HBox layoutX="20.0" layoutY="20.0" spacing="10.0">
+                               <children>
+                                  <TextField fx:id="txtInputNombre" promptText="Nombre" />
+                                  <TextField fx:id="txtInputNumero" prefWidth="80.0" promptText="#" />
+                                  <ComboBox fx:id="comboInputTalla" prefWidth="80.0" promptText="Talla" />
+                                  <Button onAction="#agregarJugador" style="-fx-background-color: #3498db; -fx-text-fill: white;" text="Agregar +" />
+                                  <Button onAction="#importarExcel" style="-fx-background-color: #27ae60; -fx-text-fill: white;" text="Importar desde Excel" />
+                               </children>
+                            </HBox>
+                            
+                            <Label layoutX="904.0" layoutY="25.0" text="Resumen:" />
+                            <Label fx:id="lblTotalPrendas" layoutX="971.0" layoutY="19.0" text="Total Prendas: 0" textFill="#2c3e50"><font><Font name="System Bold" size="18.0" /></font></Label>
+                         </children>
+                      </AnchorPane>
+                </content>
+              </Tab>
+    
+            </tabs>
+          </TabPane>
+          
+       </children>
+    </AnchorPane>
+  </children>
+</VBox>

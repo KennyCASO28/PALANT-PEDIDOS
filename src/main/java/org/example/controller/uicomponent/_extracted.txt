@@ -1,0 +1,257 @@
+﻿    private static VBox createBottomSection(List<DetallePedido> jugadores, PrendaVisualizer visualizer,
+            List<javafx.scene.image.Image> referencias, javafx.scene.image.Image arqueroSketch,
+            DatosEnvioDTO shippingInfo, ConfiguracionPrendaDTO arqueroConfig) {
+        org.example.model.PrendaState targetState = null;
+        VBox container = new VBox(10);
+        container.setPadding(new Insets(5));
+        container.setId("bottom-section");
+        container.setStyle("-fx-border-color: #7f8c8d; -fx-border-width: 1; -fx-background-color: white;");
+        container.setMinWidth(PAGE_CONTENT_WIDTH);
+        container.setMaxWidth(PAGE_CONTENT_WIDTH);
+        container.setPrefWidth(PAGE_CONTENT_WIDTH);
+        container.setMinHeight(Region.USE_PREF_SIZE);
+
+        List<DetallePedido> allArqueros = new java.util.ArrayList<>();
+        if (jugadores != null) {
+            for (DetallePedido p : jugadores) {
+                if (p.isEsArquero())
+                    allArqueros.add(p);
+            }
+        }
+        allArqueros.sort(java.util.Comparator
+                .comparingInt(p -> p.getArqueroOrdenMarcado() > 0 ? p.getArqueroOrdenMarcado() : Integer.MAX_VALUE));
+
+        // For the bottom page, prefer Arquero state whenever there are arqueros in the
+        // roster.
+        // Relying only on arqueroConfig can make references/specs inconsistent.
+        targetState = (!allArqueros.isEmpty() && visualizer != null) ? visualizer.getArqueroState()
+                : (visualizer != null ? visualizer.getState() : null);
+        boolean hasReferences = hasTechnicalReferences(targetState);
+
+        // 1) ARQUERO (BOCETO) - ARRIBA (SOLO SI EXISTEN)
+        if (!allArqueros.isEmpty()) {
+            VBox arqueroBox = new VBox(4);
+            arqueroBox.setMaxWidth(Double.MAX_VALUE);
+            arqueroBox.setFillWidth(true);
+
+            Label lblArq = new Label("ARQUERO (BOCETO)");
+            lblArq.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-font-size: 11px;");
+            arqueroBox.getChildren().add(lblArq);
+
+            HBox arqLayout = new HBox(10);
+            arqLayout.setAlignment(Pos.CENTER_LEFT);
+            arqLayout.setMinWidth(PAGE_CONTENT_WIDTH - 10);
+            arqLayout.setPrefWidth(PAGE_CONTENT_WIDTH - 10);
+            arqLayout.setMaxWidth(PAGE_CONTENT_WIDTH - 10);
+
+            boolean isFullSet = arqueroConfig != null && (arqueroConfig.llevaShort() || arqueroConfig.llevaMedias());
+            double sketchHeight = isFullSet ? 400 : 340;
+
+            StackPane sketchPane = new StackPane();
+            sketchPane.setAlignment(Pos.CENTER);
+            sketchPane.setPrefHeight(sketchHeight);
+            sketchPane.setMinHeight(sketchHeight);
+            sketchPane.setMinWidth(PAGE_CONTENT_WIDTH - 200);
+            sketchPane.setPrefWidth(PAGE_CONTENT_WIDTH - 200);
+            HBox.setHgrow(sketchPane, Priority.ALWAYS);
+            sketchPane.setStyle("-fx-border-color: #999999; -fx-border-style: dashed; -fx-border-radius: 4;");
+
+            if (arqueroSketch != null) {
+                javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView(arqueroSketch);
+                iv.setPreserveRatio(true);
+                iv.setSmooth(true);
+                iv.setCache(true);
+                iv.setFitWidth(PAGE_CONTENT_WIDTH - 230);
+                iv.setFitHeight(isFullSet ? sketchHeight - 15 : 325);
+                sketchPane.getChildren().add(iv);
+            } else {
+                Label lblSketch = new Label("Boceto no disponible.");
+                lblSketch.setStyle("-fx-font-size: 10px; -fx-text-fill: #e67e22;");
+                sketchPane.getChildren().add(lblSketch);
+            }
+            arqLayout.getChildren().add(sketchPane);
+
+            VBox extrasBox = new VBox(6);
+            extrasBox.setPadding(new Insets(5));
+            extrasBox.setMinWidth(180);
+            extrasBox.setPrefWidth(180);
+            extrasBox.setMaxWidth(180);
+            HBox.setHgrow(extrasBox, Priority.NEVER);
+
+            DetallePedido arqueroPrincipal = allArqueros.get(0);
+            String principalSleeve = resolveArqueroSleeve(arqueroPrincipal);
+            Color principalColor = arqueroPrincipal.getColorArquero();
+
+            // Main Spec Label
+            Label lblSpecs = new Label("ESPECIFICACIONES:");
+            lblSpecs.setStyle("-fx-font-weight: bold; -fx-font-size: 9px; -fx-text-fill: #7f8c8d;");
+            extrasBox.getChildren().add(lblSpecs);
+
+            String colorName = resolveColorName(principalColor);
+
+            VBox mainCard = new VBox(4);
+            mainCard.setStyle(
+                    "-fx-background-color: #f7f9fa; -fx-padding: 5; -fx-border-color: #95a5a6; -fx-border-radius: 4; -fx-background-radius: 4;");
+            mainCard.setMinWidth(170);
+            mainCard.setMaxWidth(170);
+
+            Rectangle swMain = new Rectangle(14, 14, principalColor != null ? principalColor : Color.WHITE);
+            swMain.setStroke(Color.GRAY);
+            swMain.setStrokeWidth(0.5);
+
+            Label lblMainInfo = new Label(colorName + " - " + principalSleeve);
+            lblMainInfo.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #2c3e50;");
+            lblMainInfo.setMinWidth(Region.USE_PREF_SIZE);
+            lblMainInfo.setWrapText(true);
+
+            HBox topRow = new HBox(6, swMain, lblMainInfo);
+            topRow.setAlignment(Pos.CENTER_LEFT);
+            mainCard.getChildren().add(topRow);
+
+            if (arqueroConfig != null && arqueroConfig.llevaAcolchado()) {
+                Label lblPad = new Label("ACOLCHADO");
+                lblPad.setStyle(
+                        "-fx-font-size: 9px; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #27ae60; -fx-padding: 1 5; -fx-background-radius: 3;");
+                mainCard.getChildren().add(lblPad);
+            }
+
+            // --- DATA CONSISTENCY: Add specialized labels from targetState ---
+            if (targetState != null) {
+                VBox stateSpecs = new VBox(2);
+                stateSpecs.setPadding(new Insets(2, 0, 0, 0));
+
+                if (targetState.getCorte() != null) {
+                    addSmallSpec(stateSpecs, "CORTE: ", targetState.getCorte().toString());
+                }
+                if (targetState.getTela() != null) {
+                    addSmallSpec(stateSpecs, "TELA: ", targetState.getTela().toString());
+                }
+                if (targetState.getCuello() != null) {
+                    addSmallSpec(stateSpecs, "CUELLO: ", targetState.getCuello().toString());
+                }
+
+                mainCard.getChildren().add(stateSpecs);
+            }
+
+            extrasBox.getChildren().add(mainCard);
+
+            extrasBox.getChildren().add(new Separator());
+
+            String principalHex = (principalColor != null)
+                    ? String.format("#%02X%02X%02X", (int) (principalColor.getRed() * 255),
+                            (int) (principalColor.getGreen() * 255), (int) (principalColor.getBlue() * 255))
+                    : "#FFFFFF";
+            String principalKey = principalHex + "_" + principalSleeve;
+
+            java.util.Map<String, DetallePedido> designs = new java.util.LinkedHashMap<>();
+            for (DetallePedido p : allArqueros) {
+                Color c = p.getColorArquero();
+                String hex = (c != null) ? String.format("#%02X%02X%02X", (int) (c.getRed() * 255),
+                        (int) (c.getGreen() * 255), (int) (c.getBlue() * 255)) : "#FFFFFF";
+                String designKey = hex + "_" + resolveArqueroSleeve(p);
+                if (!principalKey.equals(designKey)) {
+                    designs.putIfAbsent(designKey, p);
+                }
+            }
+
+            if (!designs.isEmpty()) {
+                Label lblMore = new Label("MÃS COLORES:");
+                lblMore.setStyle("-fx-font-weight: bold; -fx-font-size: 9px; -fx-text-fill: #7f8c8d;");
+                extrasBox.getChildren().add(lblMore);
+                int dIdx = 2;
+                for (DetallePedido p : designs.values()) {
+                    VBox dItem = new VBox(1);
+                    dItem.setStyle(
+                            "-fx-background-color: #f7f9fa; -fx-padding: 3; -fx-border-color: #bdc3c7; -fx-border-radius: 3;");
+                    Rectangle sw = new Rectangle(10, 10,
+                            p.getColorArquero() != null ? p.getColorArquero() : Color.WHITE);
+                    sw.setStroke(Color.GRAY);
+                    sw.setStrokeWidth(0.5);
+                    Label lD = new Label("ARQ " + (dIdx++) + " (" + resolveArqueroSleeve(p) + ")");
+                    lD.setStyle("-fx-font-size: 8px;");
+                    lD.setWrapText(true);
+                    HBox r = new HBox(4, sw, lD);
+                    r.setAlignment(Pos.CENTER_LEFT);
+                    dItem.getChildren().add(r);
+                    extrasBox.getChildren().add(dItem);
+                }
+            }
+            arqLayout.getChildren().add(extrasBox);
+            arqueroBox.getChildren().add(arqLayout);
+            container.getChildren().add(arqueroBox);
+        }
+
+        // 2) REFERENCIAS TÃ‰CNICAS
+        VBox refBox = new VBox(6);
+        Label lblRef = new Label("REFERENCIAS TÃ‰CNICAS");
+        lblRef.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-font-size: 11px;");
+        refBox.getChildren().add(lblRef);
+
+        if (hasReferences) {
+            GridPane refGrid = new GridPane();
+            refGrid.setHgap(15);
+            refGrid.setVgap(15);
+            refGrid.setPadding(new Insets(5));
+            refGrid.setStyle("-fx-border-color: #bdc3c7; -fx-border-width: 0.5; -fx-border-style: dashed;");
+
+            int col = 0, row = 0;
+            if (targetState == null) {
+                Label lblNoState = new Label("Estado no disponible para referencias.");
+                refBox.getChildren().add(lblNoState);
+                container.getChildren().add(refBox);
+                return container;
+            }
+
+            for (org.example.model.PrendaState.ReferenceHotspot hs : targetState.getReferenceHotspots()) {
+                VBox card = new VBox(4);
+                card.setAlignment(Pos.TOP_CENTER);
+                card.setPadding(new Insets(5));
+                card.setStyle("-fx-border-color: #ccc; -fx-border-radius: 4; -fx-background-color: #fafafa;");
+                card.setPrefWidth((PAGE_CONTENT_WIDTH - 40) / 2.0);
+
+                Label lNum = new Label(hs.getLabel());
+                lNum.setStyle(
+                        "-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-size: 9px; -fx-padding: 1 5; -fx-background-radius: 8;");
+
+                StackPane iC = new StackPane();
+                iC.setPrefSize(250, 160);
+                javafx.scene.image.ImageView iv = new javafx.scene.image.ImageView();
+                iv.setPreserveRatio(true);
+                if (hs.getImageData() != null) {
+                    iv.setImage(new javafx.scene.image.Image(new java.io.ByteArrayInputStream(hs.getImageData())));
+                } else if (hs.getImagePath() != null) {
+                    iv.setImage(new javafx.scene.image.Image(hs.getImagePath(), 600, 600, true, true));
+                }
+                iv.setFitWidth(240);
+                iv.setFitHeight(150);
+                iC.getChildren().add(iv);
+
+                Label lD = new Label(hs.getDescription() != null ? hs.getDescription().toUpperCase() : "-");
+                lD.setStyle("-fx-font-size: 10px; -fx-font-weight: bold;");
+                lD.setWrapText(true);
+                lD.setAlignment(Pos.CENTER);
+
+                card.getChildren().addAll(lNum, iC, lD);
+                refGrid.add(card, col, row);
+                if (++col >= 2) {
+                    col = 0;
+                    row++;
+                }
+            }
+            refBox.getChildren().add(refGrid);
+        }
+        if (hasReferences) {
+            container.getChildren().add(refBox);
+        }
+
+        // 3) DATOS DE ENVÃO - AL FINAL (SOLO SI NO HAY ARQUEROS PARA AHORRAR PAPEL)
+        if (allArqueros.isEmpty() && shippingInfo != null && !shippingInfo.isEmpty()) {
+            VBox shipBox = createShippingSection(shippingInfo);
+            if (shipBox != null) {
+                shipBox.setPrefHeight(300);
+                container.getChildren().add(shipBox);
+            }
+        }
+
+        return container.getChildren().isEmpty() ? null : container;
+    }
