@@ -17,16 +17,28 @@ import javafx.stage.StageStyle;
 import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.io.IOException;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.shape.Circle;
+import org.example.logic.SessionManager;
+import org.example.dao.UsuarioDAO;
 
 public class ShellController {
 
     @FXML private HBox tabsContainer;
     @FXML private StackPane contentArea;
     @FXML private javafx.scene.shape.SVGPath iconWinMax;
+    @FXML private HBox profileContainer;
+    @FXML private ImageView imgAvatar;
+    @FXML private Label lblProfileName;
+    @FXML private Menu menuAdmin;
+    @FXML private MenuItem menuItemHistory;
+    @FXML private MenuItem menuItemUsers;
     private Button btnBurger;
     private Tooltip burgerTooltip;
     private ContextMenu burgerContextMenu;
@@ -39,6 +51,8 @@ public class ShellController {
     private double initialStageX, initialStageY, initialScreenX, initialScreenY;
     private boolean isMaximized = false;
     private double lastX, lastY, lastWidth, lastHeight;
+    private boolean isDragging = false;
+    private static final double DRAG_THRESHOLD = 5.0; // pixels before drag activates
 
     // Pre-loading Pool (Shared)
     private static final ConcurrentLinkedQueue<TabInfo> preloadedPool = new ConcurrentLinkedQueue<>();
@@ -82,6 +96,9 @@ public class ShellController {
         // Setup burger button menu and iconified listener
         setupBurgerMenu();
         setupMinimizeListener();
+
+        // Load profile UI
+        refreshProfileUI();
     }
 
     private void createBurgerButton() {
@@ -111,8 +128,26 @@ public class ShellController {
 
     private void setupBurgerMenu() {
         if (btnBurger == null) return;
-
         burgerContextMenu = new ContextMenu();
+        burgerContextMenu.setAutoHide(true);
+
+        btnBurger.setOnAction(event -> {
+            if (burgerContextMenu != null) {
+                if (burgerContextMenu.isShowing()) {
+                    burgerContextMenu.hide();
+                } else {
+                    burgerContextMenu.show(btnBurger, Side.BOTTOM, 0, 0);
+                }
+            }
+        });
+        
+        refreshBurgerMenu();
+    }
+
+    public void refreshBurgerMenu() {
+        if (burgerContextMenu == null) return;
+        burgerContextMenu.getItems().clear();
+
         MenuItem newTab = new MenuItem("Nuevo Pedido");
         newTab.setOnAction(this::addNewTabAction);
         newTab.setGraphic(new FontIcon("mdi2p-plus-circle-outline"));
@@ -137,18 +172,102 @@ public class ShellController {
         exit.setOnAction(this::salirAction);
         exit.setGraphic(new FontIcon("mdi2e-exit-to-app"));
 
-        burgerContextMenu.getItems().addAll(newTab, newWindow, new SeparatorMenuItem(), openProject, saveProject, saveAs, new SeparatorMenuItem(), exit);
-        burgerContextMenu.setAutoHide(true);
+        burgerContextMenu.getItems().addAll(newTab, newWindow, new SeparatorMenuItem(), openProject, saveProject, saveAs);
 
-        btnBurger.setOnAction(event -> {
-            if (burgerContextMenu != null) {
-                if (burgerContextMenu.isShowing()) {
-                    burgerContextMenu.hide();
+        // Role-based custom items
+        if (SessionManager.isLoggedIn()) {
+            burgerContextMenu.getItems().add(new SeparatorMenuItem());
+
+            MenuItem historyItem = new MenuItem("Historial de Pedidos");
+            historyItem.setGraphic(new FontIcon("mdi2h-history"));
+            historyItem.setOnAction(e -> {
+                Stage owner = (Stage) btnBurger.getScene().getWindow();
+                new org.example.ui.OrderHistoryDialog(this).show(owner);
+            });
+            burgerContextMenu.getItems().add(historyItem);
+
+            if ("Jefe".equalsIgnoreCase(SessionManager.getCurrentUser().getRol())) {
+                MenuItem manageUsers = new MenuItem("Gestionar Vendedores");
+                manageUsers.setGraphic(new FontIcon("mdi2a-account-cog"));
+                manageUsers.setOnAction(e -> {
+                    Stage owner = (Stage) btnBurger.getScene().getWindow();
+                    new org.example.ui.UserManagementDialog().show(owner);
+                });
+                burgerContextMenu.getItems().add(manageUsers);
+            }
+        }
+
+        burgerContextMenu.getItems().addAll(new SeparatorMenuItem(), exit);
+    }
+
+    public void refreshProfileUI() {
+        if (lblProfileName == null || imgAvatar == null) return;
+
+        Circle clip = new Circle(12, 12, 12);
+        imgAvatar.setClip(clip);
+
+        if (SessionManager.isLoggedIn()) {
+            UsuarioDAO.Usuario user = SessionManager.getCurrentUser();
+            lblProfileName.setText(user.getNombreCompleto());
+            
+            String customPath = SessionManager.getCustomAvatarPath(user.getNombreUsuario());
+            if (!customPath.isEmpty() && new File(customPath).exists()) {
+                imgAvatar.setImage(new Image(new File(customPath).toURI().toString()));
+            } else {
+                imgAvatar.setImage(new Image(getClass().getResourceAsStream("/vectors/logo_small.png")));
+            }
+
+            if (menuAdmin != null) {
+                menuAdmin.setVisible(true);
+                if ("Jefe".equalsIgnoreCase(user.getRol())) {
+                    menuItemUsers.setVisible(true);
                 } else {
-                    burgerContextMenu.show(btnBurger, Side.BOTTOM, 0, 0);
+                    menuItemUsers.setVisible(false);
                 }
             }
-        });
+        } else {
+            lblProfileName.setText("Invitado");
+            imgAvatar.setImage(new Image(getClass().getResourceAsStream("/vectors/logo_small.png")));
+            if (menuAdmin != null) {
+                menuAdmin.setVisible(false);
+            }
+        }
+
+        // Refresh dynamic menu options
+        refreshBurgerMenu();
+    }
+
+    @FXML
+    public void showOrderHistoryAction() {
+        Stage owner = (Stage) tabsContainer.getScene().getWindow();
+        new org.example.ui.OrderHistoryDialog(this).show(owner);
+    }
+ 
+    @FXML
+    public void showUserManagementAction() {
+        Stage owner = (Stage) tabsContainer.getScene().getWindow();
+        new org.example.ui.UserManagementDialog().show(owner);
+    }
+ 
+    @FXML
+    private void handleProfileClicked(javafx.scene.input.MouseEvent event) {
+        event.consume(); // Prevent event from bubbling to the title bar drag handler
+        Stage owner = (Stage) ((Node) event.getSource()).getScene().getWindow();
+        new org.example.ui.ProfileDialog(this).show(owner);
+    }
+
+    @FXML
+    private void handleProfileMousePressed(javafx.scene.input.MouseEvent event) {
+        event.consume(); // Consume MOUSE_PRESSED so it doesn't reach the titleBar drag handler
+    }
+
+    @FXML
+    private void handleProfileMouseReleased(javafx.scene.input.MouseEvent event) {
+        event.consume(); // Consume MOUSE_RELEASED so it doesn't trigger drag-release snap logic
+    }
+
+    public PedidoController getActiveTabController() {
+        return (activeTab != null) ? activeTab.controller : null;
     }
 
     private void setupMinimizeListener() {
@@ -404,9 +523,19 @@ public class ShellController {
         initialStageY = stage.getY();
         initialScreenX = event.getScreenX();
         initialScreenY = event.getScreenY();
+        isDragging = false; // Reset drag flag on each new press
     }
     @FXML private void handleWindowDragDragged(javafx.scene.input.MouseEvent event) {
         Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+        double dx = event.getScreenX() - initialScreenX;
+        double dy = event.getScreenY() - initialScreenY;
+
+        // Only start moving window after threshold to avoid accidental moves on click
+        if (!isDragging) {
+            if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+            isDragging = true;
+        }
+
         if (isMaximized) {
             // Restore if dragged down while maximized
             if (Math.abs(event.getScreenY() - lastY) > 10) {

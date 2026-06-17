@@ -3,6 +3,8 @@ package org.example.dao;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.example.config.ConfigLoader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -13,6 +15,7 @@ import java.sql.SQLException;
  */
 public class ConexionDB {
 
+    private static final Logger logger = LoggerFactory.getLogger(ConexionDB.class);
     private static HikariDataSource dataSource;
 
     static {
@@ -24,9 +27,7 @@ public class ConexionDB {
 
             // Validate configuration
             if (url == null || user == null || password == null) {
-                System.err.println("❌ Error: Configuración de base de datos incompleta.");
-                System.err
-                        .println("   Verifica que application.properties existe y tiene db.url, db.user, db.password");
+                logger.error("❌ Error: Configuración de base de datos incompleta en application.properties");
             } else {
                 // Configure HikariCP
                 HikariConfig config = new HikariConfig();
@@ -48,11 +49,10 @@ public class ConexionDB {
                 config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
 
                 dataSource = new HikariDataSource(config);
-                System.out.println("✅ Pool de conexiones HikariCP inicializado correctamente.");
+                logger.info("✅ Pool de conexiones HikariCP inicializado correctamente.");
             }
         } catch (Exception e) {
-            System.err.println("❌ Error fatal al inicializar el pool de conexiones: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("❌ Error fatal al inicializar el pool de conexiones: {}", e.getMessage(), e);
         }
     }
 
@@ -64,13 +64,12 @@ public class ConexionDB {
     public static Connection getConnection() {
         try {
             if (dataSource == null) {
-                System.err.println("❌ Error: El DataSource no ha sido inicializado.");
+                logger.error("❌ Error: El DataSource no ha sido inicializado.");
                 return null;
             }
             return dataSource.getConnection();
         } catch (SQLException e) {
-            System.err.println("❌ Error al obtener conexión del pool: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("❌ Error al obtener conexión del pool: {}", e.getMessage(), e);
             return null;
         }
     }
@@ -81,7 +80,7 @@ public class ConexionDB {
     public static void shutdown() {
         if (dataSource != null && !dataSource.isClosed()) {
             dataSource.close();
-            System.out.println("✅ Pool de conexiones HikariCP cerrado.");
+            logger.info("✅ Pool de conexiones HikariCP cerrado.");
         }
     }
 }

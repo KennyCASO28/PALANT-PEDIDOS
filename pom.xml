@@ -76,11 +76,11 @@
             <version>2.21.1</version>
         </dependency>
 
-        <!-- SLF4J Simple Implementation for HikariCP logs -->
+        <!-- Logback Classic (SLF4J implementation) -->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>1.7.36</version>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.5.3</version>
         </dependency>
 
         <!-- OpenPDF for PDF Export -->

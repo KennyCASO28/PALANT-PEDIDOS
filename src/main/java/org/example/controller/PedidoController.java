@@ -1757,6 +1757,32 @@ public class PedidoController {
             UIFactory.mostrarAlerta(Alert.AlertType.ERROR, "Error", "No se pudo abrir una nueva ventana: " + e.getMessage());
         }
     }
+
+    public void importarDatosDePedido(org.example.dao.PedidoDAO.PedidoRecord record, java.util.List<org.example.model.DetallePedido> jugadores) {
+        if (record == null) return;
+        if (txtCliente != null) txtCliente.setText(record.getClienteNombre());
+        if (comboVendedor != null) comboVendedor.setValue(record.getVendedor());
+        if (lblCodigoPedido != null) lblCodigoPedido.setText(record.getCodigoPedido());
+        
+        // Priority
+        if (comboPrioridad != null && record.getPrioridad() != null) {
+            for (org.example.service.OrderSchedulerService.Priority p : comboPrioridad.getItems()) {
+                if (p.getLabel().equalsIgnoreCase(record.getPrioridad()) || p.name().equalsIgnoreCase(record.getPrioridad())) {
+                    comboPrioridad.setValue(p);
+                    break;
+                }
+            }
+        }
+        
+        // Roster/players
+        if (jugadores != null) {
+            listaJugadores.setAll(jugadores);
+        }
+        
+        // Mark dirty
+        this.projectDirty = true;
+        this.fichaDirty = true;
+    }
 }
 
 

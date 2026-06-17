@@ -263,9 +263,8 @@ public class Main extends Application {
                 primaryStage.setWidth(bounds.getWidth());
                 primaryStage.setHeight(bounds.getHeight());
 
-                // Show Main Stage BEHIND the splash first
+                // Show Main Stage directly (Login is now optional and accessed via Profile widget)
                 primaryStage.show();
-                primaryStage.toBack();
 
                 // Force Focus Strategy
                 primaryStage.setAlwaysOnTop(true);
