@@ -19,7 +19,8 @@ import java.util.List;
 
 /**
  * Orchestrates the complete lifecycle of a ShapeLayer from creation to cloning.
- * Handles contour generation and cloning logic that previously lived directly in ShapeLayer.
+ * Handles contour generation and cloning logic that previously lived directly
+ * in ShapeLayer.
  */
 public class ShapeLayerOrchestrator {
 
@@ -34,43 +35,44 @@ public class ShapeLayerOrchestrator {
      */
     public List<ShapeLayer> separateContours() {
         List<ShapeLayer> newLayers = new ArrayList<>();
-        if (layer.getState().contourSteps <= 0) return newLayers;
+        if (layer.getState().contourSteps <= 0)
+            return newLayers;
 
         int steps = layer.getState().contourSteps;
         double dist = layer.getState().contourDistance;
         Color c = layer.getState().contourColor;
 
-        Color baseColor = (layer.getState().fillColor != null && !Color.TRANSPARENT.equals(layer.getState().fillColor)) 
-                        ? layer.getState().fillColor 
-                        : (layer.getState().strokeColor != null ? layer.getState().strokeColor : Color.BLACK);
+        Color baseColor = (layer.getState().fillColor != null && !Color.TRANSPARENT.equals(layer.getState().fillColor))
+                ? layer.getState().fillColor
+                : (layer.getState().strokeColor != null ? layer.getState().strokeColor : Color.BLACK);
 
         for (int i = 1; i <= steps; i++) {
             ShapeLayer nl = layer.createClone();
-            nl.getState().contourSteps = 0; 
-            
+            nl.getState().contourSteps = 0;
+
             Color stepColor = baseColor.interpolate(c, (double) i / steps);
             nl.getState().fillColor = stepColor;
             nl.getState().strokeColor = stepColor;
             nl.getState().strokeWidth = 0.5;
-            
+
             double offset = i * dist;
-            
+
             nl.getState().visualMinX = 0;
             nl.getState().visualMinY = 0;
             nl.getState().width = layer.getState().width + (offset * 2.0);
             nl.getState().height = layer.getState().height + (offset * 2.0);
-            
+
             double expansion = (layer.getState().contourLineJoin == StrokeLineJoin.ROUND) ? (offset * 2.0) : 0;
             nl.getState().arcWidth = layer.getState().arcWidth + expansion;
             nl.getState().arcHeight = layer.getState().arcHeight + expansion;
-            
+
             nl.renderShape();
-            
+
             Point2D p0 = layer.localToParent(0, 0);
             Point2D pOffset = layer.localToParent(offset, offset);
             double dx = pOffset.getX() - p0.getX();
             double dy = pOffset.getY() - p0.getY();
-            
+
             nl.setTranslateX(layer.getTranslateX() + dx);
             nl.setTranslateY(layer.getTranslateY() + dy);
 
@@ -85,9 +87,9 @@ public class ShapeLayerOrchestrator {
      * Deep clone a ShapeLayer with all its state and transforms.
      */
     public ShapeLayer createClone() {
-        ShapeLayer clone = new ShapeLayer(layer.getState().type, layer.getState().fillColor, 
+        ShapeLayer clone = new ShapeLayer(layer.getState().type, layer.getState().fillColor,
                 layer.getState().strokeColor, layer.getState().strokeWidth);
-        
+
         clone.getState().type = layer.getState().type;
         clone.getState().width = layer.getState().width;
         clone.getState().height = layer.getState().height;
@@ -99,10 +101,10 @@ public class ShapeLayerOrchestrator {
         clone.getState().arcWidth = layer.getState().arcWidth;
         clone.getState().arcHeight = layer.getState().arcHeight;
         clone.getState().svgPathData = layer.getState().svgPathData;
-        
+
         clone.setVisualizer(layer.getVisualizer());
         clone.renderShape();
-        
+
         clone.setTranslateX(layer.getTranslateX());
         clone.setTranslateY(layer.getTranslateY());
         clone.setRotate(layer.getRotate());
@@ -110,7 +112,7 @@ public class ShapeLayerOrchestrator {
         clone.setScaleY(layer.getScaleY());
         clone.setInternalShearX(layer.getTransformManager().getInternalShearX());
         clone.setInternalShearY(layer.getTransformManager().getInternalShearY());
-        
+
         return clone;
     }
 
@@ -130,14 +132,15 @@ public class ShapeLayerOrchestrator {
             Point2D parentZero = layer.localToParent(0, 0);
             layer.setTranslateX(layer.getTranslateX() + (parentOffset.getX() - parentZero.getX()));
             layer.setTranslateY(layer.getTranslateY() + (parentOffset.getY() - parentZero.getY()));
-            layer.getState().svgPathData = ShapePathSupport.buildSvgPath(layer.getState().bezierNodes, layer.getState().isClosed);
+            layer.getState().svgPathData = ShapePathSupport.buildSvgPath(layer.getState().bezierNodes,
+                    layer.getState().isClosed);
         }
 
         ShapePathSupport.BoundsData bounds = ShapePathSupport.calculateBezierBounds(layer.getState().bezierNodes);
         if (bounds != null) {
-            layer.getState().visualMinX = bounds.getMinX(); 
+            layer.getState().visualMinX = bounds.getMinX();
             layer.getState().visualMinY = bounds.getMinY();
-            layer.getState().width = bounds.getWidth(); 
+            layer.getState().width = bounds.getWidth();
             layer.getState().height = bounds.getHeight();
         }
     }

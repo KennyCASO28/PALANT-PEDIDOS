@@ -89,12 +89,18 @@ public class ShapeTransformManager {
 
     public void flipHorizontal() {
         NodeMemento before = new NodeMemento(layer);
+        rotateTransform.setAngle(-rotateTransform.getAngle());
+        double oldShearX = shearTransform.getX();
+        setInternalShearX(-oldShearX);
         setInternalScaleX(scaleTransform.getX() * -1);
         addTransformUndo(before);
     }
 
     public void flipVertical() {
         NodeMemento before = new NodeMemento(layer);
+        rotateTransform.setAngle(-rotateTransform.getAngle());
+        double oldShearY = shearTransform.getY();
+        setInternalShearY(-oldShearY);
         setInternalScaleY(scaleTransform.getY() * -1);
         addTransformUndo(before);
     }
@@ -127,7 +133,20 @@ public class ShapeTransformManager {
             rx = Math.abs(rx);
             ry = Math.abs(ry);
         }
-        setSize(currentWidth * rx, currentHeight * ry, 0, 0, null, currentWidth, currentHeight);
+        
+        double newWidth = currentWidth * rx;
+        double newHeight = currentHeight * ry;
+        double newVisualMinX = layer.getState().visualMinX * rx;
+        double newVisualMinY = layer.getState().visualMinY * ry;
+        
+        if (layer.getState().bezierNodes != null) {
+            double deltaRatioX = (currentWidth > 0) ? (newWidth / currentWidth) : 1.0;
+            double deltaRatioY = (currentHeight > 0) ? (newHeight / currentHeight) : 1.0;
+            ShapePathSupport.scaleNodes(layer.getState().bezierNodes, deltaRatioX, deltaRatioY);
+            layer.getState().svgPathData = ShapePathSupport.buildSvgPath(layer.getState().bezierNodes, layer.getState().isClosed);
+        }
+        
+        setSizeWithOffset(newWidth, newHeight, newVisualMinX, newVisualMinY);
     }
 
     public void multiplyShear(double sx, double sy) {

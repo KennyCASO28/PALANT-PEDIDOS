@@ -110,8 +110,18 @@ final class PedidoShippingDialog {
             if (current.getLugarEnvio() != null) {
                 lugarEnvioField.setText(current.getLugarEnvio());
             }
-            if (current.getVendedorAtiende() != null) {
-                vendedorCombo.setValue(current.getVendedorAtiende());
+            String vendedorValue = current.getVendedorAtiende();
+            if ((vendedorValue == null || vendedorValue.trim().isEmpty()) && org.example.logic.SessionManager.isLoggedIn()) {
+                org.example.dao.UsuarioDAO.Usuario currentUser = org.example.logic.SessionManager.getCurrentUser();
+                if (currentUser != null) {
+                    vendedorValue = currentUser.getNombreCompleto();
+                }
+            }
+            if (vendedorValue != null) {
+                if (!vendedorCombo.getItems().contains(vendedorValue)) {
+                    vendedorCombo.getItems().add(vendedorValue);
+                }
+                vendedorCombo.setValue(vendedorValue);
             }
 
             GridPane grid = new GridPane();

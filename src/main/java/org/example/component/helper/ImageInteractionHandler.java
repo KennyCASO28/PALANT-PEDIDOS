@@ -45,6 +45,10 @@ public class ImageInteractionHandler {
         this.overlay = createOverlayNodes();
     }
 
+    private boolean isEffectivelyLocked() {
+        return layer.isUserLocked() || (layer.isLocked() && !layer.isBeingEdited());
+    }
+
     public void init() {
         initDragEvents();
         setupResizeEvents();
@@ -61,7 +65,7 @@ public class ImageInteractionHandler {
     private void initDragEvents() {
         layer.setOnMouseReleased(e -> {
             layer.setCursor(Cursor.DEFAULT);
-            if (layer.isSelected() && !layer.isLocked()) {
+            if (layer.isSelected() && !isEffectivelyLocked()) {
                 overlay.handlesGroup.setVisible(true);
             }
             e.consume();
@@ -69,10 +73,12 @@ public class ImageInteractionHandler {
 
         layer.setOnMousePressed(e -> {
             if (e.isPrimaryButtonDown()) {
-                if (layer.isLocked() && !layer.isBeingEdited()) return;
+                if (isEffectivelyLocked())
+                    return;
 
                 // Check Drawing Tools
-                DrawingToolContext ctx = layer.getVisualizer() != null ? layer.getVisualizer().getDrawingToolContext() : null;
+                DrawingToolContext ctx = layer.getVisualizer() != null ? layer.getVisualizer().getDrawingToolContext()
+                        : null;
                 if (ctx != null && (ctx.isBrushActive() || ctx.isEraserActive())) {
                     isDrawing = true;
                     lastSceneX = e.getSceneX();
@@ -94,7 +100,8 @@ public class ImageInteractionHandler {
                 }
 
                 Node target = findTopMostUserGroup(layer);
-                if (target.getParent() == null) return;
+                if (target.getParent() == null)
+                    return;
 
                 Point2D p = target.getParent().sceneToLocal(e.getSceneX(), e.getSceneY());
                 dragDelta[0] = p.getX() - target.getTranslateX();
@@ -107,13 +114,16 @@ public class ImageInteractionHandler {
         });
 
         layer.setOnMouseDragged(e -> {
-            if (!e.isPrimaryButtonDown() || state.isCropMode || (layer.isLocked() && !layer.isBeingEdited())) return;
+            if (!e.isPrimaryButtonDown() || state.isCropMode || isEffectivelyLocked())
+                return;
 
-            DrawingToolContext ctx = layer.getVisualizer() != null ? layer.getVisualizer().getDrawingToolContext() : null;
+            DrawingToolContext ctx = layer.getVisualizer() != null ? layer.getVisualizer().getDrawingToolContext()
+                    : null;
             if (isDrawing && ctx != null) {
                 double r = ctx.isBrushActive() ? ctx.getBrushSize() : ctx.getEraserSize();
                 if (ctx.isBrushActive()) {
-                    layer.editingService().paint(lastSceneX, lastSceneY, e.getSceneX(), e.getSceneY(), r, ctx.getFillColor());
+                    layer.editingService().paint(lastSceneX, lastSceneY, e.getSceneX(), e.getSceneY(), r,
+                            ctx.getFillColor());
                 } else {
                     layer.editingService().erase(lastSceneX, lastSceneY, e.getSceneX(), e.getSceneY(), r);
                 }
@@ -137,11 +147,13 @@ public class ImageInteractionHandler {
         });
 
         layer.setOnMouseReleased(e -> {
-            if (layer.isLocked() && !layer.isBeingEdited()) return;
-            
+            if (isEffectivelyLocked())
+                return;
+
             if (isDrawing) {
                 isDrawing = false;
-                layer.editingService().commitAction(layer.getVisualizer().getDrawingToolContext().isBrushActive() ? "Pintar" : "Borrar");
+                layer.editingService().commitAction(
+                        layer.getVisualizer().getDrawingToolContext().isBrushActive() ? "Pintar" : "Borrar");
                 e.consume();
                 return;
             }
@@ -156,7 +168,8 @@ public class ImageInteractionHandler {
             // CRITICAL FIX: Use full NodeMemento (captured at mousePressed)
             if (layer.getVisualizer() != null && dragStartMemento != null) {
                 NodeMemento afterMemento = new NodeMemento(target);
-                if (dragStartMemento.getTx() != afterMemento.getTx() || dragStartMemento.getTy() != afterMemento.getTy()) {
+                if (dragStartMemento.getTx() != afterMemento.getTx()
+                        || dragStartMemento.getTy() != afterMemento.getTy()) {
                     layer.getVisualizer().getHistoryManager().addCommand(new TransformCommand(
                             target, dragStartMemento, afterMemento, layer.getActiveZone()));
                 }
@@ -177,12 +190,13 @@ public class ImageInteractionHandler {
     }
 
     private void setupResizeHandler(Node handle, double dW, double dH) {
-        final double[] ctx = new double[10]; // [startW, startH, sceneX, sceneY, tx, ty, cropX, cropY, cropW, cropH]
+        final double[] ctx = new double[12]; // [startW, startH, sceneX, sceneY, tx, ty, cropX, cropY, cropW, cropH, startScaleX, startScaleY]
         final Point2D[] anchor = new Point2D[1];
         final NodeMemento[] startMemento = new NodeMemento[1];
 
         handle.setOnMousePressed(e -> {
-            if (layer.isLocked()) return;
+            if (isEffectivelyLocked())
+                return;
             startMemento[0] = new NodeMemento(layer);
             ctx[0] = layer.getWidth();
             ctx[1] = layer.getHeight();
@@ -192,6 +206,8 @@ public class ImageInteractionHandler {
             ctx[7] = state.cropY;
             ctx[8] = state.cropW;
             ctx[9] = state.cropH;
+            ctx[10] = layer.getInternalScaleX();
+            ctx[11] = layer.getInternalScaleY();
 
             // Use Parent Space (Visualizer) as a stable reference to avoid feedback loops
             Point2D parentMouse = layer.getVisualizer().getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
@@ -205,11 +221,13 @@ public class ImageInteractionHandler {
         });
 
         handle.setOnMouseDragged(e -> {
-            if (layer.isLocked()) return;
-            
+            if (isEffectivelyLocked())
+                return;
+
             // 1. Get current mouse in stable Parent space
             Point2D parentMouse = layer.getVisualizer().getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
-            if (parentMouse == null) return;
+            if (parentMouse == null)
+                return;
 
             // 2. Linear delta in parent space
             double dxp = parentMouse.getX() - ctx[2];
@@ -219,26 +237,26 @@ public class ImageInteractionHandler {
             double angleRad = Math.toRadians(-layer.getRotate());
             double dxL = dxp * Math.cos(angleRad) - dyp * Math.sin(angleRad);
             double dyL = dxp * Math.sin(angleRad) + dyp * Math.cos(angleRad);
-            
+
             // 4. Adjust by current scale to avoid "aggressive" resizing
-            double sX = layer.getInternalScaleX();
-            double sY = layer.getInternalScaleY();
+            double sX = ctx[10];
+            double sY = ctx[11];
             dxL /= (sX != 0 ? Math.abs(sX) : 1);
             dyL /= (sY != 0 ? Math.abs(sY) : 1);
 
             if (state.isCropMode) {
                 // In Crop Mode, use internal state deltas
-                if (dW == -1) { 
+                if (dW == -1) {
                     state.cropX = Math.max(0, Math.min(ctx[6] + ctx[8] - 5, ctx[6] + dxL));
                     state.cropW = ctx[8] - (state.cropX - ctx[6]);
-                } else if (dW == 1) { 
+                } else if (dW == 1) {
                     state.cropW = Math.max(5, Math.min(layer.getWidth() - ctx[6], ctx[8] + dxL));
                 }
 
-                if (dH == -1) { 
+                if (dH == -1) {
                     state.cropY = Math.max(0, Math.min(ctx[7] + ctx[9] - 5, ctx[7] + dyL));
                     state.cropH = ctx[9] - (state.cropY - ctx[7]);
-                } else if (dH == 1) { 
+                } else if (dH == 1) {
                     state.cropH = Math.max(5, Math.min(layer.getHeight() - ctx[7], ctx[9] + dyL));
                 }
                 layer.updateVisuals();
@@ -247,20 +265,31 @@ public class ImageInteractionHandler {
             }
 
             // --- PREMIUM RESIZING ---
-            double newW = Math.max(5, ctx[0] + dxL * dW);
-            double newH = Math.max(5, ctx[1] + dyL * dH);
+            double proposedW = ctx[0] + dxL * dW;
+            double proposedH = ctx[1] + dyL * dH;
+
+            boolean flipX = proposedW < 0;
+            boolean flipY = proposedH < 0;
+
+            double newW = Math.max(5, Math.abs(proposedW));
+            double newH = Math.max(5, Math.abs(proposedH));
 
             // PROPORTIONAL BY DEFAULT for Corners (unless SHIFT is pressed)
             boolean proportional = (dW != 0 && dH != 0); // Corner
-            if (e.isShiftDown()) proportional = !proportional; // Toggle with shift
+            if (e.isShiftDown())
+                proportional = !proportional; // Toggle with shift
 
             if (proportional) {
                 double ratio = ctx[0] / ctx[1];
-                if (newW / newH > ratio) newW = newH * ratio;
-                else newH = newW / ratio;
+                if (newW / newH > ratio)
+                    newW = newH * ratio;
+                else
+                    newH = newW / ratio;
             }
 
             layer.setSize(newW, newH);
+            layer.setInternalScaleX(ctx[10] * (flipX ? -1 : 1));
+            layer.setInternalScaleY(ctx[11] * (flipY ? -1 : 1));
 
             // 4. ANCHOR STABILIZATION: Keep the opposite corner fixed in world space
             double anchorX = (dW == -1) ? newW : (dW == 1) ? 0 : newW / 2.0;
@@ -287,34 +316,39 @@ public class ImageInteractionHandler {
     private void setupRotationHandler() {
         final double[] ctx = new double[3]; // [startAngle, startMouseAngle, initialRotate]
         final NodeMemento[] startMemento = new NodeMemento[1];
-        
+
         Consumer<MouseEvent> startRotation = e -> {
-            if (layer.isLocked()) return;
+            if (isEffectivelyLocked())
+                return;
             startMemento[0] = new NodeMemento(layer);
             double px = layer.getRotateTransform().getPivotX();
             double py = layer.getRotateTransform().getPivotY();
             Point2D pivotParent = layer.localToParent(px, py);
             Point2D mouseParent = layer.getVisualizer().getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
 
-            ctx[1] = Math.toDegrees(Math.atan2(mouseParent.getY() - pivotParent.getY(), mouseParent.getX() - pivotParent.getX()));
+            ctx[1] = Math.toDegrees(
+                    Math.atan2(mouseParent.getY() - pivotParent.getY(), mouseParent.getX() - pivotParent.getX()));
             ctx[2] = layer.getRotateTransform().getAngle();
             ctx[0] = layer.getRotateTransform().getAngle();
             e.consume();
         };
 
         Consumer<MouseEvent> doRotation = e -> {
-            if (layer.isLocked() || !e.isPrimaryButtonDown()) return;
+            if (isEffectivelyLocked() || !e.isPrimaryButtonDown())
+                return;
 
             double px = layer.getRotateTransform().getPivotX();
             double py = layer.getRotateTransform().getPivotY();
             Point2D pivotParent = layer.localToParent(px, py);
             Point2D mouseParent = layer.getVisualizer().getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
 
-            double currAngle = Math.toDegrees(Math.atan2(mouseParent.getY() - pivotParent.getY(), mouseParent.getX() - pivotParent.getX()));
+            double currAngle = Math.toDegrees(
+                    Math.atan2(mouseParent.getY() - pivotParent.getY(), mouseParent.getX() - pivotParent.getX()));
             double delta = currAngle - ctx[1];
 
             double newAngle = ctx[2] + delta;
-            if (e.isShiftDown()) newAngle = Math.round(newAngle / 45.0) * 45.0;
+            if (e.isShiftDown())
+                newAngle = Math.round(newAngle / 45.0) * 45.0;
 
             layer.getRotateTransform().setAngle(newAngle);
             if (layer.getVisualizer() != null && layer.getVisualizer().getShapeManagerController() != null) {
@@ -341,13 +375,17 @@ public class ImageInteractionHandler {
 
         Node[] hHandles = { overlay.shearTop, overlay.shearBottom };
         for (Node h : hHandles) {
-            h.setOnMousePressed(e -> { 
-                if (layer.isLocked()) return;
+            h.setOnMousePressed(e -> {
+                if (isEffectivelyLocked())
+                    return;
                 startMemento[0] = new NodeMemento(layer);
-                ctx[0] = e.getSceneX(); ctx[2] = layer.getShearTransform().getX(); e.consume(); 
+                ctx[0] = e.getSceneX();
+                ctx[2] = layer.getShearTransform().getX();
+                e.consume();
             });
             h.setOnMouseDragged(e -> {
-                if (layer.isLocked()) return;
+                if (isEffectivelyLocked())
+                    return;
                 double delta = (e.getSceneX() - ctx[0]) / 100.0;
                 layer.getShearTransform().setX(ctx[2] + delta);
                 layer.updateVisuals();
@@ -362,13 +400,17 @@ public class ImageInteractionHandler {
 
         Node[] vHandles = { overlay.shearLeft, overlay.shearRight };
         for (Node h : vHandles) {
-            h.setOnMousePressed(e -> { 
-                if (layer.isLocked()) return;
+            h.setOnMousePressed(e -> {
+                if (isEffectivelyLocked())
+                    return;
                 startMemento[0] = new NodeMemento(layer);
-                ctx[1] = e.getSceneY(); ctx[3] = layer.getShearTransform().getY(); e.consume(); 
+                ctx[1] = e.getSceneY();
+                ctx[3] = layer.getShearTransform().getY();
+                e.consume();
             });
             h.setOnMouseDragged(e -> {
-                if (layer.isLocked()) return;
+                if (isEffectivelyLocked())
+                    return;
                 double delta = (e.getSceneY() - ctx[1]) / 100.0;
                 layer.getShearTransform().setY(ctx[3] + delta);
                 layer.updateVisuals();
@@ -385,12 +427,14 @@ public class ImageInteractionHandler {
     private void setupPivotHandler() {
         final NodeMemento[] startMemento = new NodeMemento[1];
         overlay.pivotHandle.setOnMousePressed(e -> {
-            if (layer.isLocked()) return;
+            if (isEffectivelyLocked())
+                return;
             startMemento[0] = new NodeMemento(layer);
             e.consume();
         });
         overlay.pivotHandle.setOnMouseDragged(e -> {
-            if (layer.isLocked()) return;
+            if (isEffectivelyLocked())
+                return;
             double oldPx = layer.getRotateTransform().getPivotX();
             double oldPy = layer.getRotateTransform().getPivotY();
 
@@ -464,14 +508,17 @@ public class ImageInteractionHandler {
         Node target = startNode;
         Node temp = startNode.getParent();
         while (temp != null) {
-            if ("USER_GROUP".equals(temp.getId())) target = temp;
+            if ("USER_GROUP".equals(temp.getId()))
+                target = temp;
             temp = temp.getParent();
         }
         return target;
     }
 
-    private void recordResizeUndo(double oldW, double oldH, double oldTx, double oldTy, double newW, double newH, double newTx, double newTy) {
-        if (layer.getVisualizer() == null || layer.getVisualizer().getHistoryManager() == null) return;
+    private void recordResizeUndo(double oldW, double oldH, double oldTx, double oldTy, double newW, double newH,
+            double newTx, double newTy) {
+        if (layer.getVisualizer() == null || layer.getVisualizer().getHistoryManager() == null)
+            return;
         layer.getVisualizer().getHistoryManager().addCommand(new TransformCommand(layer,
                 oldTx, oldTy, layer.getScaleX(), layer.getScaleY(), layer.getRotate(), oldW, oldH, null, null,
                 newTx, newTy, layer.getScaleX(), layer.getScaleY(), layer.getRotate(), newW, newH, null, null,
@@ -534,15 +581,17 @@ public class ImageInteractionHandler {
         Group pivotHandle = UIFactory.crearPivotHandle();
 
         Group handlesGroup = new Group();
-        handlesGroup.getChildren().addAll(cropOverlay, topLeft, topRight, bottomLeft, bottomRight, top, right, bottom, left, 
-                                        rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight, 
-                                        shearTop, shearBottom, shearLeft, shearRight, pivotHandle);
+        handlesGroup.getChildren().addAll(cropOverlay, topLeft, topRight, bottomLeft, bottomRight, top, right, bottom,
+                left,
+                rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight,
+                shearTop, shearBottom, shearLeft, shearRight, pivotHandle);
         handlesGroup.setManaged(false);
         handlesGroup.setVisible(false);
 
-        return new OverlayNodes(border, cropOverlay, handlesGroup, topLeft, topRight, bottomLeft, bottomRight, top, right, bottom, left, 
-                                rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight, 
-                                shearTop, shearBottom, shearLeft, shearRight, pivotHandle);
+        return new OverlayNodes(border, cropOverlay, handlesGroup, topLeft, topRight, bottomLeft, bottomRight, top,
+                right, bottom, left,
+                rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight,
+                shearTop, shearBottom, shearLeft, shearRight, pivotHandle);
     }
 
     private StackPane createHandle(Cursor c) {
@@ -550,14 +599,19 @@ public class ImageInteractionHandler {
         h.getStyleClass().add("resize-handle");
         return h;
     }
-    private StackPane createMidHandle(Cursor c) { 
+
+    private StackPane createMidHandle(Cursor c) {
         StackPane h = UIFactory.crearSquareHandle(null, 4, "#0047AB", "#ffffff", c);
         h.getStyleClass().add("resize-handle");
         return h;
     }
-    private StackPane createRotHandle() { return UIFactory.crearIconHandle("mdi2r-rotate-right", 16, "#e8a020", Cursor.OPEN_HAND); }
-    private StackPane createShearHandle(Cursor c, boolean h) { 
-        return UIFactory.crearIconHandle(h ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down", 16, "#16a085", c); 
+
+    private StackPane createRotHandle() {
+        return UIFactory.crearIconHandle("mdi2r-rotate-right", 16, "#e8a020", Cursor.OPEN_HAND);
+    }
+
+    private StackPane createShearHandle(Cursor c, boolean h) {
+        return UIFactory.crearIconHandle(h ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down", 16, "#16a085", c);
     }
 
     public static class OverlayNodes {
@@ -569,15 +623,31 @@ public class ImageInteractionHandler {
         public final StackPane shearTop, shearBottom, shearLeft, shearRight;
         public final Group pivotHandle;
 
-        public OverlayNodes(Rectangle border, Rectangle cropOverlay, Group handlesGroup, StackPane topLeft, StackPane topRight, StackPane bottomLeft, StackPane bottomRight, 
-                            StackPane top, StackPane right, StackPane bottom, StackPane left, 
-                            StackPane rotTopLeft, StackPane rotTopRight, StackPane rotBottomLeft, StackPane rotBottomRight, 
-                            StackPane shearTop, StackPane shearBottom, StackPane shearLeft, StackPane shearRight, Group pivotHandle) {
-            this.border = border; this.cropOverlay = cropOverlay; this.handlesGroup = handlesGroup;
-            this.topLeft = topLeft; this.topRight = topRight; this.bottomLeft = bottomLeft; this.bottomRight = bottomRight;
-            this.top = top; this.right = right; this.bottom = bottom; this.left = left;
-            this.rotTopLeft = rotTopLeft; this.rotTopRight = rotTopRight; this.rotBottomLeft = rotBottomLeft; this.rotBottomRight = rotBottomRight;
-            this.shearTop = shearTop; this.shearBottom = shearBottom; this.shearLeft = shearLeft; this.shearRight = shearRight;
+        public OverlayNodes(Rectangle border, Rectangle cropOverlay, Group handlesGroup, StackPane topLeft,
+                StackPane topRight, StackPane bottomLeft, StackPane bottomRight,
+                StackPane top, StackPane right, StackPane bottom, StackPane left,
+                StackPane rotTopLeft, StackPane rotTopRight, StackPane rotBottomLeft, StackPane rotBottomRight,
+                StackPane shearTop, StackPane shearBottom, StackPane shearLeft, StackPane shearRight,
+                Group pivotHandle) {
+            this.border = border;
+            this.cropOverlay = cropOverlay;
+            this.handlesGroup = handlesGroup;
+            this.topLeft = topLeft;
+            this.topRight = topRight;
+            this.bottomLeft = bottomLeft;
+            this.bottomRight = bottomRight;
+            this.top = top;
+            this.right = right;
+            this.bottom = bottom;
+            this.left = left;
+            this.rotTopLeft = rotTopLeft;
+            this.rotTopRight = rotTopRight;
+            this.rotBottomLeft = rotBottomLeft;
+            this.rotBottomRight = rotBottomRight;
+            this.shearTop = shearTop;
+            this.shearBottom = shearBottom;
+            this.shearLeft = shearLeft;
+            this.shearRight = shearRight;
             this.pivotHandle = pivotHandle;
         }
     }

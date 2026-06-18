@@ -55,6 +55,16 @@
                                       </MenuItem>
                                     </items>
                                   </Menu>
+                                  <Menu fx:id="menuAdmin" mnemonicParsing="false" text="Administración" visible="false">
+                                    <items>
+                                      <MenuItem fx:id="menuItemHistory" onAction="#showOrderHistoryAction" text="Historial de Pedidos">
+                                        <graphic><FontIcon iconLiteral="mdi2h-history" iconSize="16" /></graphic>
+                                      </MenuItem>
+                                      <MenuItem fx:id="menuItemUsers" onAction="#showUserManagementAction" text="Gestionar Vendedores">
+                                        <graphic><FontIcon iconLiteral="mdi2a-account-cog" iconSize="16" /></graphic>
+                                      </MenuItem>
+                                    </items>
+                                  </Menu>
                               </menus>
                           </MenuBar>
                           <Button onAction="#addNewTabAction" styleClass="title-bar-action-button">
@@ -74,6 +84,20 @@
 
                        <!-- FILLER SPACE -->
                        <Region HBox.hgrow="ALWAYS" mouseTransparent="true" />
+
+                       <!-- PROFILE CONTAINER -->
+                       <HBox fx:id="profileContainer" alignment="CENTER" spacing="8"
+                             onMouseClicked="#handleProfileClicked"
+                             onMousePressed="#handleProfileMousePressed"
+                             onMouseReleased="#handleProfileMouseReleased"
+                             styleClass="title-bar-profile-container" pickOnBounds="true">
+                           <children>
+                               <ImageView fx:id="imgAvatar" fitHeight="24.0" fitWidth="24.0" preserveRatio="true">
+                                   <image><Image url="@vectors/logo_small.png" /></image>
+                               </ImageView>
+                               <Label fx:id="lblProfileName" text="Invitado" styleClass="title-bar-profile-name" />
+                           </children>
+                       </HBox>
 
                        <!-- WINDOW CONTROLS -->
                       <HBox alignment="CENTER_RIGHT" spacing="0" minWidth="140" pickOnBounds="false">

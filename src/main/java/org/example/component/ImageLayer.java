@@ -394,13 +394,23 @@ public class ImageLayer extends Group implements GraphicLayer {
     @Override
     public void setInternalRotation(double angle) { rotateTransform.setAngle(angle); updateVisuals(); }
     @Override
-    public double getInternalScaleX() { return scaleTransform.getX(); }
-    @Override
-    public void setInternalScaleX(double s) { scaleTransform.setX(s); updateVisuals(); }
+    public void setInternalScaleX(double s) { 
+        if ((scaleTransform.getX() > 0 && s < 0) || (scaleTransform.getX() < 0 && s > 0)) {
+            shearTransform.setY(shearTransform.getY() * -1);
+        }
+        scaleTransform.setX(s); 
+        updateVisuals(); 
+    }
     @Override
     public double getInternalScaleY() { return scaleTransform.getY(); }
     @Override
-    public void setInternalScaleY(double s) { scaleTransform.setY(s); updateVisuals(); }
+    public void setInternalScaleY(double s) { 
+        if ((scaleTransform.getY() > 0 && s < 0) || (scaleTransform.getY() < 0 && s > 0)) {
+            shearTransform.setX(shearTransform.getX() * -1);
+        }
+        scaleTransform.setY(s); 
+        updateVisuals(); 
+    }
 
     // --- Image API ---
 
@@ -478,6 +488,15 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void setCustomPivot(double x, double y) { state.pivotX = x; state.pivotY = y; }
     public Rotate getRotateTransform() { return rotateTransform; }
     public Shear getShearTransform() { return shearTransform; }
+    
+    @Override public double getInternalShearX() { return shearTransform.getX(); }
+    @Override public void setInternalShearX(double s) { shearTransform.setX(s); }
+    @Override public double getInternalShearY() { return shearTransform.getY(); }
+    @Override public void setInternalShearY(double s) { shearTransform.setY(s); }
+    @Override public double getCustomPivotX() { return state.pivotX; }
+    @Override public void setCustomPivotX(double x) { state.pivotX = x; }
+    @Override public double getCustomPivotY() { return state.pivotY; }
+    @Override public void setCustomPivotY(double y) { state.pivotY = y; }
     public Canvas getCanvas() { return canvas; }
     public ImageEditingService editingService() { return editingService; }
     public boolean isProcessing() { return editingService.isProcessing(); }
@@ -558,28 +577,28 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void flipHorizontal() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            scaleTransform.setX(scaleTransform.getX() * -1);
             rotateTransform.setAngle(-rotateTransform.getAngle());
-            updateVisuals();
+            shearTransform.setX(-shearTransform.getX());
+            setInternalScaleX(scaleTransform.getX() * -1);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
         } else {
-            scaleTransform.setX(scaleTransform.getX() * -1);
             rotateTransform.setAngle(-rotateTransform.getAngle());
-            updateVisuals();
+            shearTransform.setX(-shearTransform.getX());
+            setInternalScaleX(scaleTransform.getX() * -1);
         }
     }
 
     public void flipVertical() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            scaleTransform.setY(scaleTransform.getY() * -1);
             rotateTransform.setAngle(-rotateTransform.getAngle());
-            updateVisuals();
+            shearTransform.setY(-shearTransform.getY());
+            setInternalScaleY(scaleTransform.getY() * -1);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
         } else {
-            scaleTransform.setY(scaleTransform.getY() * -1);
             rotateTransform.setAngle(-rotateTransform.getAngle());
-            updateVisuals();
+            shearTransform.setY(-shearTransform.getY());
+            setInternalScaleY(scaleTransform.getY() * -1);
         }
     }
 
@@ -588,6 +607,9 @@ public class ImageLayer extends Group implements GraphicLayer {
         scaleTransform.setY(scaleTransform.getY() * sy);
         updateVisuals();
     }
+
+    @Override
+    public double getInternalScaleX() { return scaleTransform.getX(); }
 
     public void addRotation(double angle) {
         rotateTransform.setAngle(rotateTransform.getAngle() + angle);

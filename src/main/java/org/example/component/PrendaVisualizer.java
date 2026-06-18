@@ -393,9 +393,10 @@ public class PrendaVisualizer extends StackPane {
     private void updateEditModeContainerStyle(boolean editMode) {
         if (editModeContainer != null) {
             if (editMode) {
-                editModeContainer.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #3498db; -fx-border-width: 4; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2;");
+                // Se oscurece ligeramente el fondo para que las prendas blancas resalten, sin usar el borde azul grueso
+                editModeContainer.setStyle("-fx-background-color: #d1d8e0; -fx-border-color: #bdc3c7; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2; -fx-effect: innershadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 0);");
             } else {
-                editModeContainer.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2;");
+                editModeContainer.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2; -fx-effect: none;");
             }
         }
     }

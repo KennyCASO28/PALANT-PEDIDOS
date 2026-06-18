@@ -508,6 +508,41 @@ public class UserLayerManager {
 
     // --- GROUPING LOGIC ---
 
+    private javafx.geometry.Bounds getVisualBoundsInParent(Node n) {
+        double lx, ly, lw, lh;
+        if (n instanceof ShapeLayer) {
+            ShapeLayer sl = (ShapeLayer) n;
+            lx = sl.getVisualMinX(); ly = sl.getVisualMinY(); lw = sl.getLogicalWidth(); lh = sl.getLogicalHeight();
+        } else if (n instanceof ImageLayer) {
+            ImageLayer il = (ImageLayer) n;
+            lx = 0; ly = 0; lw = il.getLogicalWidth(); lh = il.getLogicalHeight();
+        } else if (n instanceof TextLayer) {
+            TextLayer tl = (TextLayer) n;
+            lx = -tl.getLogicalWidth() / 2.0; ly = -tl.getLogicalHeight() / 2.0; lw = tl.getLogicalWidth(); lh = tl.getLogicalHeight();
+        } else if (n instanceof GroupLayerV2) {
+            GroupLayerV2 g2 = (GroupLayerV2) n;
+            javafx.geometry.Bounds cb = g2.calculateBounds();
+            lx = cb.getMinX(); ly = cb.getMinY(); lw = cb.getWidth(); lh = cb.getHeight();
+        } else if (n instanceof GroupLayer) {
+            GroupLayer gl = (GroupLayer) n;
+            lx = gl.getBoundsMinX(); ly = gl.getBoundsMinY(); lw = gl.getLogicalWidth(); lh = gl.getLogicalHeight();
+        } else {
+            return n.getBoundsInParent();
+        }
+        
+        javafx.geometry.Point2D p1 = n.localToParent(lx, ly);
+        javafx.geometry.Point2D p2 = n.localToParent(lx + lw, ly);
+        javafx.geometry.Point2D p3 = n.localToParent(lx, ly + lh);
+        javafx.geometry.Point2D p4 = n.localToParent(lx + lw, ly + lh);
+        
+        double minX = Math.min(Math.min(p1.getX(), p2.getX()), Math.min(p3.getX(), p4.getX()));
+        double maxX = Math.max(Math.max(p1.getX(), p2.getX()), Math.max(p3.getX(), p4.getX()));
+        double minY = Math.min(Math.min(p1.getY(), p2.getY()), Math.min(p3.getY(), p4.getY()));
+        double maxY = Math.max(Math.max(p1.getY(), p2.getY()), Math.max(p3.getY(), p4.getY()));
+        
+        return new javafx.geometry.BoundingBox(minX, minY, maxX - minX, maxY - minY);
+    }
+
     public void groupSelected() {
         if (isGrouping)
             return; // Prevent double execution
@@ -546,12 +581,12 @@ public class UserLayerManager {
                     beforeStates.add(new org.example.pattern.NodeMemento(n));
                 }
 
-                // Calculate Bounds for positioning
+                // Calculate Bounds for positioning using exact visual bounds (ignores invisible handles)
                 double minX = Double.MAX_VALUE;
                 double minY = Double.MAX_VALUE;
 
                 for (Node n : toGroup) {
-                    javafx.geometry.Bounds b = n.getBoundsInParent();
+                    javafx.geometry.Bounds b = getVisualBoundsInParent(n);
                     if (b.getMinX() < minX)
                         minX = b.getMinX();
                     if (b.getMinY() < minY)

@@ -21,6 +21,10 @@ public abstract class LayerDTO {
     private String activeZone; // For PowerClip
     private double width;
     private double height;
+    private double shearX;
+    private double shearY;
+    private double customPivotX = -1;
+    private double customPivotY = -1;
 
     public LayerDTO() {
     }
@@ -113,6 +117,38 @@ public abstract class LayerDTO {
 
     public void setHeight(double height) {
         this.height = height;
+    }
+
+    public double getShearX() {
+        return shearX;
+    }
+
+    public void setShearX(double shearX) {
+        this.shearX = shearX;
+    }
+
+    public double getShearY() {
+        return shearY;
+    }
+
+    public void setShearY(double shearY) {
+        this.shearY = shearY;
+    }
+
+    public double getCustomPivotX() {
+        return customPivotX;
+    }
+
+    public void setCustomPivotX(double customPivotX) {
+        this.customPivotX = customPivotX;
+    }
+
+    public double getCustomPivotY() {
+        return customPivotY;
+    }
+
+    public void setCustomPivotY(double customPivotY) {
+        this.customPivotY = customPivotY;
     }
 
     public abstract LayerDTO deepCopy();

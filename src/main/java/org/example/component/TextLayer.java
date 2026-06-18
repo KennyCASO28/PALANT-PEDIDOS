@@ -292,6 +292,7 @@ public class TextLayer extends Group implements GraphicLayer {
     private void setupResizeHandle(Node handle, int sx, int sy) {
         final double[] initialDim = new double[2];
         final double[] initialMouse = new double[2];
+        final double[] initialScale = new double[2];
         final Point2D[] anchor = new Point2D[1];
         final NodeMemento[] startMemento = new NodeMemento[1];
 
@@ -301,6 +302,8 @@ public class TextLayer extends Group implements GraphicLayer {
             startMemento[0] = new NodeMemento(this);
             initialDim[0] = logicalWidth;
             initialDim[1] = logicalHeight;
+            initialScale[0] = scaleTransform.getX();
+            initialScale[1] = scaleTransform.getY();
 
             // Use parent space coordinates to account for workspace zoom
             Point2D parentMouse = visualizer.getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
@@ -329,19 +332,28 @@ public class TextLayer extends Group implements GraphicLayer {
             double localDy = (-dx * Math.sin(-rad) + dy * Math.cos(-rad)) * sy;
 
             // Adjust by scale to avoid aggressive jumping
-            double curSx = Math.abs(scaleTransform.getX());
-            double curSy = Math.abs(scaleTransform.getY());
+            double curSx = Math.abs(initialScale[0]);
+            double curSy = Math.abs(initialScale[1]);
             localDx /= (curSx > 0.01 ? curSx : 1.0);
             localDy /= (curSy > 0.01 ? curSy : 1.0);
 
-            double newW = Math.max(20, initialDim[0] + localDx);
-            double newH = Math.max(10, initialDim[1] + localDy);
+            double proposedW = initialDim[0] + localDx;
+            double proposedH = initialDim[1] + localDy;
+
+            boolean flipX = proposedW < 0;
+            boolean flipY = proposedH < 0;
+
+            double newW = Math.max(20, Math.abs(proposedW));
+            double newH = Math.max(10, Math.abs(proposedH));
 
             double factorX = newW / Math.max(1, logicalWidth);
             double factorY = newH / Math.max(1, logicalHeight);
 
             logicalWidth = newW;
             logicalHeight = newH;
+
+            setInternalScaleX(initialScale[0] * (flipX ? -1 : 1));
+            setInternalScaleY(initialScale[1] * (flipY ? -1 : 1));
 
             if (trajectory != null) {
                 trajectory.scalePoints(factorX, factorY);
@@ -459,13 +471,15 @@ public class TextLayer extends Group implements GraphicLayer {
         border.setY(0);
         border.setWidth(base_w);
         border.setHeight(base_h);
-        
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
+
+        double viewportScale = (visualizer != null && visualizer.getViewportController() != null)
+                ? visualizer.getViewportController().getFinalScale()
+                : 1.0;
         double sx = Math.abs(scaleTransform.getX()) * viewportScale;
         double sy = Math.abs(scaleTransform.getY()) * viewportScale;
         double maxScale = Math.max(sx, sy);
         border.setStrokeWidth((maxScale > 0) ? 1.0 / maxScale : 1.0);
-        
+
         place(border, base_x, base_y);
 
         boolean showRotate = isSelected && isRotationMode && !isLocked;
@@ -760,19 +774,22 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     private void place(javafx.scene.Node n, double x, double y) {
-        // UIFactory handles are 24x24 StackPanes. To center them on (x,y), we offset by 6.0
+        // UIFactory handles are 24x24 StackPanes. To center them on (x,y), we offset by
+        // 6.0
         double offset = (n instanceof javafx.scene.layout.StackPane) ? 6.0 : 0.0;
-        
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
+
+        double viewportScale = (visualizer != null && visualizer.getViewportController() != null)
+                ? visualizer.getViewportController().getFinalScale()
+                : 1.0;
         double sx = Math.abs(scaleTransform.getX()) * viewportScale;
         double sy = Math.abs(scaleTransform.getY()) * viewportScale;
-        
+
         // Anti-scale handles
         if (n != border && sx > 0 && sy > 0) {
             n.setScaleX(1.0 / sx);
             n.setScaleY(1.0 / sy);
             // Adjust offset for scale to keep them perfectly centered
-            offset = offset / sx; 
+            offset = offset / sx;
         }
 
         n.setTranslateX(x - offset);
@@ -781,17 +798,19 @@ public class TextLayer extends Group implements GraphicLayer {
 
     private void positionNode(Node n, double x, double y) {
         double offset = (n instanceof javafx.scene.layout.StackPane) ? 6.0 : 0.0;
-        
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
+
+        double viewportScale = (visualizer != null && visualizer.getViewportController() != null)
+                ? visualizer.getViewportController().getFinalScale()
+                : 1.0;
         double sx = Math.abs(scaleTransform.getX()) * viewportScale;
         double sy = Math.abs(scaleTransform.getY()) * viewportScale;
-        
+
         if (n != border && sx > 0 && sy > 0) {
             n.setScaleX(1.0 / sx);
             n.setScaleY(1.0 / sy);
             offset = offset / sx;
         }
-        
+
         n.setTranslateX(x - offset);
         n.setTranslateY(y - offset);
     }
@@ -841,7 +860,8 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setBold(boolean bold) {
-        if (this.isBold == bold) return;
+        if (this.isBold == bold)
+            return;
         Font oldFont = this.font;
         this.isBold = bold;
         updateStyledFont();
@@ -857,7 +877,8 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setItalic(boolean italic) {
-        if (this.isItalic == italic) return;
+        if (this.isItalic == italic)
+            return;
         Font oldFont = this.font;
         this.isItalic = italic;
         updateStyledFont();
@@ -913,7 +934,8 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setSpacing(double s) {
-        if (this.spacing == s) return;
+        if (this.spacing == s)
+            return;
         double old = this.spacing;
         this.spacing = s;
         renderText();
@@ -957,7 +979,8 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setTextAlignment(javafx.scene.text.TextAlignment ta) {
-        if (this.textAlignment == ta) return;
+        if (this.textAlignment == ta)
+            return;
         javafx.scene.text.TextAlignment old = this.textAlignment;
         this.textAlignment = ta;
         renderText();
@@ -975,7 +998,8 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setDropShadowEnabled(boolean enabled) {
-        if (this.dropShadowEnabled == enabled) return;
+        if (this.dropShadowEnabled == enabled)
+            return;
         boolean old = this.dropShadowEnabled;
         this.dropShadowEnabled = enabled;
         renderText();
@@ -1006,7 +1030,8 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setFontSizeScale(double scaleFactor) {
-        if (this.logicalWidth == 300.0 * (scaleFactor / 100.0) && this.logicalHeight == 100.0 * (scaleFactor / 100.0)) return;
+        if (this.logicalWidth == 300.0 * (scaleFactor / 100.0) && this.logicalHeight == 100.0 * (scaleFactor / 100.0))
+            return;
         double oldW = this.logicalWidth;
         double oldH = this.logicalHeight;
         this.logicalWidth = 300.0 * (scaleFactor / 100.0);
@@ -1090,7 +1115,8 @@ public class TextLayer extends Group implements GraphicLayer {
     public void setTextSize(double w, double h) {
         double oldW = this.logicalWidth;
         double oldH = this.logicalHeight;
-        if (oldW == w && oldH == h) return;
+        if (oldW == w && oldH == h)
+            return;
         this.logicalWidth = w;
         this.logicalHeight = h;
         renderText();
@@ -1198,6 +1224,9 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setInternalScaleX(double s) {
+        if ((scaleTransform.getX() > 0 && s < 0) || (scaleTransform.getX() < 0 && s > 0)) {
+            shearTransform.setY(shearTransform.getY() * -1);
+        }
         scaleTransform.setX(s);
     }
 
@@ -1206,6 +1235,9 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     public void setInternalScaleY(double s) {
+        if ((scaleTransform.getY() > 0 && s < 0) || (scaleTransform.getY() < 0 && s > 0)) {
+            shearTransform.setX(shearTransform.getX() * -1);
+        }
         scaleTransform.setY(s);
     }
 
@@ -1312,22 +1344,30 @@ public class TextLayer extends Group implements GraphicLayer {
     public void flipHorizontal() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+            rotateTransform.setAngle(-rotateTransform.getAngle());
+            shearTransform.setX(-shearTransform.getX());
             setInternalScaleX(scaleTransform.getX() * -1);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
                     new org.example.pattern.NodeMemento(this), activeZone));
         } else {
-            scaleTransform.setX(scaleTransform.getX() * -1);
+            rotateTransform.setAngle(-rotateTransform.getAngle());
+            shearTransform.setX(-shearTransform.getX());
+            setInternalScaleX(scaleTransform.getX() * -1);
         }
     }
 
     public void flipVertical() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+            rotateTransform.setAngle(-rotateTransform.getAngle());
+            shearTransform.setY(-shearTransform.getY());
             setInternalScaleY(scaleTransform.getY() * -1);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
                     new org.example.pattern.NodeMemento(this), activeZone));
         } else {
-            scaleTransform.setY(scaleTransform.getY() * -1);
+            rotateTransform.setAngle(-rotateTransform.getAngle());
+            shearTransform.setY(-shearTransform.getY());
+            setInternalScaleY(scaleTransform.getY() * -1);
         }
     }
 
@@ -1505,6 +1545,11 @@ public class TextLayer extends Group implements GraphicLayer {
     public void render() {
         renderText();
     }
+
+    @Override public double getInternalShearX() { return shearTransform.getX(); }
+    @Override public void setInternalShearX(double s) { shearTransform.setX(s); }
+    @Override public double getInternalShearY() { return shearTransform.getY(); }
+    @Override public void setInternalShearY(double s) { shearTransform.setY(s); }
 
     @Override
     public void recordUndoState() {

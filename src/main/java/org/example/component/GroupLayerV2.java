@@ -191,7 +191,6 @@ public class GroupLayerV2 extends Group {
         setupShearHandlers();
         setupPivotHandler();
 
-
     }
 
     public void setInternalScale(double sx, double sy) {
@@ -253,7 +252,7 @@ public class GroupLayerV2 extends Group {
         if (node instanceof javafx.scene.shape.Shape) {
             ((javafx.scene.shape.Shape) node).setSmooth(true);
         }
-        
+
         if (node instanceof org.example.component.ShapeLayer) {
             ((org.example.component.ShapeLayer) node).setGrouped(true);
         }
@@ -285,6 +284,15 @@ public class GroupLayerV2 extends Group {
     }
 
     // --- INTERNAL TRANSFORM ACCESSORS (FOR PERSISTENCE) ---
+    public double getInternalShearX() { return shearTransform.getX(); }
+    public void setInternalShearX(double s) { shearTransform.setX(s); }
+    public double getInternalShearY() { return shearTransform.getY(); }
+    public void setInternalShearY(double s) { shearTransform.setY(s); }
+    public double getCustomPivotX() { return pivotOffsetX; }
+    public void setCustomPivotX(double x) { pivotOffsetX = x; }
+    public double getCustomPivotY() { return pivotOffsetY; }
+    public void setCustomPivotY(double y) { pivotOffsetY = y; }
+
     public double getInternalScaleX() {
         return scaleTransform.getX();
     }
@@ -316,13 +324,7 @@ public class GroupLayerV2 extends Group {
         setInternalRotation(getInternalRotation() + delta);
     }
 
-    public double getInternalShearX() {
-        return shearTransform.getX();
-    }
 
-    public double getInternalShearY() {
-        return shearTransform.getY();
-    }
 
     public void setInternalShear(double x, double y) {
         shearTransform.setX(x);
@@ -381,7 +383,7 @@ public class GroupLayerV2 extends Group {
     }
 
     /**
-     * Compensates world position to keep a specific scene-point stationary 
+     * Compensates world position to keep a specific scene-point stationary
      * while scaling children geometrically.
      */
     private void compensateScalingPosition(Point2D refStartScene) {
@@ -416,14 +418,18 @@ public class GroupLayerV2 extends Group {
         for (Node child : userLayers) {
             Bounds b;
             if (child instanceof ShapeLayer sl) {
-                b = sl.localToParent(new javafx.geometry.BoundingBox(sl.getVisualMinX(), sl.getVisualMinY(), sl.getLogicalWidth(), sl.getLogicalHeight()));
+                b = sl.localToParent(new javafx.geometry.BoundingBox(sl.getVisualMinX(), sl.getVisualMinY(),
+                        sl.getLogicalWidth(), sl.getLogicalHeight()));
             } else if (child instanceof TextLayer tl) {
-                b = tl.localToParent(new javafx.geometry.BoundingBox(-tl.getLogicalWidth()/2.0, -tl.getLogicalHeight()/2.0, tl.getLogicalWidth(), tl.getLogicalHeight()));
+                b = tl.localToParent(new javafx.geometry.BoundingBox(-tl.getLogicalWidth() / 2.0,
+                        -tl.getLogicalHeight() / 2.0, tl.getLogicalWidth(), tl.getLogicalHeight()));
             } else if (child instanceof GroupLayer gl) {
-                b = gl.localToParent(new javafx.geometry.BoundingBox(gl.getBoundsMinX(), gl.getBoundsMinY(), gl.getLogicalWidth(), gl.getLogicalHeight()));
+                b = gl.localToParent(new javafx.geometry.BoundingBox(gl.getBoundsMinX(), gl.getBoundsMinY(),
+                        gl.getLogicalWidth(), gl.getLogicalHeight()));
             } else if (child instanceof GroupLayerV2 g2) {
                 Bounds cb = g2.calculateBounds();
-                b = g2.localToParent(new javafx.geometry.BoundingBox(cb.getMinX(), cb.getMinY(), cb.getWidth(), cb.getHeight()));
+                b = g2.localToParent(
+                        new javafx.geometry.BoundingBox(cb.getMinX(), cb.getMinY(), cb.getWidth(), cb.getHeight()));
             } else {
                 b = child.getBoundsInParent();
             }
@@ -513,7 +519,7 @@ public class GroupLayerV2 extends Group {
         leftCenter.setVisible(showResize);
         rightCenter.setVisible(showResize);
 
-        double hs = 12.0; // Correct offset for 24x24 handle containers to be centered at (0,0)
+        double hs = 6.0; // Correct offset for 12x12 handle containers to be centered at (0,0)
         positionNode(topLeft, x - hs, y - hs);
         positionNode(topRight, x + w - hs, y - hs);
         positionNode(bottomLeft, x - hs, y + h - hs);
@@ -549,13 +555,15 @@ public class GroupLayerV2 extends Group {
         double pivotX = x + w / 2.0 + pivotOffsetX;
         double pivotY = y + h / 2.0 + pivotOffsetY;
 
-        // ONLY update pivot if it has moved significantly to avoid floating-point 'jitter'
-        if (Math.abs(rotateTransform.getPivotX() - pivotX) > 0.001 || Math.abs(rotateTransform.getPivotY() - pivotY) > 0.001) {
+        // ONLY update pivot if it has moved significantly to avoid floating-point
+        // 'jitter'
+        if (Math.abs(rotateTransform.getPivotX() - pivotX) > 0.001
+                || Math.abs(rotateTransform.getPivotY() - pivotY) > 0.001) {
             rotateTransform.setPivotX(pivotX);
             rotateTransform.setPivotY(pivotY);
             shearTransform.setPivotX(pivotX);
             shearTransform.setPivotY(pivotY);
-            
+
             overlayRotateTransform.setPivotX(pivotX);
             overlayRotateTransform.setPivotY(pivotY);
             overlayShearTransform.setPivotX(pivotX);
@@ -565,11 +573,13 @@ public class GroupLayerV2 extends Group {
         pivotHandle.setVisible(showRotate);
         positionNode(pivotHandle, pivotX - 8, pivotY - 8);
 
-        // --- OPTIMIZATION: If we are only rotating, handles are already moved by overlayRotateTransform ---
+        // --- OPTIMIZATION: If we are only rotating, handles are already moved by
+        // overlayRotateTransform ---
         // This prevents the 'vibration' caused by repositioning 16 nodes per frame.
         if (isRotationMode && !boundsDirty) {
-             // Anti-shear still needs to be updated if shear is active, but usually it's stable
-             return;
+            // Anti-shear still needs to be updated if shear is active, but usually it's
+            // stable
+            return;
         }
 
         // --- ANTI-SHEAR (MANDATORY TO AVOID STRETCHING) ---
@@ -621,16 +631,16 @@ public class GroupLayerV2 extends Group {
             double startX, startY, initX, initY;
         }
         final DragContext ctx = new DragContext();
-        final boolean[] dropCopy = {false};
+        final boolean[] dropCopy = { false };
         final org.example.pattern.NodeMemento[] startMemento = new org.example.pattern.NodeMemento[1];
         @SuppressWarnings("unchecked")
         final javafx.event.EventHandler<javafx.scene.input.MouseEvent>[] rightClickFilter = new javafx.event.EventHandler[1];
 
-        final long[] lastClickTime = {0};
+        final long[] lastClickTime = { 0 };
         setOnMousePressed(e -> {
             if (isLocked())
                 return;
-                
+
             long currentTime = System.currentTimeMillis();
             if (currentTime - lastClickTime[0] < 500 && e.getButton() == javafx.scene.input.MouseButton.PRIMARY) {
                 setRotationMode(!isRotationMode());
@@ -644,13 +654,14 @@ public class GroupLayerV2 extends Group {
 
             if (e.getTarget() instanceof Node && isHandle((Node) e.getTarget()))
                 return;
-                
+
             dropCopy[0] = false;
             startMemento[0] = new org.example.pattern.NodeMemento(this);
-            
+
             // Add global right-click detector
             rightClickFilter[0] = ev -> {
-                if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY && ev.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED) {
+                if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY
+                        && ev.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED) {
                     if (!dropCopy[0]) {
                         dropCopy[0] = true;
                         setCursor(Cursor.CROSSHAIR);
@@ -693,11 +704,11 @@ public class GroupLayerV2 extends Group {
             setCursor(Cursor.DEFAULT);
             if (isSelected && !isLocked()) {
                 updateSelectionOverlay();
-                
+
                 if (dropCopy[0] && visualizer != null) {
                     visualizer.copySelectedLayer();
                     visualizer.pasteLayer();
-                    
+
                     if (startMemento[0] != null) {
                         startMemento[0].restore();
                     } else {
@@ -709,7 +720,8 @@ public class GroupLayerV2 extends Group {
                     if (visualizer != null && visualizer.getHistoryManager() != null && startMemento[0] != null
                             && (ctx.initX != getTranslateX() || ctx.initY != getTranslateY())) {
 
-                        TransformCommand cmd = new TransformCommand(this, startMemento[0], new org.example.pattern.NodeMemento(this), getActiveZone());
+                        TransformCommand cmd = new TransformCommand(this, startMemento[0],
+                                new org.example.pattern.NodeMemento(this), getActiveZone());
                         visualizer.getHistoryManager().addCommand(cmd);
                     }
                 }
@@ -743,7 +755,7 @@ public class GroupLayerV2 extends Group {
             double appliedSoFarY = 1.0;
         }
         final ResizeCtx ctx = new ResizeCtx();
-        final boolean[] dropCopy = {false};
+        final boolean[] dropCopy = { false };
         final org.example.pattern.NodeMemento[] startMemento = new org.example.pattern.NodeMemento[1];
         @SuppressWarnings("unchecked")
         final javafx.event.EventHandler<javafx.scene.input.MouseEvent>[] rightClickFilter = new javafx.event.EventHandler[1];
@@ -752,12 +764,13 @@ public class GroupLayerV2 extends Group {
             if (isLocked())
                 return;
             e.consume();
-            
+
             dropCopy[0] = false;
             startMemento[0] = new org.example.pattern.NodeMemento(this);
-            
+
             rightClickFilter[0] = ev -> {
-                if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY && ev.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED) {
+                if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY
+                        && ev.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED) {
                     if (!dropCopy[0]) {
                         dropCopy[0] = true;
                         setCursor(Cursor.CROSSHAIR);
@@ -783,7 +796,7 @@ public class GroupLayerV2 extends Group {
             ctx.ay = (dirY == -1) ? b.getMaxY() : (dirY == 1) ? b.getMinY() : b.getCenterY();
 
             // Store stable World Anchor
-            ctx.startAnchorWorld = this.localToParent(new Point2D(ctx.ax, ctx.ay));
+            ctx.startAnchorWorld = this.localToParent(contentGroup.localToParent(new Point2D(ctx.ax, ctx.ay)));
         });
 
         handle.setOnMouseDragged(e -> {
@@ -799,7 +812,7 @@ public class GroupLayerV2 extends Group {
             double parentDy = currParent.getY() - startParent.getY();
 
             // --- CORRECTION: Project Parent Delta into the Group's Rotated Local Space ---
-            double angleRad = Math.toRadians(getRotate());
+            double angleRad = Math.toRadians(rotateTransform.getAngle());
             double cos = Math.cos(angleRad);
             double sin = Math.sin(angleRad);
 
@@ -817,12 +830,14 @@ public class GroupLayerV2 extends Group {
             if (e.isControlDown()) {
                 if (dirX != 0 && Math.abs(proposedW) > 0) {
                     long m = Math.round(proposedW / safeW);
-                    if (m == 0) m = (proposedW < 0) ? -1 : 1;
+                    if (m == 0)
+                        m = (proposedW < 0) ? -1 : 1;
                     proposedW = m * safeW;
                 }
                 if (dirY != 0 && Math.abs(proposedH) > 0) {
                     long m = Math.round(proposedH / safeH);
-                    if (m == 0) m = (proposedH < 0) ? -1 : 1;
+                    if (m == 0)
+                        m = (proposedH < 0) ? -1 : 1;
                     proposedH = m * safeH;
                 }
             }
@@ -831,13 +846,15 @@ public class GroupLayerV2 extends Group {
             double totalRatioY = (dirY != 0) ? proposedH / safeH : 1.0;
 
             // Allow negative scaling (mirroring), but prevent 0
-            if (Math.abs(totalRatioX) < 0.01) totalRatioX = 0.01 * (totalRatioX >= 0 ? 1 : -1);
-            if (Math.abs(totalRatioY) < 0.01) totalRatioY = 0.01 * (totalRatioY >= 0 ? 1 : -1);
+            if (Math.abs(totalRatioX) < 0.01)
+                totalRatioX = 0.01 * (totalRatioX >= 0 ? 1 : -1);
+            if (Math.abs(totalRatioY) < 0.01)
+                totalRatioY = 0.01 * (totalRatioY >= 0 ? 1 : -1);
 
             // Increment multiplier to reach totalRatioX relative to start
             double finalMsx = totalRatioX / ctx.appliedSoFarX;
             double finalMsy = totalRatioY / ctx.appliedSoFarY;
-            
+
             ctx.appliedSoFarX = totalRatioX;
             ctx.appliedSoFarY = totalRatioY;
 
@@ -846,7 +863,7 @@ public class GroupLayerV2 extends Group {
 
             // 2. Compensation: Calculate current position of anchor in parent space
             Point2D currentAnchorLocal = new Point2D(ctx.ax * totalRatioX, ctx.ay * totalRatioY);
-            Point2D currentAnchorParent = localToParent(currentAnchorLocal);
+            Point2D currentAnchorParent = localToParent(contentGroup.localToParent(currentAnchorLocal));
 
             double dx = ctx.startAnchorWorld.getX() - currentAnchorParent.getX();
             double dy = ctx.startAnchorWorld.getY() - currentAnchorParent.getY();
@@ -863,7 +880,7 @@ public class GroupLayerV2 extends Group {
                 getScene().removeEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, rightClickFilter[0]);
                 rightClickFilter[0] = null;
             }
-            
+
             boolean changed = Math.abs(ctx.appliedSoFarX - 1.0) > 0.001
                     || Math.abs(ctx.appliedSoFarY - 1.0) > 0.001;
 
@@ -871,15 +888,17 @@ public class GroupLayerV2 extends Group {
                 if (dropCopy[0] && visualizer != null) {
                     visualizer.copySelectedLayer();
                     visualizer.pasteLayer();
-                    
+
                     if (startMemento[0] != null) {
                         // REVERT geometry of children before restoring translation
                         multiplyScale(1.0 / ctx.appliedSoFarX, 1.0 / ctx.appliedSoFarY);
                         startMemento[0].restore();
                     }
                 } else if (visualizer != null && visualizer.getHistoryManager() != null && startMemento[0] != null) {
-                    // Using NodeMemento since GroupLayerV2 has deep properties that can change geometrically
-                    TransformCommand cmd = new TransformCommand(this, startMemento[0], new org.example.pattern.NodeMemento(this), getActiveZone());
+                    // Using NodeMemento since GroupLayerV2 has deep properties that can change
+                    // geometrically
+                    TransformCommand cmd = new TransformCommand(this, startMemento[0],
+                            new org.example.pattern.NodeMemento(this), getActiveZone());
                     visualizer.getHistoryManager().addCommand(cmd);
                 }
             }

@@ -53,16 +53,14 @@ public final class ShapeSelectionOverlaySupport {
                 topCenter, bottomCenter, leftCenter, rightCenter,
                 rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight,
                 shearTop, shearBottom, shearLeft, shearRight,
-                pivotHandle, arcTopLeft, arcTopRight, arcBottomLeft, arcBottomRight
-        );
+                pivotHandle, arcTopLeft, arcTopRight, arcBottomLeft, arcBottomRight);
 
         handlesGroup.getChildren().addAll(
                 border, topLeft, topRight, bottomLeft, bottomRight,
                 topCenter, bottomCenter, leftCenter, rightCenter,
                 rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight,
                 shearTop, shearBottom, shearLeft, shearRight,
-                pivotHandle, arcTopLeft, arcTopRight, arcBottomLeft, arcBottomRight
-        );
+                pivotHandle, arcTopLeft, arcTopRight, arcBottomLeft, arcBottomRight);
 
         return nodes;
     }
@@ -74,7 +72,8 @@ public final class ShapeSelectionOverlaySupport {
     }
 
     public static StackPane createRotationHandle(Shear shearTransform) {
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 16, "#e8a020", Cursor.OPEN_HAND);
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 16, "#e8a020",
+                Cursor.OPEN_HAND);
         org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 8, 8);
         return handle;
     }
@@ -96,7 +95,7 @@ public final class ShapeSelectionOverlaySupport {
         rect.setStrokeWidth(1.2);
         rect.setArcWidth(2); // Slightly soft corners for the handle
         rect.setArcHeight(2);
-        
+
         handle.getChildren().add(rect);
         handle.setCursor(Cursor.HAND);
         handle.setPickOnBounds(true);
@@ -125,15 +124,15 @@ public final class ShapeSelectionOverlaySupport {
                 pTL.getX(), pTL.getY(),
                 pTR.getX(), pTR.getY(),
                 pBR.getX(), pBR.getY(),
-                pBL.getX(), pBL.getY()
-        );
+                pBL.getX(), pBL.getY());
 
-        // selectionHandleOffset must be 6.0 because UIFactory.crearSquareHandle uses a 12x12 hitArea
-        double selectionHandleOffset = 6.0; 
+        // selectionHandleOffset must be 6.0 because UIFactory.crearSquareHandle uses a
+        // 12x12 hitArea
+        double selectionHandleOffset = 6.0;
         positionSelectionHandles(nodes, pTL, pTR, pBL, pBR, selectionHandleOffset);
 
         // transformHandleOffset must be 8.0 because createRotationHandle uses size 16
-        double transformHandleOffset = 8.0; 
+        double transformHandleOffset = 8.0;
         positionTransformHandles(nodes, pTL, pTR, pBL, pBR, transformHandleOffset);
 
         nodes.border().setStroke(Color.web("#0047AB"));
@@ -144,7 +143,7 @@ public final class ShapeSelectionOverlaySupport {
 
             double pivotX = state.customPivotX() != -1 ? state.customPivotX() : width / 2.0;
             double pivotY = state.customPivotY() != -1 ? state.customPivotY() : height / 2.0;
-            
+
             // pivotHandle is placed at un-sheared coords right now
             nodes.pivotHandle().setLayoutX(visualMinX + pivotX - 5);
             nodes.pivotHandle().setLayoutY(visualMinY + pivotY - 5);
@@ -192,7 +191,8 @@ public final class ShapeSelectionOverlaySupport {
                 state.customPivotY());
     }
 
-    private static javafx.geometry.Point2D shearPoint(double x, double y, double shX, double shY, double px, double py) {
+    private static javafx.geometry.Point2D shearPoint(double x, double y, double shX, double shY, double px,
+            double py) {
         double newX = x + shX * (y - py);
         double newY = y + shY * (x - px);
         return new javafx.geometry.Point2D(newX, newY);
@@ -313,34 +313,55 @@ public final class ShapeSelectionOverlaySupport {
         double totalY = Math.max(0.001, Math.abs(scaleY) * viewportScale);
         double invX = 1.0 / totalX;
         double invY = 1.0 / totalY;
-        
-        nodes.border().setStrokeWidth(1.0 / Math.max(totalX, totalY));
-        
-        nodes.topLeft().setScaleX(invX); nodes.topLeft().setScaleY(invY);
-        nodes.topRight().setScaleX(invX); nodes.topRight().setScaleY(invY);
-        nodes.bottomLeft().setScaleX(invX); nodes.bottomLeft().setScaleY(invY);
-        nodes.bottomRight().setScaleX(invX); nodes.bottomRight().setScaleY(invY);
-        nodes.topCenter().setScaleX(invX); nodes.topCenter().setScaleY(invY);
-        nodes.bottomCenter().setScaleX(invX); nodes.bottomCenter().setScaleY(invY);
-        nodes.leftCenter().setScaleX(invX); nodes.leftCenter().setScaleY(invY);
-        nodes.rightCenter().setScaleX(invX); nodes.rightCenter().setScaleY(invY);
 
-        nodes.rotTopLeft().setScaleX(invX); nodes.rotTopLeft().setScaleY(invY);
-        nodes.rotTopRight().setScaleX(invX); nodes.rotTopRight().setScaleY(invY);
-        nodes.rotBottomLeft().setScaleX(invX); nodes.rotBottomLeft().setScaleY(invY);
-        nodes.rotBottomRight().setScaleX(invX); nodes.rotBottomRight().setScaleY(invY);
-        
-        nodes.shearTop().setScaleX(invX); nodes.shearTop().setScaleY(invY);
-        nodes.shearBottom().setScaleX(invX); nodes.shearBottom().setScaleY(invY);
-        nodes.shearLeft().setScaleX(invX); nodes.shearLeft().setScaleY(invY);
-        nodes.shearRight().setScaleX(invX); nodes.shearRight().setScaleY(invY);
-        
-        nodes.pivotHandle().setScaleX(invX); nodes.pivotHandle().setScaleY(invY);
-        
-        nodes.arcTopLeft().setScaleX(invX); nodes.arcTopLeft().setScaleY(invY);
-        nodes.arcTopRight().setScaleX(invX); nodes.arcTopRight().setScaleY(invY);
-        nodes.arcBottomLeft().setScaleX(invX); nodes.arcBottomLeft().setScaleY(invY);
-        nodes.arcBottomRight().setScaleX(invX); nodes.arcBottomRight().setScaleY(invY);
+        nodes.border().setStrokeWidth(1.0 / Math.max(totalX, totalY));
+
+        nodes.topLeft().setScaleX(invX);
+        nodes.topLeft().setScaleY(invY);
+        nodes.topRight().setScaleX(invX);
+        nodes.topRight().setScaleY(invY);
+        nodes.bottomLeft().setScaleX(invX);
+        nodes.bottomLeft().setScaleY(invY);
+        nodes.bottomRight().setScaleX(invX);
+        nodes.bottomRight().setScaleY(invY);
+        nodes.topCenter().setScaleX(invX);
+        nodes.topCenter().setScaleY(invY);
+        nodes.bottomCenter().setScaleX(invX);
+        nodes.bottomCenter().setScaleY(invY);
+        nodes.leftCenter().setScaleX(invX);
+        nodes.leftCenter().setScaleY(invY);
+        nodes.rightCenter().setScaleX(invX);
+        nodes.rightCenter().setScaleY(invY);
+
+        nodes.rotTopLeft().setScaleX(invX);
+        nodes.rotTopLeft().setScaleY(invY);
+        nodes.rotTopRight().setScaleX(invX);
+        nodes.rotTopRight().setScaleY(invY);
+        nodes.rotBottomLeft().setScaleX(invX);
+        nodes.rotBottomLeft().setScaleY(invY);
+        nodes.rotBottomRight().setScaleX(invX);
+        nodes.rotBottomRight().setScaleY(invY);
+
+        nodes.shearTop().setScaleX(invX);
+        nodes.shearTop().setScaleY(invY);
+        nodes.shearBottom().setScaleX(invX);
+        nodes.shearBottom().setScaleY(invY);
+        nodes.shearLeft().setScaleX(invX);
+        nodes.shearLeft().setScaleY(invY);
+        nodes.shearRight().setScaleX(invX);
+        nodes.shearRight().setScaleY(invY);
+
+        nodes.pivotHandle().setScaleX(invX);
+        nodes.pivotHandle().setScaleY(invY);
+
+        nodes.arcTopLeft().setScaleX(invX);
+        nodes.arcTopLeft().setScaleY(invY);
+        nodes.arcTopRight().setScaleX(invX);
+        nodes.arcTopRight().setScaleY(invY);
+        nodes.arcBottomLeft().setScaleX(invX);
+        nodes.arcBottomLeft().setScaleY(invY);
+        nodes.arcBottomRight().setScaleX(invX);
+        nodes.arcBottomRight().setScaleY(invY);
     }
 
     private static void updatePivotTransforms(
@@ -358,14 +379,18 @@ public final class ShapeSelectionOverlaySupport {
         double pivotX = customPivotX != -1 ? visualMinX + customPivotX : defaultPivotX;
         double pivotY = customPivotY != -1 ? visualMinY + customPivotY : defaultPivotY;
 
-        // STABILITY FILTER: Prevent tiny floating point variations from causing jitter/zooms
-        if (Math.abs(rotateTransform.getPivotX() - pivotX) > 0.001 || Math.abs(rotateTransform.getPivotY() - pivotY) > 0.001) {
+        // STABILITY FILTER: Prevent tiny floating point variations from causing
+        // jitter/zooms
+        if (Math.abs(rotateTransform.getPivotX() - pivotX) > 0.001
+                || Math.abs(rotateTransform.getPivotY() - pivotY) > 0.001) {
             rotateTransform.setPivotX(pivotX);
             rotateTransform.setPivotY(pivotY);
         }
-        
-        // Shear and Scale pivots are less sensitive but should be updated if significant
-        if (Math.abs(shearTransform.getPivotX() - defaultPivotX) > 0.001 || Math.abs(shearTransform.getPivotY() - defaultPivotY) > 0.001) {
+
+        // Shear and Scale pivots are less sensitive but should be updated if
+        // significant
+        if (Math.abs(shearTransform.getPivotX() - defaultPivotX) > 0.001
+                || Math.abs(shearTransform.getPivotY() - defaultPivotY) > 0.001) {
             shearTransform.setPivotX(defaultPivotX);
             shearTransform.setPivotY(defaultPivotY);
             scaleTransform.setPivotX(defaultPivotX);
@@ -444,28 +469,93 @@ public final class ShapeSelectionOverlaySupport {
             this.arcBottomRight = arcBottomRight;
         }
 
-        public javafx.scene.shape.Polygon border() { return border; }
-        public StackPane topLeft() { return topLeft; }
-        public StackPane topRight() { return topRight; }
-        public StackPane bottomLeft() { return bottomLeft; }
-        public StackPane bottomRight() { return bottomRight; }
-        public StackPane topCenter() { return topCenter; }
-        public StackPane bottomCenter() { return bottomCenter; }
-        public StackPane leftCenter() { return leftCenter; }
-        public StackPane rightCenter() { return rightCenter; }
-        public StackPane rotTopLeft() { return rotTopLeft; }
-        public StackPane rotTopRight() { return rotTopRight; }
-        public StackPane rotBottomLeft() { return rotBottomLeft; }
-        public StackPane rotBottomRight() { return rotBottomRight; }
-        public StackPane shearTop() { return shearTop; }
-        public StackPane shearBottom() { return shearBottom; }
-        public StackPane shearLeft() { return shearLeft; }
-        public StackPane shearRight() { return shearRight; }
-        public javafx.scene.Group pivotHandle() { return pivotHandle; }
-        public StackPane arcTopLeft() { return arcTopLeft; }
-        public StackPane arcTopRight() { return arcTopRight; }
-        public StackPane arcBottomLeft() { return arcBottomLeft; }
-        public StackPane arcBottomRight() { return arcBottomRight; }
+        public javafx.scene.shape.Polygon border() {
+            return border;
+        }
+
+        public StackPane topLeft() {
+            return topLeft;
+        }
+
+        public StackPane topRight() {
+            return topRight;
+        }
+
+        public StackPane bottomLeft() {
+            return bottomLeft;
+        }
+
+        public StackPane bottomRight() {
+            return bottomRight;
+        }
+
+        public StackPane topCenter() {
+            return topCenter;
+        }
+
+        public StackPane bottomCenter() {
+            return bottomCenter;
+        }
+
+        public StackPane leftCenter() {
+            return leftCenter;
+        }
+
+        public StackPane rightCenter() {
+            return rightCenter;
+        }
+
+        public StackPane rotTopLeft() {
+            return rotTopLeft;
+        }
+
+        public StackPane rotTopRight() {
+            return rotTopRight;
+        }
+
+        public StackPane rotBottomLeft() {
+            return rotBottomLeft;
+        }
+
+        public StackPane rotBottomRight() {
+            return rotBottomRight;
+        }
+
+        public StackPane shearTop() {
+            return shearTop;
+        }
+
+        public StackPane shearBottom() {
+            return shearBottom;
+        }
+
+        public StackPane shearLeft() {
+            return shearLeft;
+        }
+
+        public StackPane shearRight() {
+            return shearRight;
+        }
+
+        public javafx.scene.Group pivotHandle() {
+            return pivotHandle;
+        }
+
+        public StackPane arcTopLeft() {
+            return arcTopLeft;
+        }
+
+        public StackPane arcTopRight() {
+            return arcTopRight;
+        }
+
+        public StackPane arcBottomLeft() {
+            return arcBottomLeft;
+        }
+
+        public StackPane arcBottomRight() {
+            return arcBottomRight;
+        }
     }
 
     public static final class VisualState {
@@ -521,21 +611,68 @@ public final class ShapeSelectionOverlaySupport {
             this.viewportScale = viewportScale;
         }
 
-        public double width() { return width; }
-        public double height() { return height; }
-        public double visualMinX() { return visualMinX; }
-        public double visualMinY() { return visualMinY; }
-        public boolean isNodeEditing() { return isNodeEditing; }
-        public boolean isRotationMode() { return isRotationMode; }
-        public boolean isArcEditingMode() { return isArcEditingMode; }
-        public boolean isLocked() { return isLocked; }
-        public ShapeType type() { return type; }
-        public double arcWidth() { return arcWidth; }
-        public double customPivotX() { return customPivotX; }
-        public double customPivotY() { return customPivotY; }
-        public Rotate rotateTransform() { return rotateTransform; }
-        public Scale scaleTransform() { return scaleTransform; }
-        public Shear shearTransform() { return shearTransform; }
-        public double viewportScale() { return viewportScale; }
+        public double width() {
+            return width;
+        }
+
+        public double height() {
+            return height;
+        }
+
+        public double visualMinX() {
+            return visualMinX;
+        }
+
+        public double visualMinY() {
+            return visualMinY;
+        }
+
+        public boolean isNodeEditing() {
+            return isNodeEditing;
+        }
+
+        public boolean isRotationMode() {
+            return isRotationMode;
+        }
+
+        public boolean isArcEditingMode() {
+            return isArcEditingMode;
+        }
+
+        public boolean isLocked() {
+            return isLocked;
+        }
+
+        public ShapeType type() {
+            return type;
+        }
+
+        public double arcWidth() {
+            return arcWidth;
+        }
+
+        public double customPivotX() {
+            return customPivotX;
+        }
+
+        public double customPivotY() {
+            return customPivotY;
+        }
+
+        public Rotate rotateTransform() {
+            return rotateTransform;
+        }
+
+        public Scale scaleTransform() {
+            return scaleTransform;
+        }
+
+        public Shear shearTransform() {
+            return shearTransform;
+        }
+
+        public double viewportScale() {
+            return viewportScale;
+        }
     }
 }

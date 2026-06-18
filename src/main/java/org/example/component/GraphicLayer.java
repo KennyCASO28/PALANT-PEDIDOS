@@ -35,6 +35,18 @@ public interface GraphicLayer {
     double getInternalScaleY();
     void setInternalScaleY(double s);
     
+    double getInternalShearX();
+    void setInternalShearX(double s);
+
+    double getInternalShearY();
+    void setInternalShearY(double s);
+
+    double getCustomPivotX();
+    void setCustomPivotX(double x);
+
+    double getCustomPivotY();
+    void setCustomPivotY(double y);
+
     void recordUndoState();
     
     // Interaction Modes

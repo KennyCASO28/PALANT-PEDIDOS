@@ -28,7 +28,7 @@ import java.util.Base64;
 
 public class StateMapper {
     private static double safeScale(double s) {
-        return s <= 0.001 ? 1.0 : s;
+        return Math.abs(s) <= 0.001 ? 1.0 : s;
     }
 
     public static ProjectState extractState(PrendaVisualizer visualizer, ObservableList<DetallePedido> roster) {
@@ -457,6 +457,10 @@ public class StateMapper {
                 ShapeLayer sl = (ShapeLayer) n;
                 dto.setScaleX(sl.getInternalScaleX());
                 dto.setScaleY(sl.getInternalScaleY());
+                dto.setShearX(sl.getInternalShearX());
+                dto.setShearY(sl.getInternalShearY());
+                dto.setCustomPivotX(sl.getCustomPivotX());
+                dto.setCustomPivotY(sl.getCustomPivotY());
                 dto.setRotation(sl.getInternalRotation());
                 dto.setWidth(sl.getLogicalWidth());
                 dto.setHeight(sl.getLogicalHeight());
@@ -465,6 +469,10 @@ public class StateMapper {
                 TextLayer tl = (TextLayer) n;
                 dto.setScaleX(tl.getInternalScaleX());
                 dto.setScaleY(tl.getInternalScaleY());
+                dto.setShearX(tl.getInternalShearX());
+                dto.setShearY(tl.getInternalShearY());
+                dto.setCustomPivotX(tl.getCustomPivotX());
+                dto.setCustomPivotY(tl.getCustomPivotY());
                 dto.setRotation(tl.getInternalRotation());
                 dto.setWidth(tl.getLogicalWidth());
                 dto.setHeight(tl.getLogicalHeight());
@@ -473,6 +481,10 @@ public class StateMapper {
                 ImageLayer il = (ImageLayer) n;
                 dto.setScaleX(il.getInternalScaleX());
                 dto.setScaleY(il.getInternalScaleY());
+                dto.setShearX(il.getInternalShearX());
+                dto.setShearY(il.getInternalShearY());
+                dto.setCustomPivotX(il.getCustomPivotX());
+                dto.setCustomPivotY(il.getCustomPivotY());
                 dto.setRotation(il.getInternalRotation());
                 dto.setWidth(il.getLogicalWidth());
                 dto.setHeight(il.getLogicalHeight());
@@ -481,11 +493,19 @@ public class StateMapper {
                 GroupLayer gl = (GroupLayer) n;
                 dto.setScaleX(gl.getInternalScaleX());
                 dto.setScaleY(gl.getInternalScaleY());
+                dto.setShearX(gl.getInternalShearX());
+                dto.setShearY(gl.getInternalShearY());
+                dto.setCustomPivotX(gl.getCustomPivotX());
+                dto.setCustomPivotY(gl.getCustomPivotY());
                 dto.setRotation(gl.getInternalRotation());
             } else if (n instanceof GroupLayerV2) {
                 GroupLayerV2 gv2 = (GroupLayerV2) n;
                 dto.setScaleX(gv2.getInternalScaleX());
                 dto.setScaleY(gv2.getInternalScaleY());
+                dto.setShearX(gv2.getInternalShearX());
+                dto.setShearY(gv2.getInternalShearY());
+                dto.setCustomPivotX(gv2.getCustomPivotX());
+                dto.setCustomPivotY(gv2.getCustomPivotY());
                 dto.setRotation(gv2.getInternalRotation());
             } else {
                 dto.setScaleX(n.getScaleX());
@@ -596,26 +616,46 @@ public class StateMapper {
                     sl.setInternalScaleX(safeScale(dto.getScaleX()));
                     sl.setInternalScaleY(safeScale(dto.getScaleY()));
                     sl.setInternalRotation(dto.getRotation());
+                    sl.setInternalShearX(dto.getShearX());
+                    sl.setInternalShearY(dto.getShearY());
+                    sl.setCustomPivotX(dto.getCustomPivotX());
+                    sl.setCustomPivotY(dto.getCustomPivotY());
                 } else if (node instanceof ImageLayer) {
                     ImageLayer il = (ImageLayer) node;
                     il.setInternalScaleX(safeScale(dto.getScaleX()));
                     il.setInternalScaleY(safeScale(dto.getScaleY()));
                     il.setInternalRotation(dto.getRotation());
+                    il.setInternalShearX(dto.getShearX());
+                    il.setInternalShearY(dto.getShearY());
+                    il.setCustomPivotX(dto.getCustomPivotX());
+                    il.setCustomPivotY(dto.getCustomPivotY());
                 } else if (node instanceof TextLayer) {
                     TextLayer tl = (TextLayer) node;
                     tl.setInternalScaleX(safeScale(dto.getScaleX()));
                     tl.setInternalScaleY(safeScale(dto.getScaleY()));
                     tl.setInternalRotation(dto.getRotation());
+                    tl.setInternalShearX(dto.getShearX());
+                    tl.setInternalShearY(dto.getShearY());
+                    tl.setCustomPivotX(dto.getCustomPivotX());
+                    tl.setCustomPivotY(dto.getCustomPivotY());
                 } else if (node instanceof GroupLayer) {
                     GroupLayer gl = (GroupLayer) node;
                     gl.setInternalScaleX(safeScale(dto.getScaleX()));
                     gl.setInternalScaleY(safeScale(dto.getScaleY()));
                     gl.setInternalRotation(dto.getRotation());
+                    gl.setInternalShearX(dto.getShearX());
+                    gl.setInternalShearY(dto.getShearY());
+                    gl.setCustomPivotX(dto.getCustomPivotX());
+                    gl.setCustomPivotY(dto.getCustomPivotY());
                 } else if (node instanceof GroupLayerV2) {
                     GroupLayerV2 gv2 = (GroupLayerV2) node;
                     gv2.setInternalScaleX(safeScale(dto.getScaleX()));
                     gv2.setInternalScaleY(safeScale(dto.getScaleY()));
                     gv2.setInternalRotation(dto.getRotation());
+                    gv2.setInternalShearX(dto.getShearX());
+                    gv2.setInternalShearY(dto.getShearY());
+                    gv2.setCustomPivotX(dto.getCustomPivotX());
+                    gv2.setCustomPivotY(dto.getCustomPivotY());
                 } else {
                     node.setScaleX(safeScale(dto.getScaleX()));
                     node.setScaleY(safeScale(dto.getScaleY()));
@@ -654,6 +694,10 @@ public class StateMapper {
             }
             if (dto.getScaleX() != 1.0) sl.setInternalScaleX(safeScale(dto.getScaleX()));
             if (dto.getScaleY() != 1.0) sl.setInternalScaleY(safeScale(dto.getScaleY()));
+            if (dto.getShearX() != 0) sl.setInternalShearX(dto.getShearX());
+            if (dto.getShearY() != 0) sl.setInternalShearY(dto.getShearY());
+            if (dto.getCustomPivotX() != -1) sl.setCustomPivotX(dto.getCustomPivotX());
+            if (dto.getCustomPivotY() != -1) sl.setCustomPivotY(dto.getCustomPivotY());
             if (dto.getRotation() != 0) sl.setInternalRotation(dto.getRotation());
             if (dto.getWidth() > 0 && dto.getHeight() > 0) sl.setPrefSize(dto.getWidth(), dto.getHeight());
             if (s.getContourSteps() > 0) {
@@ -676,6 +720,10 @@ public class StateMapper {
                     if (i.getActiveZone() != null) il.setActiveZone(i.getActiveZone());
                     if (dto.getScaleX() != 1.0) il.setInternalScaleX(safeScale(dto.getScaleX()));
                     if (dto.getScaleY() != 1.0) il.setInternalScaleY(safeScale(dto.getScaleY()));
+                    if (dto.getShearX() != 0) il.setInternalShearX(dto.getShearX());
+                    if (dto.getShearY() != 0) il.setInternalShearY(dto.getShearY());
+                    if (dto.getCustomPivotX() != -1) il.setCustomPivotX(dto.getCustomPivotX());
+                    if (dto.getCustomPivotY() != -1) il.setCustomPivotY(dto.getCustomPivotY());
                     if (dto.getRotation() != 0) il.setInternalRotation(dto.getRotation());
                     if (dto.getWidth() > 1 && dto.getHeight() > 1) il.resize(dto.getWidth(), dto.getHeight());
                     if (dto.isLocked()) il.setUserLocked(true);
@@ -692,6 +740,10 @@ public class StateMapper {
             if (g.getActiveZone() != null) gl.setActiveZone(g.getActiveZone());
             if (dto.getScaleX() != 1.0) gl.setInternalScaleX(safeScale(dto.getScaleX()));
             if (dto.getScaleY() != 1.0) gl.setInternalScaleY(safeScale(dto.getScaleY()));
+            if (dto.getShearX() != 0) gl.setInternalShearX(dto.getShearX());
+            if (dto.getShearY() != 0) gl.setInternalShearY(dto.getShearY());
+            if (dto.getCustomPivotX() != -1) gl.setCustomPivotX(dto.getCustomPivotX());
+            if (dto.getCustomPivotY() != -1) gl.setCustomPivotY(dto.getCustomPivotY());
             if (dto.getRotation() != 0) gl.setInternalRotation(dto.getRotation());
             if (g.getChildren() != null) {
                 for (LayerDTO childDto : g.getChildren()) {
@@ -730,6 +782,10 @@ public class StateMapper {
             if (t.getActiveZone() != null) tl.setActiveZone(t.getActiveZone());
             if (t.getScaleX() != 1.0) tl.setInternalScaleX(safeScale(t.getScaleX()));
             if (t.getScaleY() != 1.0) tl.setInternalScaleY(safeScale(t.getScaleY()));
+            if (t.getShearX() != 0) tl.setInternalShearX(t.getShearX());
+            if (t.getShearY() != 0) tl.setInternalShearY(t.getShearY());
+            if (t.getCustomPivotX() != -1) tl.setCustomPivotX(t.getCustomPivotX());
+            if (t.getCustomPivotY() != -1) tl.setCustomPivotY(t.getCustomPivotY());
             if (t.getRotation() != 0) tl.setInternalRotation(t.getRotation());
             if (t.isLocked()) tl.setUserLocked(true);
             return tl;

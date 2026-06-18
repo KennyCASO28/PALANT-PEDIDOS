@@ -16,7 +16,57 @@ public class AlignmentHelper {
 
     // --- Horizontal Alignment ---
 
-    // --- Horizontal Alignment ---
+    // --- Safe Bounds Extractors ---
+    private static javafx.geometry.Point2D getCenterInScene(Node n) {
+        if (n instanceof org.example.component.GroupLayerV2) {
+            org.example.component.GroupLayerV2 g2 = (org.example.component.GroupLayerV2) n;
+            Bounds cb = g2.calculateBounds();
+            double cx = cb.getMinX() + cb.getWidth() / 2.0;
+            double cy = cb.getMinY() + cb.getHeight() / 2.0;
+            return g2.localToScene(cx, cy);
+        } else if (n instanceof org.example.component.GroupLayer) {
+            org.example.component.GroupLayer gl = (org.example.component.GroupLayer) n;
+            double cx = gl.getBoundsMinX() + gl.getLogicalWidth() / 2.0;
+            double cy = gl.getBoundsMinY() + gl.getLogicalHeight() / 2.0;
+            return gl.localToScene(cx, cy);
+        } else if (n instanceof org.example.component.ShapeLayer) {
+            org.example.component.ShapeLayer sl = (org.example.component.ShapeLayer) n;
+            double cx = sl.getVisualMinX() + sl.getLogicalWidth() / 2.0;
+            double cy = sl.getVisualMinY() + sl.getLogicalHeight() / 2.0;
+            return sl.localToScene(cx, cy);
+        } else if (n instanceof org.example.component.ImageLayer) {
+            org.example.component.ImageLayer il = (org.example.component.ImageLayer) n;
+            double cx = il.getLogicalWidth() / 2.0;
+            double cy = il.getLogicalHeight() / 2.0;
+            return il.localToScene(cx, cy);
+        } else if (n instanceof org.example.component.TextLayer) {
+            org.example.component.TextLayer tl = (org.example.component.TextLayer) n;
+            // TextLayer logical bounds are centered at 0,0 locally
+            return tl.localToScene(0, 0);
+        } else {
+            Bounds b = n.getBoundsInLocal();
+            double cx = b.getMinX() + b.getWidth() / 2.0;
+            double cy = b.getMinY() + b.getHeight() / 2.0;
+            return n.localToScene(cx, cy);
+        }
+    }
+
+    private static javafx.geometry.Point2D getMinXYInScene(Node n) {
+        if (n instanceof org.example.component.GroupLayerV2) {
+            org.example.component.GroupLayerV2 g2 = (org.example.component.GroupLayerV2) n;
+            Bounds cb = g2.calculateBounds();
+            return g2.localToScene(cb.getMinX(), cb.getMinY());
+        } else if (n instanceof org.example.component.GroupLayer) {
+            org.example.component.GroupLayer gl = (org.example.component.GroupLayer) n;
+            return gl.localToScene(gl.getBoundsMinX(), gl.getBoundsMinY());
+        } else if (n instanceof org.example.component.ShapeLayer) {
+            org.example.component.ShapeLayer sl = (org.example.component.ShapeLayer) n;
+            return sl.localToScene(sl.getVisualMinX(), sl.getVisualMinY());
+        } else {
+            Bounds b = n.getBoundsInLocal();
+            return n.localToScene(b.getMinX(), b.getMinY());
+        }
+    }
 
     public static void alignLeft(List<Node> nodes, Node anchor) {
         if (nodes == null || nodes.size() < 2)
@@ -25,25 +75,31 @@ public class AlignmentHelper {
         double targetMinX;
 
         if (anchor != null) {
-            Bounds b = anchor.getBoundsInParent();
-            targetMinX = b.getMinX();
+            targetMinX = getMinXYInScene(anchor).getX();
         } else {
-            // Classic behavior: Find min X of selection
             double minX = Double.MAX_VALUE;
             for (Node n : nodes) {
-                Bounds b = n.getBoundsInParent();
-                if (b.getMinX() < minX)
-                    minX = b.getMinX();
+                double nodeMinX = getMinXYInScene(n).getX();
+                if (nodeMinX < minX)
+                    minX = nodeMinX;
             }
             targetMinX = minX;
         }
 
         for (Node n : nodes) {
-            if (n == anchor)
-                continue; // Don't move the anchor
-            Bounds b = n.getBoundsInParent();
-            double offset = targetMinX - b.getMinX();
-            n.setTranslateX(n.getTranslateX() + offset);
+            if (n == anchor) continue;
+            double currentMinX = getMinXYInScene(n).getX();
+            double deltaX = targetMinX - currentMinX;
+
+            if (n.getParent() != null) {
+                javafx.geometry.Point2D p0 = n.getParent().sceneToLocal(0, 0);
+                javafx.geometry.Point2D p1 = n.getParent().sceneToLocal(deltaX, 0);
+                if (p0 != null && p1 != null) {
+                    n.setTranslateX(n.getTranslateX() + (p1.getX() - p0.getX()));
+                }
+            } else {
+                n.setTranslateX(n.getTranslateX() + deltaX);
+            }
         }
     }
 
@@ -51,28 +107,19 @@ public class AlignmentHelper {
         if (nodes == null || nodes.size() < 2 || anchor == null)
             return;
 
-        // Get target center in Scene coordinates
-        javafx.geometry.Bounds anchorBounds = anchor.localToScene(anchor.getBoundsInLocal());
-        double targetCenterX = anchorBounds.getMinX() + anchorBounds.getWidth() / 2.0;
+        double targetCenterX = getCenterInScene(anchor).getX();
 
         for (Node n : nodes) {
             if (n == anchor) continue;
             
-            // Get current center in Scene coordinates
-            javafx.geometry.Bounds nodeBounds = n.localToScene(n.getBoundsInLocal());
-            double currentCenterX = nodeBounds.getMinX() + nodeBounds.getWidth() / 2.0;
-            
-            // Calculate delta in Scene space
+            double currentCenterX = getCenterInScene(n).getX();
             double deltaX = targetCenterX - currentCenterX;
             
-            // Convert delta to Node's Parent space
             if (n.getParent() != null) {
-                // To get the equivalent delta in parent space, we project a line
                 javafx.geometry.Point2D p0 = n.getParent().sceneToLocal(0, 0);
                 javafx.geometry.Point2D p1 = n.getParent().sceneToLocal(deltaX, 0);
                 if (p0 != null && p1 != null) {
-                    double parentDeltaX = p1.getX() - p0.getX();
-                    n.setTranslateX(n.getTranslateX() + parentDeltaX);
+                    n.setTranslateX(n.getTranslateX() + (p1.getX() - p0.getX()));
                 }
             } else {
                 n.setTranslateX(n.getTranslateX() + deltaX);
@@ -84,27 +131,19 @@ public class AlignmentHelper {
         if (nodes == null || nodes.size() < 2 || anchor == null)
             return;
 
-        // Get target center in Scene coordinates
-        javafx.geometry.Bounds anchorBounds = anchor.localToScene(anchor.getBoundsInLocal());
-        double targetCenterY = anchorBounds.getMinY() + anchorBounds.getHeight() / 2.0;
+        double targetCenterY = getCenterInScene(anchor).getY();
 
         for (Node n : nodes) {
             if (n == anchor) continue;
             
-            // Get current center in Scene coordinates
-            javafx.geometry.Bounds nodeBounds = n.localToScene(n.getBoundsInLocal());
-            double currentCenterY = nodeBounds.getMinY() + nodeBounds.getHeight() / 2.0;
-            
-            // Calculate delta in Scene space
+            double currentCenterY = getCenterInScene(n).getY();
             double deltaY = targetCenterY - currentCenterY;
             
-            // Convert delta to Node's Parent space
             if (n.getParent() != null) {
                 javafx.geometry.Point2D p0 = n.getParent().sceneToLocal(0, 0);
                 javafx.geometry.Point2D p1 = n.getParent().sceneToLocal(0, deltaY);
                 if (p0 != null && p1 != null) {
-                    double parentDeltaY = p1.getY() - p0.getY();
-                    n.setTranslateY(n.getTranslateY() + parentDeltaY);
+                    n.setTranslateY(n.getTranslateY() + (p1.getY() - p0.getY()));
                 }
             } else {
                 n.setTranslateY(n.getTranslateY() + deltaY);

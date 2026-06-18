@@ -175,6 +175,10 @@ public class ShapeDTO extends LayerDTO {
         copy.setY(getY());
         copy.setScaleX(getScaleX());
         copy.setScaleY(getScaleY());
+        copy.setShearX(getShearX());
+        copy.setShearY(getShearY());
+        copy.setCustomPivotX(getCustomPivotX());
+        copy.setCustomPivotY(getCustomPivotY());
         copy.setRotation(getRotation());
         copy.setZIndex(getZIndex());
         copy.setLocked(isLocked());

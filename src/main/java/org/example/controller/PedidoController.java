@@ -20,7 +20,7 @@ import javafx.geometry.Pos;
 import javafx.geometry.Insets;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import org.example.model.DetallePedido; 
+import org.example.model.DetallePedido;
 import org.example.service.OrderService;
 import org.example.service.SvgExportService;
 import org.example.service.PdfExportService;
@@ -40,16 +40,14 @@ import javafx.scene.paint.Color;
 import org.example.controller.helper.KeyboardShortcutManager;
 import org.example.controller.helper.WizardFlowManager;
 
-
-
 public class PedidoController {
     // Recompile trigger: Resolved UIFactory dependency.
 
     File currentProjectFile;
     private final PedidoGoalkeeperCoordinator goalkeeperCoordinator = new PedidoGoalkeeperCoordinator(this);
     boolean wizardStarted = false;
-    private boolean isStandalone = true; 
-    
+    private boolean isStandalone = true;
+
     // --- LISTENER FOR TAB TITLE ---
     private java.util.function.Consumer<String> onTitleChanged;
 
@@ -69,7 +67,7 @@ public class PedidoController {
     }
 
     org.example.dto.DatosEnvioDTO datosEnvio = new org.example.dto.DatosEnvioDTO();
-    
+
     // --- CABECERA ---
     @FXML
     TextField txtCliente;
@@ -207,14 +205,13 @@ public class PedidoController {
     private ImageView imgBase, imgManga, imgCuello, imgMalla, imgPuno, imgMedias;
 
     // Datos de la tabla
-    final ObservableList<DetallePedido> listaJugadores = FXCollections.observableArrayList(p -> 
-        new javafx.beans.Observable[] { 
-            p.nombreProperty(), p.numeroProperty(), p.tallaProperty(),
-            p.generoProperty(), p.tipoMangaProperty(), p.tallaShortProperty(),
-            p.includeTopProperty(), p.includeBottomProperty(), p.includeSocksProperty(),
-            p.esArqueroProperty(), p.colorArqueroProperty(), p.tipoMangaArqueroProperty()
-        }
-    );
+    final ObservableList<DetallePedido> listaJugadores = FXCollections
+            .observableArrayList(p -> new javafx.beans.Observable[] {
+                    p.nombreProperty(), p.numeroProperty(), p.tallaProperty(),
+                    p.generoProperty(), p.tipoMangaProperty(), p.tallaShortProperty(),
+                    p.includeTopProperty(), p.includeBottomProperty(), p.includeSocksProperty(),
+                    p.esArqueroProperty(), p.colorArqueroProperty(), p.tipoMangaArqueroProperty()
+            });
     // private final PedidoDAO pedidoDAO = new PedidoDAO(); // REMOVED
     // private final VendedorDAO vendedorDAO = new VendedorDAO(); // REMOVED
 
@@ -274,9 +271,10 @@ public class PedidoController {
         if (rootVBox != null) {
             rootVBox.sceneProperty().addListener((obs, oldScene, newScene) -> {
                 if (newScene != null) {
-                    if (shortcutManager == null) shortcutManager = new KeyboardShortcutManager(prendaVisualizer);
+                    if (shortcutManager == null)
+                        shortcutManager = new KeyboardShortcutManager(prendaVisualizer);
                     shortcutManager.setupAccelerators(newScene);
-                    
+
                     // ADD GLOBAL DELETE KEY HANDLER
                     newScene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
                         if (e.getCode() == javafx.scene.input.KeyCode.DELETE) {
@@ -287,11 +285,13 @@ public class PedidoController {
                                     javafx.scene.Node selected = prendaVisualizer.getLayerManager().getSelectedNode();
                                     if (selected != null) {
                                         // Ensure we don't delete a layer that is currently being edited inline
-                                        if (selected instanceof org.example.component.TextLayer && ((org.example.component.TextLayer) selected).isBeingEdited()) {
-                                            return; 
+                                        if (selected instanceof org.example.component.TextLayer
+                                                && ((org.example.component.TextLayer) selected).isBeingEdited()) {
+                                            return;
                                         }
                                         // Ensure we don't delete the layer if we are editing its nodes
-                                        if (selected instanceof org.example.component.ShapeLayer && ((org.example.component.ShapeLayer) selected).isNodeEditing()) {
+                                        if (selected instanceof org.example.component.ShapeLayer
+                                                && ((org.example.component.ShapeLayer) selected).isNodeEditing()) {
                                             return;
                                         }
                                         prendaVisualizer.getLayerManager().removeLayer(selected);
@@ -306,11 +306,13 @@ public class PedidoController {
         }
 
         // --- FICHA TÉCNICA REACTION ---
-        // Ensure ficha is marked as dirty whenever the roster changes (any add, remove or property update)
+        // Ensure ficha is marked as dirty whenever the roster changes (any add, remove
+        // or property update)
         listaJugadores.addListener((javafx.collections.ListChangeListener<DetallePedido>) c -> {
             fichaDirty = true;
-            
-            if (prendaVisualizer == null) return;
+
+            if (prendaVisualizer == null)
+                return;
 
             while (c.next()) {
                 if (c.wasUpdated()) {
@@ -319,12 +321,12 @@ public class PedidoController {
                         syncArqueroPreviewFromRosterUpdate(p);
                     }
                 }
-                
+
                 // If an arquero was added or removed, update the design mode option
                 if (c.wasAdded() || c.wasRemoved()) {
                     updateArqueroOptionStatus();
                 }
-                
+
                 // Keep configurator socks highlights in sync with roster content
                 syncSocksHighlightsWithRoster();
             }
@@ -436,7 +438,7 @@ public class PedidoController {
             comboModoDiseno.valueProperty().addListener((obs, oldVal, newVal) -> {
                 if (switchingDesignMode || !wizardStarted || prendaVisualizer == null || newVal == null)
                     return;
-                
+
                 boolean toArquero = "Arquero".equalsIgnoreCase(newVal.trim());
                 if (toArquero == editandoDisenoArquero)
                     return;
@@ -535,7 +537,8 @@ public class PedidoController {
             // --- KEYBOARD SHORTCUTS (Application Scope - Managed) ---
             stackVectorContainer.sceneProperty().addListener((obs, oldScene, newScene) -> {
                 if (newScene != null) {
-                    if (shortcutManager == null) shortcutManager = new KeyboardShortcutManager(prendaVisualizer);
+                    if (shortcutManager == null)
+                        shortcutManager = new KeyboardShortcutManager(prendaVisualizer);
                     shortcutManager.installEventFilter(newScene);
                 }
             });
@@ -560,9 +563,9 @@ public class PedidoController {
             // --- SAVE / LOAD SYSTEM (REMOVED) ---
 
             // --- INITIALIZE WIZARD FLOW MANAGER ---
-            this.wizardFlowManager = new WizardFlowManager(mainTabPane, btnFinalizar, prendaVisualizer, 
-                                        stackVectorContainer, stackVectorContainerLogos, 
-                                        btnResetGlobal, btnCenterView, lblPlaceholder);
+            this.wizardFlowManager = new WizardFlowManager(mainTabPane, btnFinalizar, prendaVisualizer,
+                    stackVectorContainer, stackVectorContainerLogos,
+                    btnResetGlobal, btnCenterView, lblPlaceholder);
 
             // --- DELEGATE INITIALIZATION ---
             prendaDelegate = new PrendaDelegate(dynamicFormContainer, prendaVisualizer, lblPlaceholder);
@@ -572,7 +575,8 @@ public class PedidoController {
             });
             prendaDelegate.setOnBulkSocksCategoryChanged(this::applySocksCategoryToAll);
 
-            jugadoresDelegate = new JugadoresDelegate(tablaDetalles, txtInputNombre, txtInputNumero, comboInputTalla, lblTotalPrendas, listaJugadores);
+            jugadoresDelegate = new JugadoresDelegate(tablaDetalles, txtInputNombre, txtInputNumero, comboInputTalla,
+                    lblTotalPrendas, listaJugadores);
             jugadoresDelegate.setConfigSupplier(() -> prendaDelegate.getConfiguracion());
 
             // --- RESET LOGIC ON GARMENT CHANGE ---
@@ -584,7 +588,7 @@ public class PedidoController {
                     if (mainTabPane.getTabs().size() > 2)
                         mainTabPane.getTabs().get(2).setDisable(true);
                     mainTabPane.getSelectionModel().select(0);
-                    
+
                     // Add listener to sync highlights when returning to Design tab
                     mainTabPane.getSelectionModel().selectedIndexProperty().addListener((obs, oldIdx, newIdx) -> {
                         if (newIdx.intValue() == 0) {
@@ -610,13 +614,15 @@ public class PedidoController {
                     }
                 });
 
-                // should mark the technical sheet as dirty so it re-generates when entering Tab 4.
+                // should mark the technical sheet as dirty so it re-generates when entering Tab
+                // 4.
                 prendaVisualizer.addOnStateChanged(() -> {
                     fichaDirty = true;
                     markProjectDirty();
                     if (editandoDisenoArquero) {
                         if (!isRestoringDesign && !switchingDesignMode) {
-                            prendaVisualizer.setArqueroDisenoPersonalizado(true); // User is manually painting/designing the goalie
+                            prendaVisualizer.setArqueroDisenoPersonalizado(true); // User is manually painting/designing
+                                                                                  // the goalie
                         }
                     } else if (!prendaVisualizer.isArqueroDisenoPersonalizado()) {
                         // Real-time Inheritance: Sync to the goalie if the user is editing the player
@@ -624,7 +630,8 @@ public class PedidoController {
                         syncArqueroDesignFromPlayer(getArqueroPrincipal());
                     }
 
-                    if (mainTabPane != null && mainTabPane.getSelectionModel().getSelectedItem() == getFichaTecnicaManager().tabFicha) {
+                    if (mainTabPane != null
+                            && mainTabPane.getSelectionModel().getSelectedItem() == getFichaTecnicaManager().tabFicha) {
                         generarFichaTecnica();
                     }
                 });
@@ -697,7 +704,8 @@ public class PedidoController {
                     if (idx == 1) {
                         btnResetGlobal.setOnAction(e -> {
                             prendaVisualizer.resetColors();
-                            if (personalizacionDelegate != null) personalizacionDelegate.refreshContent();
+                            if (personalizacionDelegate != null)
+                                personalizacionDelegate.refreshContent();
                         });
                     } else {
                         btnResetGlobal.setOnAction(e -> resetConfiguracion());
@@ -719,12 +727,14 @@ public class PedidoController {
 
                 // Show/Hide Print and Export Buttons if in Ficha Tecnica
                 if (newTab == getFichaTecnicaManager().tabFicha) {
-                    if (comboModoDiseno != null) comboModoDiseno.setDisable(true);
+                    if (comboModoDiseno != null)
+                        comboModoDiseno.setDisable(true);
                     btnFinalizar.setText("IMPRIMIR / PDF");
                     btnFinalizar.getStyleClass().setAll("button", "button-tab-ficha");
                     btnFinalizar.setOnAction(ev -> exportarPDF());
                 } else {
-                    if (comboModoDiseno != null) comboModoDiseno.setDisable(false);
+                    if (comboModoDiseno != null)
+                        comboModoDiseno.setDisable(false);
                     btnFinalizar.setOnAction(ev -> handleMainAction());
                     wizardFlowManager.actualizarBotonAccion();
                 }
@@ -742,11 +752,21 @@ public class PedidoController {
         setupResponsiveMainTabs();
 
         // Listeners para detectar cambios (para regeneración de ficha y Dirty Check)
-        txtCliente.textProperty().addListener(o -> { fichaDirty = true; markProjectDirty(); });
-        if (comboPrioridad != null) comboPrioridad.valueProperty().addListener(o -> { 
-            fichaDirty = true; markProjectDirty(); calcularFechaEntrega(); 
+        txtCliente.textProperty().addListener(o -> {
+            fichaDirty = true;
+            markProjectDirty();
         });
-        if (comboVendedor != null) comboVendedor.valueProperty().addListener(o -> { fichaDirty = true; markProjectDirty(); });
+        if (comboPrioridad != null)
+            comboPrioridad.valueProperty().addListener(o -> {
+                fichaDirty = true;
+                markProjectDirty();
+                calcularFechaEntrega();
+            });
+        if (comboVendedor != null)
+            comboVendedor.valueProperty().addListener(o -> {
+                fichaDirty = true;
+                markProjectDirty();
+            });
 
         // --- MANUAL RESIZER SETUP (Safe Initialization) ---
         if (rootVBox.getScene() != null) {
@@ -842,7 +862,8 @@ public class PedidoController {
             mainTabPane.getStyleClass().add("main-workflow-tabs");
         }
 
-        mainTabPane.widthProperty().addListener((obs, oldWidth, newWidth) -> refreshResponsiveMainTabs(newWidth.doubleValue()));
+        mainTabPane.widthProperty()
+                .addListener((obs, oldWidth, newWidth) -> refreshResponsiveMainTabs(newWidth.doubleValue()));
         javafx.application.Platform.runLater(() -> refreshResponsiveMainTabs(mainTabPane.getWidth()));
     }
 
@@ -920,7 +941,8 @@ public class PedidoController {
                 : "-fx-background-color: rgba(11,33,62,0.92); -fx-background-radius: 12; -fx-border-color: rgba(255,255,255,0.12); -fx-border-radius: 12; -fx-cursor: hand; -fx-padding: 9; -fx-effect: dropshadow(three-pass-box, rgba(15,23,42,0.16), 10, 0, 0, 3);");
     }
 
-    private void updateOverlayPanelTogglePosition(ToggleButton button, boolean expanded, boolean reserveUpperRightSpace) {
+    private void updateOverlayPanelTogglePosition(ToggleButton button, boolean expanded,
+            boolean reserveUpperRightSpace) {
         if (expanded) {
             StackPane.setAlignment(button, Pos.TOP_LEFT);
             StackPane.setMargin(button, new Insets(12, 0, 0, 12));
@@ -934,8 +956,6 @@ public class PedidoController {
     }
 
     // ... (Existing fields) ...
-
-
 
     private FichaTecnicaManager fichaTecnicaManager;
 
@@ -958,6 +978,7 @@ public class PedidoController {
     private void generarFichaTecnica() {
         getFichaTecnicaManager().generarFichaTecnica();
     }
+
     private void resetConfiguracion() {
         if (prendaDelegate != null) {
             prendaDelegate.reset();
@@ -966,11 +987,13 @@ public class PedidoController {
     }
 
     private void actualizarBotonAccion() {
-        if (wizardFlowManager != null) wizardFlowManager.actualizarBotonAccion();
+        if (wizardFlowManager != null)
+            wizardFlowManager.actualizarBotonAccion();
     }
 
     private void handleMainAction() {
-        if (wizardFlowManager == null) return;
+        if (wizardFlowManager == null)
+            return;
         boolean stepped = wizardFlowManager.handleMainAction();
         if (!stepped && mainTabPane.getSelectionModel().getSelectedIndex() == mainTabPane.getTabs().size() - 1) {
             guardarPedido();
@@ -990,10 +1013,10 @@ public class PedidoController {
             disenoCampoConfig = null;
             disenoCampoLayers = new java.util.ArrayList<>();
         }
-        
+
         disenoArqueroConfig = null;
         disenoArqueroLayers = new java.util.ArrayList<>();
-        
+
         if (comboModoDiseno != null) {
             switchingDesignMode = true;
             try {
@@ -1020,11 +1043,13 @@ public class PedidoController {
         if (prendaVisualizer == null)
             return;
         fichaDirty = true;
-        
+
         // Sync Visualizer state to DTOs for persistent saving
-        org.example.dto.save.PrendaStateDTO cfg = org.example.service.save.StateMapper.extractGarmentConfig(prendaVisualizer);
-        java.util.List<org.example.dto.save.LayerDTO> layers = org.example.service.save.StateMapper.extractUserLayers(prendaVisualizer);
-        
+        org.example.dto.save.PrendaStateDTO cfg = org.example.service.save.StateMapper
+                .extractGarmentConfig(prendaVisualizer);
+        java.util.List<org.example.dto.save.LayerDTO> layers = org.example.service.save.StateMapper
+                .extractUserLayers(prendaVisualizer);
+
         if (editandoDisenoArquero) {
             disenoArqueroConfig = cfg;
             disenoArqueroLayers = layers;
@@ -1033,16 +1058,17 @@ public class PedidoController {
             disenoCampoLayers = layers;
         }
     }
+
     void restaurarDisenoSilencioso(boolean forArquero, org.example.dto.save.PrendaStateDTO cfg,
             java.util.List<org.example.dto.save.LayerDTO> layers) {
         if (prendaVisualizer == null || cfg == null)
             return;
-        
+
         isRestoringDesign = true;
         try {
             prendaVisualizer.setActiveDesign(forArquero); // Switch slot
             org.example.service.save.StateMapper.restoreDesign(prendaVisualizer, cfg, layers);
-            editandoDisenoArquero = forArquero; 
+            editandoDisenoArquero = forArquero;
         } finally {
             isRestoringDesign = false;
         }
@@ -1054,8 +1080,9 @@ public class PedidoController {
         }
 
         boolean wasArquero = editandoDisenoArquero;
-        
-        // MUTE NOTIFICATIONS to prevent Ficha re-generation or other listeners during extraction
+
+        // MUTE NOTIFICATIONS to prevent Ficha re-generation or other listeners during
+        // extraction
         prendaVisualizer.setNotificationsSuspended(true);
         try {
             // 1. Capturar el diseño actual en su slot correspondiente
@@ -1063,16 +1090,17 @@ public class PedidoController {
 
             // 2. Asegurar que tenemos AMBOS diseños capturados en los slots de memoria
             if (disenoCampoConfig == null) {
-                disenoCampoConfig = org.example.service.save.StateMapper.extractGarmentConfig(prendaVisualizer, 
+                disenoCampoConfig = org.example.service.save.StateMapper.extractGarmentConfig(prendaVisualizer,
                         prendaVisualizer.getCamisetaState(), prendaVisualizer.getColorManager());
-                disenoCampoLayers = org.example.service.save.StateMapper.extractUserLayers(prendaVisualizer.getCamisetaState());
+                disenoCampoLayers = org.example.service.save.StateMapper
+                        .extractUserLayers(prendaVisualizer.getCamisetaState());
             }
 
             // 3. Extraer el estado completo del proyecto
-            // El visualizer DEBE estar en modo Camiseta para que extractState capture 
+            // El visualizer DEBE estar en modo Camiseta para que extractState capture
             // el diseño principal correctamente.
             if (wasArquero) {
-                prendaVisualizer.setActiveDesign(false); 
+                prendaVisualizer.setActiveDesign(false);
                 editandoDisenoArquero = false;
             }
 
@@ -1095,9 +1123,9 @@ public class PedidoController {
                     prendaDelegate.restoreFromState(disenoArqueroConfig);
                 }
             }
-            
+
             return state;
-            
+
         } finally {
             prendaVisualizer.setNotificationsSuspended(false);
         }
@@ -1150,12 +1178,13 @@ public class PedidoController {
     }
 
     private void applySocksCategoryToAll(org.example.model.TipoMedias category) {
-        if (listaJugadores == null) return;
+        if (listaJugadores == null)
+            return;
         for (DetallePedido p : listaJugadores) {
             if (p.isIncludeSocks()) {
                 if (category == null) {
                     // Re-trigger auto-calculation based on Talla
-                    p.setTalla(p.getTalla()); 
+                    p.setTalla(p.getTalla());
                 } else {
                     p.setTipoMedias(category.getLabel().toUpperCase());
                 }
@@ -1173,12 +1202,14 @@ public class PedidoController {
      * present in the roster (including auto-resolved ones).
      */
     private void syncSocksHighlightsWithRoster() {
-        if (prendaDelegate == null || listaJugadores == null) return;
-        
+        if (prendaDelegate == null || listaJugadores == null)
+            return;
+
         java.util.Set<org.example.model.TipoMedias> active = new java.util.HashSet<>();
         for (DetallePedido p : listaJugadores) {
-            if (!p.isIncludeSocks()) continue;
-            
+            if (!p.isIncludeSocks())
+                continue;
+
             String effective = resolveEffectiveSocksCategory(p);
             for (org.example.model.TipoMedias tm : org.example.model.TipoMedias.values()) {
                 if (tm.getLabel().equalsIgnoreCase(effective)) {
@@ -1195,12 +1226,15 @@ public class PedidoController {
             return base.toUpperCase();
         }
         String t = p.getTalla() != null ? p.getTalla().toUpperCase().trim() : "";
-        if (t.matches("S|M|L|XL|XXL|3XXL|4XXL|G|XG|2XL|3XL|4XL")) return "ADULTO";
-        if (t.matches("12|14|16")) return "JUVENIL";
-        if (t.matches("4|6|8")) return "NIÑOS";
+        if (t.matches("S|M|L|XL|XXL|3XXL|4XXL|G|XG|2XL|3XL|4XL"))
+            return "ADULTO";
+        if (t.matches("12|14|16"))
+            return "JUVENIL";
+        if (t.matches("4|6|8"))
+            return "NIÑOS";
         return "PROFESIONAL";
     }
-    
+
     private void mostrarPantallaInicio() {
         wizardStarted = true;
         editandoDisenoArquero = false;
@@ -1323,15 +1357,15 @@ public class PedidoController {
 
         boolean completo = (datosEnvio != null && datosEnvio.isComplete());
         String resumen = (datosEnvio != null) ? datosEnvio.getResumenCorto() : null;
-        
+
         if (resumen == null || resumen.trim().isEmpty()) {
             btnDatosEnvio.setText("Completar datos");
         } else {
             btnDatosEnvio.setText(resumen);
         }
-        
+
         btnDatosEnvio.setStyle("-fx-border-color: " + (completo ? "#2ecc71;" : "rgba(255,255,255,0.30);") +
-                           " -fx-font-size: 11px;");
+                " -fx-font-size: 11px;");
     }
 
     void aplicarDatosEnvioToHiddenFields() {
@@ -1368,7 +1402,6 @@ public class PedidoController {
             actualizarDatosEnvioUI();
         });
     }
-
 
     // --- FUNCIONES DE JUGADORES (DELEGATED) ---
 
@@ -1656,7 +1689,8 @@ public class PedidoController {
 
     /**
      * Refresh jugadores table from source to get latest values from DB/file
-     * This is called when switching to Arquero design mode to ensure latest manga/color values
+     * This is called when switching to Arquero design mode to ensure latest
+     * manga/color values
      */
     private void refreshJugadoresTableFromSource() {
         try {
@@ -1754,10 +1788,40 @@ public class PedidoController {
             }
         } catch (Exception e) {
             e.printStackTrace();
-            UIFactory.mostrarAlerta(Alert.AlertType.ERROR, "Error", "No se pudo abrir una nueva ventana: " + e.getMessage());
+            UIFactory.mostrarAlerta(Alert.AlertType.ERROR, "Error",
+                    "No se pudo abrir una nueva ventana: " + e.getMessage());
         }
     }
+
+    public void importarDatosDePedido(org.example.dao.PedidoDAO.PedidoRecord record,
+            java.util.List<org.example.model.DetallePedido> jugadores) {
+        if (record == null)
+            return;
+        if (txtCliente != null)
+            txtCliente.setText(record.getClienteNombre());
+        if (comboVendedor != null)
+            comboVendedor.setValue(record.getVendedor());
+        if (lblCodigoPedido != null)
+            lblCodigoPedido.setText(record.getCodigoPedido());
+
+        // Priority
+        if (comboPrioridad != null && record.getPrioridad() != null) {
+            for (org.example.service.OrderSchedulerService.Priority p : comboPrioridad.getItems()) {
+                if (p.getLabel().equalsIgnoreCase(record.getPrioridad())
+                        || p.name().equalsIgnoreCase(record.getPrioridad())) {
+                    comboPrioridad.setValue(p);
+                    break;
+                }
+            }
+        }
+
+        // Roster/players
+        if (jugadores != null) {
+            listaJugadores.setAll(jugadores);
+        }
+
+        // Mark dirty
+        this.projectDirty = true;
+        this.fichaDirty = true;
+    }
 }
-
-
-

@@ -199,6 +199,15 @@ public class GroupLayer extends Group {
     }
 
     // --- INTERNAL TRANSFORM ACCESSORS (FOR PERSISTENCE) ---
+    public double getInternalShearX() { return shearTransform.getX(); }
+    public void setInternalShearX(double s) { shearTransform.setX(s); }
+    public double getInternalShearY() { return shearTransform.getY(); }
+    public void setInternalShearY(double s) { shearTransform.setY(s); }
+    public double getCustomPivotX() { return customPivotX; }
+    public void setCustomPivotX(double x) { customPivotX = x; }
+    public double getCustomPivotY() { return customPivotY; }
+    public void setCustomPivotY(double y) { customPivotY = y; }
+
     public double getInternalScaleX() {
         return scaleTransform.getX();
     }

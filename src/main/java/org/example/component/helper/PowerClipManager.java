@@ -93,14 +93,11 @@ public class PowerClipManager {
             Point2D containerLocalCenter = container.getContentGroup().sceneToLocal(sceneCenter);
 
             // We need to set TranslateX/Y such that the center matches containerLocalCenter
-            // localToParent(0,0) gives the top-left in parent coords before translate if we
-            // are not careful.
-            // But TranslateX/Y ARE the parent coords of the local 0,0.
-            // So: NewTranslate = ContainerLocalCenter - (LocalCenterOfNode)
             Point2D localCenter = getLogicalCenter(layer);
+            Point2D currentParentPos = layer.localToParent(localCenter);
 
-            layer.setTranslateX(containerLocalCenter.getX() - localCenter.getX());
-            layer.setTranslateY(containerLocalCenter.getY() - localCenter.getY());
+            layer.setTranslateX(layer.getTranslateX() + (containerLocalCenter.getX() - currentParentPos.getX()));
+            layer.setTranslateY(layer.getTranslateY() + (containerLocalCenter.getY() - currentParentPos.getY()));
         } else {
             centerInZone(layer, zoneName);
         }
@@ -209,7 +206,8 @@ public class PowerClipManager {
 
         // 2. Visual Feedback (Dim others) - NEW APPROACH
         visualizer.setEditModeVisuals(true);
-        // Schedule AFTER clearSelection() to ensure it is not wiped by the selection listener
+        // Schedule AFTER clearSelection() to ensure it is not wiped by the selection
+        // listener
         final String zoneForOverlay = zoneName;
         Platform.runLater(() -> visualizer.updateOverlayForZone(zoneForOverlay));
 
@@ -380,7 +378,8 @@ public class PowerClipManager {
     }
 
     public void reset() {
-        // CRITICAL: Remove all smart containers from the scene graph before clearing the map
+        // CRITICAL: Remove all smart containers from the scene graph before clearing
+        // the map
         if (layerManager != null && layerManager.getLayerGroup() != null) {
             containers.values().forEach(container -> {
                 layerManager.getLayerGroup().getChildren().remove(container);

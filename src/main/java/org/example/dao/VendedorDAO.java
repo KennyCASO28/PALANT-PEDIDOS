@@ -10,7 +10,8 @@ public class VendedorDAO {
 
     public List<String> listarVendedores() {
         List<String> lista = new ArrayList<>();
-        String sql = "SELECT nombre FROM vendedores WHERE activo = TRUE ORDER BY nombre ASC";
+        // Query active users from the 'usuarios' table (the actual sellers/staff)
+        String sql = "SELECT nombre_completo FROM usuarios WHERE activo = TRUE ORDER BY nombre_completo ASC";
 
         Connection conn = ConexionDB.getConnection();
         if (conn == null) {
@@ -21,11 +22,14 @@ public class VendedorDAO {
                 ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
-                lista.add(rs.getString("nombre"));
+                String nombre = rs.getString("nombre_completo");
+                if (nombre != null && !nombre.trim().isEmpty()) {
+                    lista.add(nombre.trim());
+                }
             }
 
         } catch (Exception e) {
-            System.out.println("❌ Error al listar vendedores: " + e.getMessage());
+            System.out.println("Error al listar vendedores: " + e.getMessage());
         } finally {
             try {
                 conn.close();
@@ -36,4 +40,3 @@ public class VendedorDAO {
         return lista;
     }
 }
-

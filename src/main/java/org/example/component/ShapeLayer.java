@@ -124,6 +124,11 @@ public class ShapeLayer extends Group implements GraphicLayer {
     @Override public Node getNode() { return this; }
     @Override public void render() { renderShape(); }
 
+    @Override public double getCustomPivotX() { return customPivotX; }
+    @Override public void setCustomPivotX(double x) { customPivotX = x; }
+    @Override public double getCustomPivotY() { return customPivotY; }
+    @Override public void setCustomPivotY(double y) { customPivotY = y; }
+
     @Override
     public void recordUndoState() {
         this.undoStartX = getTranslateX(); this.undoStartY = getTranslateY();

@@ -44,9 +44,11 @@ public class ImageClipboardSupport {
         // 3. Copy Properties
         copy.setTranslateX(clipboardLayer.getTranslateX());
         copy.setTranslateY(clipboardLayer.getTranslateY());
-        copy.setRotate(clipboardLayer.getRotate());
-        copy.setScaleX(clipboardLayer.getScaleX());
-        copy.setScaleY(clipboardLayer.getScaleY());
+        copy.setInternalRotation(clipboardLayer.getInternalRotation());
+        copy.setInternalScaleX(clipboardLayer.getInternalScaleX());
+        copy.setInternalScaleY(clipboardLayer.getInternalScaleY());
+        copy.getShearTransform().setX(clipboardLayer.getShearTransform().getX());
+        copy.getShearTransform().setY(clipboardLayer.getShearTransform().getY());
 
         // 4. Match Visual Size
         copy.setSize(clipboardLayer.getWidth(), clipboardLayer.getHeight());

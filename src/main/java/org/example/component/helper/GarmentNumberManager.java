@@ -164,11 +164,7 @@ public class GarmentNumberManager {
         nc.setLayerPath(0, SVGCache.loadPath(basePath + "base.svg"));
         nc.setLayerPath(1, SVGCache.loadPath(basePath + "combo.svg"));
         nc.setLayerPath(2, SVGCache.loadPath(basePath + "borde.svg"));
-        nc.setLayerPath(3, SVGCache.loadPath(basePath + "lineas.svg"));
-        if (Color.BLACK.equals(nc.getLayerColor(3))) {
-            String shadow = SVGCache.loadPath(basePath + "sombra.svg");
-            if (!shadow.isEmpty()) nc.setLayerPath(3, shadow);
-        }
+        nc.setLayerPath(3, ""); // lineas and sombra feature removed
         nc.setLayerPath(4, SVGCache.loadPath(basePath + "marca.svg"));
     }
 

@@ -110,6 +110,7 @@ public class WizardFlowManager {
             rootOverlay.getChildren().add(prendaVisualizer);
 
             stackVectorContainerLogos.getChildren().setAll(rootOverlay);
+            prendaVisualizer.setEditModeContainer(stackVectorContainerLogos);
 
             // Re-insalar botones flotantes
             if (btnResetGlobal != null) {
