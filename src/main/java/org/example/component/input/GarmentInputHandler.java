@@ -263,12 +263,7 @@ public class GarmentInputHandler {
                     return;
                 }
 
-                // Ctrl + B → Toggle background lock
-                if (e.getCode() == javafx.scene.input.KeyCode.B && !isAltDown) {
-                    visualizer.toggleBackgroundLock();
-                    e.consume();
-                    return;
-                }
+                // I will remove the background lock shortcut from Ctrl+B to prevent accidental unlocks.
             }
 
             // ----------------------------------------------------------------
@@ -804,7 +799,9 @@ public class GarmentInputHandler {
                 }
                 e.consume();
             } else if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.isShiftDown()) {
-                // ... (Double click logic unchanged)
+                if (visualizer.getViewportController() != null && visualizer.getViewportController().isPanningEnabled()) {
+                    return; // Do not open edit mode if panning is enabled
+                }
                 // Prevent opening checks if already editing (User Request: "Don't open other
                 // containers while editing one")
                 if (visualizer.getPowerClipManager().isEditing()) {

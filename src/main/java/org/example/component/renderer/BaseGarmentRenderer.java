@@ -13,6 +13,9 @@ public abstract class BaseGarmentRenderer implements GarmentRenderer {
     protected final Group group = new Group();
     protected final Group detailGroup = new Group();
     protected boolean visible = true;
+    protected boolean hasLinea = false;
+
+    public abstract void setShirtLinea(boolean hasLinea);
 
     // NEW: Speed optimization for color application. Maps SVG Zone ID to actual path objects.
     protected final java.util.Map<String, java.util.List<SVGPath>> zoneMap = new java.util.HashMap<>();

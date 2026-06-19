@@ -120,7 +120,7 @@ public class TextLayer extends Group implements GraphicLayer {
     private final Tooltip hoverTooltip = new Tooltip();
 
     public TextLayer(String text) {
-        this(text, Font.font("Inter", FontWeight.BOLD, 24), Color.BLACK);
+        this(text, Font.font("Arial", FontWeight.BOLD, 24), Color.BLACK);
     }
 
     public TextLayer(String text, Font font, Color color) {
@@ -131,6 +131,11 @@ public class TextLayer extends Group implements GraphicLayer {
         this.textContent = text;
         this.font = font;
         this.textColor = color;
+        if (font != null) {
+            String style = font.getStyle().toLowerCase();
+            this.isBold = style.contains("bold");
+            this.isItalic = style.contains("italic");
+        }
 
         // Initialize Handles
         int hSize = 4; // Standardized square handle size

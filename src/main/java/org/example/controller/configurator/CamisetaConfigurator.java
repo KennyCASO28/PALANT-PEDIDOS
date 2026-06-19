@@ -35,6 +35,7 @@ public class CamisetaConfigurator {
     private Label lblLargoDisplay;
     private Label lblCuelloDisplay;
     private ToggleButton tbPunos; // Field for programmatic access
+    private ToggleButton tbLineas; // Field for lineas toggle
     private Runnable onConfigChanged;
 
     public void setOnConfigChanged(Runnable listener) {
@@ -113,7 +114,9 @@ public class CamisetaConfigurator {
             configBuilder.conMalla(previousConfig.llevaMalla());
             configBuilder.conPunoCamiseta(previousConfig.llevaPunoCamiseta());
             configBuilder.conFranjaCamiseta(previousConfig.llevaFranjaCamiseta());
+            configBuilder.conLineaCamiseta(previousConfig.llevaLineaCamiseta());
             configBuilder.conAcolchado(previousConfig.llevaAcolchado());
+            configBuilder.conLigaMedias(previousConfig.llevaLigaMedias());
 
             // Apply to visualizer
             visualizer.setCorte(previousConfig.getCorte());
@@ -122,12 +125,16 @@ public class CamisetaConfigurator {
             visualizer.setMalla(previousConfig.llevaMalla());
             visualizer.setPunos(previousConfig.llevaPunoCamiseta());
             visualizer.setShirtStripe(previousConfig.llevaFranjaCamiseta());
+            visualizer.setShirtLinea(previousConfig.llevaLineaCamiseta());
             visualizer.setPadding(previousConfig.llevaAcolchado());
+            visualizer.setSocksTop(previousConfig.llevaLigaMedias());
 
             // Restore Extras to Builder
             configBuilder.conMalla(previousConfig.llevaMalla());
             configBuilder.conPunoCamiseta(previousConfig.llevaPunoCamiseta());
             configBuilder.conFranjaCamiseta(previousConfig.llevaFranjaCamiseta());
+            configBuilder.conLineaCamiseta(previousConfig.llevaLineaCamiseta());
+            configBuilder.conLigaMedias(previousConfig.llevaLigaMedias());
             configBuilder.tipoMedias(previousConfig.getTipoMedias());
 
         } else {
@@ -144,6 +151,7 @@ public class CamisetaConfigurator {
             visualizer.setMalla(false);
             visualizer.setPunos(false);
             visualizer.setShirtStripe(false);
+            visualizer.setShirtLinea(false);
         }
 
         agregarSeccionCorte(configBuilder.build().getCorte());
@@ -349,6 +357,19 @@ public class CamisetaConfigurator {
         
         boxAdicionales.getChildren().addAll(tbPunos, tbMalla, tbAcolchado);
 
+        tbLineas = UIFactory.crearBotonOpcion("Líneas", "mdi2l-layers-outline", 20);
+        UIFactory.applyGenderTheme(tbLineas, configBuilder.build().getGenero());
+        tbLineas.setSelected(configBuilder.build().llevaLineaCamiseta());
+        tbLineas.setPrefHeight(65);
+        tbLineas.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(tbLineas, javafx.scene.layout.Priority.ALWAYS);
+
+        tbLineas.setOnAction(e -> {
+            configBuilder.conLineaCamiseta(tbLineas.isSelected());
+            visualizer.setShirtLinea(tbLineas.isSelected());
+            notifyChange();
+        });
+
         ToggleButton tbTelaNatural = UIFactory.crearBotonOpcion("Tela Natural", "fas-scroll", 20);
         UIFactory.applyGenderTheme(tbTelaNatural, configBuilder.build().getGenero());
         tbTelaNatural.setSelected(false);
@@ -366,7 +387,7 @@ public class CamisetaConfigurator {
         });
 
         VBox contentAdic = new VBox(10, boxAdicionales);
-        contentAdic.getChildren().add(tbTelaNatural);
+        contentAdic.getChildren().addAll(tbLineas, tbTelaNatural);
 
         container.getChildren().add(UIFactory.crearSeccionTarjeta("Adicionales", null, contentAdic));
     }

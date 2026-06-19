@@ -96,23 +96,34 @@ public class StateMapper {
         // 1. Order Details
         project.setOrderDetails(mapRoster(roster));
 
-        // 2. Garment Config (Camiseta)
-        project.setGarmentConfig(mapGarmentConfig(visualizer, visualizer.getCamisetaState(), visualizer.getCamisetaColorManager()));
-
-        // 3. Layers (Camiseta)
+        // 2. Garment Config & Layers
         boolean wasArq = visualizer.isEditandoArquero();
-        if (wasArq) {
-            project.setLayers(visualizer.getCamisetaState().getUserLayers());
-        } else if (visualizer.getUserLayerGroup() != null) {
+        
+        try {
+            // Force player mode to accurately extract player's active layer group
+            if (wasArq) {
+                visualizer.setActiveDesign(false);
+            }
+            
+            project.setGarmentConfig(extractGarmentConfig(visualizer, visualizer.getCamisetaState(), visualizer.getCamisetaColorManager()));
             project.setLayers(mapLayers(visualizer.getUserLayerGroup().getChildren()));
+            
+            // Force goalie mode to accurately extract goalie's active layer group
+            visualizer.setActiveDesign(true);
+            project.setArqueroGarmentConfig(extractGarmentConfig(visualizer, visualizer.getArqueroState(), visualizer.getArqueroColorManager()));
+            project.setArqueroLayers(visualizer.getArqueroState().getUserLayers());
+            
+        } finally {
+            // Restore original view mode
+            visualizer.setActiveDesign(wasArq);
         }
 
-        // 4. Arquero Design
-        project.setArqueroGarmentConfig(mapGarmentConfig(visualizer, visualizer.getArqueroState(), visualizer.getArqueroColorManager()));
-        if (!wasArq) {
-            project.setArqueroLayers(visualizer.getArqueroState().getUserLayers());
-        } else if (visualizer.getUserLayerGroup() != null) {
-            project.setArqueroLayers(mapLayers(visualizer.getUserLayerGroup().getChildren()));
+        // 4. Goalie Personalization Flag
+        project.setArqueroPersonalizado(visualizer.isArqueroDisenoPersonalizado());
+
+        // 5. Shipping Info
+        if (shippingInfo != null) {
+            project.setShippingInfo(shippingInfo);
         }
 
         // 5. Fonts (Portable)
@@ -190,17 +201,19 @@ public class StateMapper {
 
             if (state.getShirtCrestTech() != null) {
                 try {
-                    builder.tipoEscudo(TipoEscudo.valueOf(state.getShirtCrestTech().toUpperCase()));
+                    builder.tipoEscudo(TipoEscudo.valueOfTech(state.getShirtCrestTech()));
                 } catch(Exception e) {}
             }
 
             builder.conMalla(state.isHasMesh());
             builder.conPunoCamiseta(state.isHasCuffs());
             builder.conFranjaCamiseta(state.isHasShirtStripe());
+            builder.conLineaCamiseta(state.isHasShirtLinea());
             builder.conShort(state.isHasShorts());
             builder.conMedias(state.isHasSocks());
             builder.conPunoShort(state.isHasShortsCuff());
             builder.conFranjaShort(state.isHasShortsStripe());
+            builder.conLineaShort(state.isHasShortsLinea());
             builder.conPiqueteShort(state.isHasShortsPicket());
             builder.conBolsilloShort(state.isHasShortsPocket());
             builder.conPasadorShort(state.isHasShortsCord());
@@ -246,10 +259,12 @@ public class StateMapper {
         dto.setHasMesh(state.hasMesh());
         dto.setHasCuffs(state.hasCuffs());
         dto.setHasShirtStripe(state.hasShirtStripe());
+        dto.setHasShirtLinea(state.hasShirtLinea());
         dto.setHasPadding(state.hasPadding());
 
         dto.setHasShorts(state.hasShorts());
         dto.setHasShortsStripe(state.hasShortsStripe());
+        dto.setHasShortsLinea(state.hasShortsLinea());
         dto.setHasShortsPicket(state.hasShortsPicket());
         dto.setHasShortsPocket(state.hasShortsPocket());
         dto.setHasShortsCuff(state.hasShortsCuff());
@@ -528,7 +543,49 @@ public class StateMapper {
 
     public static void restoreState(PrendaVisualizer visualizer, ProjectState project) {
         if (visualizer == null || project == null) return;
+        
+        // --- BACKWARDS COMPATIBILITY FOR V2 FILES ---
+        // If the project was saved while looking at the Arquero, the player config was skipped or is empty.
+        // We use the Arquero config as a fallback so the UI can load and the player has a valid garment state.
+        if (project.getGarmentConfig() == null) {
+            if (project.getArqueroGarmentConfig() != null && project.getArqueroGarmentConfig().getCurrentGarmentType() != null) {
+                project.setGarmentConfig(project.getArqueroGarmentConfig());
+            } else {
+                // If both are null, create a default player config
+                PrendaStateDTO def = new PrendaStateDTO();
+                def.setCurrentGarmentType("CAMISETA");
+                def.setCurrentGenero(TipoGenero.HOMBRE);
+                def.setCurrentTela(TipoTela.WIN);
+                project.setGarmentConfig(def);
+            }
+        } else if (project.getGarmentConfig().getCurrentGarmentType() == null) {
+            if (project.getArqueroGarmentConfig() != null && project.getArqueroGarmentConfig().getCurrentGarmentType() != null) {
+                project.setGarmentConfig(project.getArqueroGarmentConfig());
+            } else {
+                // Default to Camiseta if no goalie config exists
+                project.getGarmentConfig().setCurrentGarmentType("CAMISETA");
+                if (project.getGarmentConfig().getCurrentGenero() == null) {
+                    project.getGarmentConfig().setCurrentGenero(TipoGenero.HOMBRE);
+                }
+                if (project.getGarmentConfig().getCurrentTela() == null) {
+                    project.getGarmentConfig().setCurrentTela(TipoTela.WIN);
+                }
+            }
+        }
+
+        // Also ensure goalie config has a garment type if it is present
+        if (project.getArqueroGarmentConfig() != null && project.getArqueroGarmentConfig().getCurrentGarmentType() == null) {
+            project.getArqueroGarmentConfig().setCurrentGarmentType(project.getGarmentConfig().getCurrentGarmentType());
+            if (project.getArqueroGarmentConfig().getCurrentGenero() == null) {
+                project.getArqueroGarmentConfig().setCurrentGenero(project.getGarmentConfig().getCurrentGenero());
+            }
+            if (project.getArqueroGarmentConfig().getCurrentTela() == null) {
+                project.getArqueroGarmentConfig().setCurrentTela(project.getGarmentConfig().getCurrentTela());
+            }
+        }
+
         visualizer.setNotificationsSuspended(true);
+        visualizer.invalidateSignatures();
         try {
             visualizer.setVisible(false);
 
@@ -574,8 +631,12 @@ public class StateMapper {
                 // then land on Player mode as the default starting view.
                 if (project.getArqueroGarmentConfig() != null) {
                     visualizer.setActiveDesign(true); 
+                    visualizer.setActiveDesign(false); 
                 }
-                visualizer.setActiveDesign(false); 
+                
+                StateMapper.restoreDesign(visualizer, null, visualizer.getCamisetaState().getUserLayers());
+                visualizer.getNumberManager().restoreNumbersFromState(visualizer.getCamisetaState(), true, false);
+                visualizer.applyVisibility();
             } finally {
                 visualizer.setSwappingDesign(false);
             }
@@ -586,6 +647,7 @@ public class StateMapper {
         } finally {
             visualizer.setVisible(true);
             visualizer.setNotificationsSuspended(false);
+            visualizer.cargarCapas(); // Forces regeneration of SVGs and PowerClip refresh
             visualizer.notifyStateChanged();
         }
     }
@@ -597,10 +659,10 @@ public class StateMapper {
             visualizer.setVisible(false);
             visualizer.clearUserLayers();
             restoreLayers(visualizer.getUserLayerGroup(), layers, visualizer);
-            visualizer.cargarCapas();
         } finally {
             visualizer.setVisible(true);
             visualizer.setNotificationsSuspended(false);
+            visualizer.cargarCapas();
             visualizer.notifyStateChanged();
         }
     }
@@ -728,14 +790,14 @@ public class StateMapper {
                     if (dto.getWidth() > 1 && dto.getHeight() > 1) il.resize(dto.getWidth(), dto.getHeight());
                     if (dto.isLocked()) il.setUserLocked(true);
                     if (i.getBadgeType() != null) {
-                        try { il.setBadgeType(org.example.model.TipoEscudo.valueOf(i.getBadgeType())); } catch (Exception ex) {}
+                        try { il.setBadgeType(org.example.model.TipoEscudo.valueOfTech(i.getBadgeType())); } catch (Exception ex) {}
                     }
                     return il;
                 }
             }
         } else if (dto instanceof GroupDTO) {
             GroupDTO g = (GroupDTO) dto;
-            GroupLayer gl = new GroupLayer();
+            org.example.component.GroupLayerV2 gl = new org.example.component.GroupLayerV2();
             gl.setVisualizer(visualizer);
             if (g.getActiveZone() != null) gl.setActiveZone(g.getActiveZone());
             if (dto.getScaleX() != 1.0) gl.setInternalScaleX(safeScale(dto.getScaleX()));
@@ -748,7 +810,7 @@ public class StateMapper {
             if (g.getChildren() != null) {
                 for (LayerDTO childDto : g.getChildren()) {
                     Node childNode = createNodeFromDTO(childDto, visualizer);
-                    if (childNode != null) gl.getContentGroup().getChildren().add(childNode);
+                    if (childNode != null) gl.addChild(childNode);
                 }
                 gl.recalculateBounds();
             }
@@ -756,7 +818,8 @@ public class StateMapper {
             return gl;
         } else if (dto instanceof TextDTO) {
             TextDTO t = (TextDTO) dto;
-            javafx.scene.text.Font font = javafx.scene.text.Font.font(t.getFontFamily(), t.getFontSize());
+            String family = t.getFontFamily() != null ? t.getFontFamily() : "Arial";
+            javafx.scene.text.Font font = javafx.scene.text.Font.font(family, t.getFontSize());
             Color fontFill = Color.web(t.getColor());
             Color fontStroke = t.getStrokeColor() != null ? Color.web(t.getStrokeColor()) : Color.TRANSPARENT;
             org.example.model.TextShape shape = org.example.model.TextShape.STRAIGHT;
@@ -768,9 +831,14 @@ public class StateMapper {
             tl.setArcFactor(t.getArcFactor());
             tl.setHeightScale(t.getHeightScale());
             tl.setWidthScale(t.getWidthScale());
+            
+            // Explicitly set bold and italic properties to sync internal TextLayer flags
+            tl.setBold(t.isBold());
+            tl.setItalic(t.isItalic());
+
             javafx.scene.text.FontWeight weight = t.isBold() ? javafx.scene.text.FontWeight.BOLD : javafx.scene.text.FontWeight.NORMAL;
             javafx.scene.text.FontPosture posture = t.isItalic() ? javafx.scene.text.FontPosture.ITALIC : javafx.scene.text.FontPosture.REGULAR;
-            tl.setFont(javafx.scene.text.Font.font(t.getFontFamily(), weight, posture, t.getFontSize()));
+            tl.setFont(javafx.scene.text.Font.font(family, weight, posture, t.getFontSize()));
             tl.setTextSize(t.getCurrentWidth(), t.getCurrentHeight());
             
             // Restore Contour
@@ -918,9 +986,11 @@ public class StateMapper {
         state.setHasMesh(config.isHasMesh());
         state.setHasCuffs(config.isHasCuffs());
         state.setHasShirtStripe(config.isHasShirtStripe());
+        state.setHasShirtLinea(config.isHasShirtLinea());
         state.setHasPadding(config.isHasPadding());
         state.setHasShorts(config.isHasShorts());
         state.setHasShortsStripe(config.isHasShortsStripe());
+        state.setHasShortsLinea(config.isHasShortsLinea());
         state.setHasShortsPicket(config.isHasShortsPicket());
         state.setHasShortsPocket(config.isHasShortsPocket());
         state.setHasShortsCuff(config.isHasShortsCuff());

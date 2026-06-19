@@ -94,9 +94,10 @@ public class VisualizerRenderOrchestrator {
         activeShirtR.setMeshVisible(state.hasMesh());
         activeShirtR.setCuffsVisible(state.hasCuffs());
         activeShirtR.setStripeVisible(state.hasShirtStripe());
+        activeShirtR.setShirtLinea(state.hasShirtLinea());
 
         activeShortsR.updateShorts(state.getGenero(), state.getCorteShort(), state.hasShortsStripe(),
-                state.hasShortsPicket(), state.hasShortsCuff(),
+                state.hasShortsLinea(), state.hasShortsPicket(), state.hasShortsCuff(),
                 state.hasShortsCord(), state.hasShortsPocket());
         
         activeSocksR.updateSocks(state.getGenero());

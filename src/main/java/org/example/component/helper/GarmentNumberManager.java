@@ -260,4 +260,8 @@ public class GarmentNumberManager {
         if (n == arqueroShortNumber.getRoot()) return arqueroShortNumber;
         return null;
     }
+
+    public void clearNodeSignatures() {
+        this.lastNodeSignatures.clear();
+    }
 }

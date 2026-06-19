@@ -25,12 +25,14 @@ public class PrendaState {
     private boolean hasMesh = false;
     private boolean hasCuffs = false;
     private boolean hasShirtStripe = false;
+    private boolean hasShirtLinea = false;
     private boolean hasPadding = false;
     private boolean telaNatural = false;
 
     // --- Visibility Booleans (Short) ---
     private boolean hasShorts = true;
     private boolean hasShortsStripe = false;
+    private boolean hasShortsLinea = false;
     private boolean hasShortsPicket = false;
     private boolean hasShortsPocket = false;
     private boolean hasShortsCuff = false;
@@ -172,6 +174,7 @@ public class PrendaState {
 
     public boolean llevaShort() { return hasShorts; }
     public boolean llevaFranjaShort() { return hasShortsStripe; }
+    public boolean llevaLineaShort() { return hasShortsLinea; }
     public boolean llevaPiqueteShort() { return hasShortsPicket; }
     public boolean llevaBolsilloShort() { return hasShortsPocket; }
     public boolean llevaPunoShort() { return hasShortsCuff; }
@@ -243,6 +246,14 @@ public class PrendaState {
         this.hasShirtStripe = hasShirtStripe;
     }
 
+    public boolean hasShirtLinea() {
+        return hasShirtLinea;
+    }
+
+    public void setHasShirtLinea(boolean hasShirtLinea) {
+        this.hasShirtLinea = hasShirtLinea;
+    }
+
     public boolean hasPadding() {
         return hasPadding;
     }
@@ -273,6 +284,14 @@ public class PrendaState {
 
     public void setHasShortsStripe(boolean hasShortsStripe) {
         this.hasShortsStripe = hasShortsStripe;
+    }
+
+    public boolean hasShortsLinea() {
+        return hasShortsLinea;
+    }
+
+    public void setHasShortsLinea(boolean hasShortsLinea) {
+        this.hasShortsLinea = hasShortsLinea;
     }
 
     public boolean hasShortsPicket() {
@@ -704,10 +723,12 @@ public class PrendaState {
         this.hasMesh = source.hasMesh;
         this.hasCuffs = source.hasCuffs;
         this.hasShirtStripe = source.hasShirtStripe;
+        this.hasShirtLinea = source.hasShirtLinea;
         this.hasPadding = source.hasPadding;
         this.telaNatural = source.telaNatural;
         this.hasShorts = source.hasShorts;
         this.hasShortsStripe = source.hasShortsStripe;
+        this.hasShortsLinea = source.hasShortsLinea;
         this.hasShortsPicket = source.hasShortsPicket;
         this.hasShortsPocket = source.hasShortsPocket;
         this.hasShortsCuff = source.hasShortsCuff;

@@ -347,5 +347,10 @@ private boolean isDarkColor(Color c) {
     public javafx.scene.shape.SVGPath getSleeves() {
         return sleeves;
     }
+
+    @Override
+    public void setShirtLinea(boolean hasLinea) {
+        // ArqueroRenderer does not handle separate shirt lines
+    }
 }
 

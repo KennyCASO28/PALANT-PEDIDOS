@@ -20,14 +20,14 @@ public class MarqueeSelectionHandler {
 
     private final PrendaVisualizer visualizer;
     private final Rectangle marqueeRect;
-    
+
     private double startX;
     private double startY;
     private boolean isDragging = false;
 
     public MarqueeSelectionHandler(PrendaVisualizer visualizer) {
         this.visualizer = visualizer;
-        
+
         marqueeRect = new Rectangle();
         marqueeRect.setFill(Color.web("#3498db", 0.15));
         marqueeRect.setStroke(Color.web("#2980b9"));
@@ -42,15 +42,19 @@ public class MarqueeSelectionHandler {
     public void attach() {
         // Add to the guide layer so it renders above the shapes but below the UI
         visualizer.getGuideLayer().getChildren().add(marqueeRect);
-        
+
         // Listen on the design area stack (background clicks)
-        visualizer.getUiOrchestrator().getDesignAreaStack().addEventFilter(MouseEvent.MOUSE_PRESSED, this::onMousePressed);
-        visualizer.getUiOrchestrator().getDesignAreaStack().addEventFilter(MouseEvent.MOUSE_DRAGGED, this::onMouseDragged);
-        visualizer.getUiOrchestrator().getDesignAreaStack().addEventFilter(MouseEvent.MOUSE_RELEASED, this::onMouseReleased);
+        visualizer.getUiOrchestrator().getDesignAreaStack().addEventFilter(MouseEvent.MOUSE_PRESSED,
+                this::onMousePressed);
+        visualizer.getUiOrchestrator().getDesignAreaStack().addEventFilter(MouseEvent.MOUSE_DRAGGED,
+                this::onMouseDragged);
+        visualizer.getUiOrchestrator().getDesignAreaStack().addEventFilter(MouseEvent.MOUSE_RELEASED,
+                this::onMouseReleased);
     }
 
     private void onMousePressed(MouseEvent event) {
-        // Only start if we clicked the background (not consuming it yet to allow other features to work if needed)
+        // Only start if we clicked the background (not consuming it yet to allow other
+        // features to work if needed)
         // Check if the target is the background pane (designAreaStack or guideLayer)
         Node target = (Node) event.getTarget();
         if (target != visualizer.getUiOrchestrator().getDesignAreaStack() && target != visualizer.getGuideLayer()) {
@@ -60,10 +64,10 @@ public class MarqueeSelectionHandler {
         if (!event.isShiftDown()) {
             visualizer.getUserLayerManager().clearSelection();
         }
-        
+
         startX = event.getX();
         startY = event.getY();
-        
+
         marqueeRect.setX(startX);
         marqueeRect.setY(startY);
         marqueeRect.setWidth(0);
@@ -73,11 +77,12 @@ public class MarqueeSelectionHandler {
     }
 
     private void onMouseDragged(MouseEvent event) {
-        if (!isDragging) return;
-        
+        if (!isDragging)
+            return;
+
         double currentX = event.getX();
         double currentY = event.getY();
-        
+
         marqueeRect.setX(Math.min(startX, currentX));
         marqueeRect.setY(Math.min(startY, currentY));
         marqueeRect.setWidth(Math.abs(currentX - startX));
@@ -85,10 +90,11 @@ public class MarqueeSelectionHandler {
     }
 
     private void onMouseReleased(MouseEvent event) {
-        if (!isDragging) return;
+        if (!isDragging)
+            return;
         isDragging = false;
         marqueeRect.setVisible(false);
-        
+
         // Ignore tiny clicks
         if (marqueeRect.getWidth() < 2 || marqueeRect.getHeight() < 2) {
             return;

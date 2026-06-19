@@ -30,7 +30,7 @@ public class ViewportController {
         this.onViewportChangedListeners.clear();
         this.onViewportChangedListeners.add(callback);
     }
-    
+
     public void addOnViewportChanged(Runnable callback) {
         this.onViewportChangedListeners.add(callback);
     }
@@ -41,7 +41,8 @@ public class ViewportController {
 
     private void notifyViewportChanged() {
         for (Runnable r : onViewportChangedListeners) {
-            if (r != null) r.run();
+            if (r != null)
+                r.run();
         }
     }
 
@@ -57,8 +58,13 @@ public class ViewportController {
         this.panningEnabled = enabled;
         if (!enabled) {
             container.setCursor(javafx.scene.Cursor.DEFAULT);
+            // Restore mouse interaction for design layers when NOT panning
+            contentGroup.setMouseTransparent(false);
         } else {
             container.setCursor(javafx.scene.Cursor.OPEN_HAND);
+            // Disable mouse interaction for design layers while panning
+            // so that locked patches/shields cannot be accidentally selected or moved
+            contentGroup.setMouseTransparent(true);
         }
     }
 
@@ -157,7 +163,7 @@ public class ViewportController {
         container.setOnScroll(event -> {
             if (event.isControlDown() || true) {
                 event.consume();
-                
+
                 double delta = event.getDeltaY();
                 double scaleChange = (delta > 0) ? 1.1 : 0.9;
 
@@ -201,7 +207,7 @@ public class ViewportController {
             if (!panningEnabled)
                 return;
             container.setCursor(javafx.scene.Cursor.OPEN_HAND);
-            
+
             // Clean up cache state just in case
             contentGroup.setCache(false);
         });
@@ -266,9 +272,11 @@ public class ViewportController {
      */
     private void autoScaleInternal(double availableWidth, double availableHeight, boolean studioMode) {
         try {
-            // OPTIMIZACIÓN EXTREMA: Delegamos todo cálculo de geometría al núcleo C++ de JavaFX
+            // OPTIMIZACIÓN EXTREMA: Delegamos todo cálculo de geometría al núcleo C++ de
+            // JavaFX
             // usando "getBoundsInParent" pero solo para los hijos VISIBLES de primer nivel.
-            // Así ignoramos prendas desactivadas (ej. la camiseta cuando solo hay short) sin
+            // Así ignoramos prendas desactivadas (ej. la camiseta cuando solo hay short)
+            // sin
             // ahogar la CPU con revisión recursiva profunda.
             double minX = Double.MAX_VALUE;
             double minY = Double.MAX_VALUE;
@@ -280,10 +288,14 @@ public class ViewportController {
                 if (child.isVisible()) {
                     javafx.geometry.Bounds b = child.getBoundsInParent();
                     if (!b.isEmpty() && b.getWidth() > 0 && b.getHeight() > 0) {
-                        if (b.getMinX() < minX) minX = b.getMinX();
-                        if (b.getMinY() < minY) minY = b.getMinY();
-                        if (b.getMaxX() > maxX) maxX = b.getMaxX();
-                        if (b.getMaxY() > maxY) maxY = b.getMaxY();
+                        if (b.getMinX() < minX)
+                            minX = b.getMinX();
+                        if (b.getMinY() < minY)
+                            minY = b.getMinY();
+                        if (b.getMaxX() > maxX)
+                            maxX = b.getMaxX();
+                        if (b.getMaxY() > maxY)
+                            maxY = b.getMaxY();
                         hasVisibleChild = true;
                     }
                 }
@@ -376,8 +388,9 @@ public class ViewportController {
                 translateY = -maxPanY;
 
             // --- 4. Centering Logic (Robust Center-to-Center) ---
-            // We align the Geometric Center of the VISIBLE Content to the Center of the Viewport.
-            
+            // We align the Geometric Center of the VISIBLE Content to the Center of the
+            // Viewport.
+
             double contentCenterX = contentMinX + (contentWidth / 2.0);
             double contentCenterY = contentMinY + (contentHeight / 2.0);
 
@@ -390,7 +403,8 @@ public class ViewportController {
             double pivotY = contentGroup.getBoundsInLocal().getMinY()
                     + (contentGroup.getBoundsInLocal().getHeight() / 2.0);
 
-            // Offset needed to bring Content Center to Viewport Center, accounting for scale pivot shift
+            // Offset needed to bring Content Center to Viewport Center, accounting for
+            // scale pivot shift
             double layoutOffsetX = viewportCenterX - (pivotX + (contentCenterX - pivotX) * finalScale);
             double layoutOffsetY = viewportCenterY - (pivotY + (contentCenterY - pivotY) * finalScale);
 
@@ -407,7 +421,8 @@ public class ViewportController {
             contentGroup.setTranslateY(translateY);
 
             // JavaFX pivots scaling around the Node's geometric center by default.
-            // Effective offset incorporates layout, pivot shift due to scale, and translation.
+            // Effective offset incorporates layout, pivot shift due to scale, and
+            // translation.
             // The effective offset formula: Pivot - (Pivot * Scale) + Layout + Translation
             this.effectiveOffsetX = layoutOffsetX + translateX + pivotX - (pivotX * finalScale);
             this.effectiveOffsetY = layoutOffsetY + translateY + pivotY - (pivotY * finalScale);

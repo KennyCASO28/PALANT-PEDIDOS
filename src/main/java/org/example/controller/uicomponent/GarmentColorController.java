@@ -191,6 +191,11 @@ public class GarmentColorController {
                 addColorControl(row++, "Franja", "shirtStripe", visualizer.getPartColor("shirtStripe", Color.web("#95a5a6")),
                         visualizer::setShirtStripeColor);
             }
+            // ADDED: Shirt Linea Control
+            if (visualizer.hasShirtLinea()) {
+                addColorControl(row++, "Líneas", "shirtLinea", visualizer.getPartColor("shirtLinea", Color.web("#95a5a6")),
+                        visualizer::setShirtLineaColor);
+            }
         }
 
         if ("Short".equals(selection) && visualizer.hasShorts()) {
@@ -211,6 +216,12 @@ public class GarmentColorController {
                 addColorControl(row++, "Puños " + shortLabel, "shortsCuff",
                         visualizer.getPartColor("shortsCuff", Color.web("#95a5a6")),
                         visualizer::setShortsCuffColor);
+            }
+            // ADDED: Short Linea Control
+            if (visualizer.hasShortsLinea()) {
+                addColorControl(row++, "Líneas", "shortsLinea",
+                        visualizer.getPartColor("shortsLinea", Color.web("#95a5a6")),
+                        visualizer::setShortsLineaColor);
             }
         }
 

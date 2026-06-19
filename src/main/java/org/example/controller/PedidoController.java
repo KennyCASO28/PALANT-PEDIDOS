@@ -572,6 +572,9 @@ public class PedidoController {
             prendaDelegate.setOnConfigChanged(() -> {
                 fichaDirty = true;
                 markProjectDirty();
+                if (tablaDetalles != null) {
+                    tablaDetalles.refresh();
+                }
             });
             prendaDelegate.setOnBulkSocksCategoryChanged(this::applySocksCategoryToAll);
 

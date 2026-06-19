@@ -57,15 +57,15 @@ public class KeyboardShortcutManager {
                 return;
             }
 
-            // Alt + B: Bloquear seleccionados
-            if (event.isAltDown() && !event.isControlDown() && event.getCode() == KeyCode.B) {
+            // Ctrl + B: Bloquear seleccionados
+            if (event.isControlDown() && !event.isAltDown() && event.getCode() == KeyCode.B) {
                 visualizer.setUserLockedOnSelected(true);
                 event.consume();
                 return;
             }
 
-            // Alt + D: Desbloquear seleccionados
-            if (event.isAltDown() && !event.isControlDown() && event.getCode() == KeyCode.D) {
+            // Ctrl + Shift + B: Desbloquear seleccionados
+            if (event.isControlDown() && event.isShiftDown() && event.getCode() == KeyCode.B) {
                 visualizer.setUserLockedOnSelected(false);
                 event.consume();
                 return;

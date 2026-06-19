@@ -142,6 +142,10 @@ public class ConfiguracionPrendaDTO {
         return tieneAdicional("franjaShort");
     }
 
+    public boolean llevaLineaShort() {
+        return tieneAdicional("lineaShort");
+    }
+
     public boolean llevaPiqueteShort() {
         return tieneAdicional("piqueteShort");
     }
@@ -168,6 +172,10 @@ public class ConfiguracionPrendaDTO {
 
     public boolean llevaFranjaCamiseta() {
         return tieneAdicional("franjaCamiseta");
+    }
+
+    public boolean llevaLineaCamiseta() {
+        return tieneAdicional("lineaCamiseta");
     }
 
     /**
@@ -270,6 +278,10 @@ public class ConfiguracionPrendaDTO {
             return adicional("franjaCamiseta", value);
         }
 
+        public Builder conLineaCamiseta(boolean value) {
+            return adicional("lineaCamiseta", value);
+        }
+
         public Builder conShort(boolean value) {
             return adicional("short", value);
         }
@@ -284,6 +296,10 @@ public class ConfiguracionPrendaDTO {
 
         public Builder conFranjaShort(boolean value) {
             return adicional("franjaShort", value);
+        }
+
+        public Builder conLineaShort(boolean value) {
+            return adicional("lineaShort", value);
         }
 
         public Builder conPiqueteShort(boolean value) {

@@ -186,8 +186,9 @@ public class PrendaVisualizer extends StackPane {
         String signature = state.getGenero() + "|" + state.getCorte() + "|" + state.getLargo() + "|" + state.getCuello() + "|" + stateManager.isEditandoArquero() 
                 + "|" + state.hasShirt() + "|" + state.hasShorts() + "|" + state.hasSocks()
                 + "|" + state.hasMesh() + "|" + state.hasCuffs() + "|" + state.hasPadding() + "|" + state.hasShirtStripe()
+                + "|" + state.hasShirtLinea()
                 + "|" + state.hasShortsStripe() + "|" + state.hasShortsPicket() + "|" + state.hasShortsPocket() + "|" + state.hasShortsCuff()
-                + "|" + state.hasShortsCord() + "|" + state.hasShortsLining()
+                + "|" + state.hasShortsCord() + "|" + state.hasShortsLining() + "|" + state.hasShortsLinea()
                 + "|" + state.hasSocksTop() + "|" + state.getCorteShort()
                 + "|b:" + state.isChestBrandVisible() + state.getChestBrandPosition() 
                 + "|" + state.isShortBrandVisible() + state.getShortBrandPosition()
@@ -334,7 +335,14 @@ public class PrendaVisualizer extends StackPane {
 
     // --- UI Delegation ---
     public ViewportController getViewportController() { return uiOrchestrator.getViewportController(); }
-    public void setViewportPanningEnabled(boolean b) { uiOrchestrator.getViewportController().setPanningEnabled(b); }
+    public void setViewportPanningEnabled(boolean b) {
+        uiOrchestrator.getViewportController().setPanningEnabled(b);
+        if (b) {
+            // Clear selection when panning starts so no layer remains
+            // visually selected while mouse interaction is disabled
+            clearGlobalSelection();
+        }
+    }
     public void resetView() { uiOrchestrator.getViewportController().resetView(); }
     public void setRulersVisible(boolean v) {
         uiOrchestrator.getHorizontalRuler().setVisible(v);
@@ -375,11 +383,19 @@ public class PrendaVisualizer extends StackPane {
     public void setPunos(boolean b) { stateManager.getActiveState().setHasCuffs(b); cargarCapas(); }
     public void setMalla(boolean b) { stateManager.getActiveState().setHasMesh(b); cargarCapas(); }
     public void setShirtStripe(boolean b) { stateManager.getActiveState().setHasShirtStripe(b); cargarCapas(); }
+    public void setShirtLinea(boolean b) { stateManager.getActiveState().setHasShirtLinea(b); cargarCapas(); }
     public void setPadding(boolean b) { stateManager.getActiveState().setHasPadding(b); cargarCapas(); }
     
     // --- Internal Service Bridge ---
     public boolean isNotificationsSuspended() { return stateManager.isNotificationsSuspended(); }
     public void invalidateCargarCapasSignature() { this.lastCargarCapasSignature = ""; }
+    public void invalidateSignatures() {
+        this.lastCargarCapasSignature = "";
+        this.lastNumberSignature = "";
+        if (numberManager != null) {
+            numberManager.clearNodeSignatures();
+        }
+    }
     public void flushUIStateToDataModel() { stateManager.flushUIStateToDataModel(); }
     public void setEditModeVisuals(boolean v) { 
         uiController.setEditModeVisuals(v); 
@@ -433,13 +449,16 @@ public class PrendaVisualizer extends StackPane {
     public boolean hasCuffs() { return stateManager.getActiveState().hasCuffs(); }
     public boolean hasMesh() { return stateManager.getActiveState().hasMesh(); }
     public boolean hasShirtStripe() { return stateManager.getActiveState().hasShirtStripe(); }
+    public boolean hasShirtLinea() { return stateManager.getActiveState().hasShirtLinea(); }
     public boolean hasShortsStripe() { return stateManager.getActiveState().hasShortsStripe(); }
+    public boolean hasShortsLinea() { return stateManager.getActiveState().hasShortsLinea(); }
     public boolean hasShortsPicket() { return stateManager.getActiveState().hasShortsPicket(); }
     public boolean hasShortsCuff() { return stateManager.getActiveState().hasShortsCuff(); }
     public boolean hasSocksTop() { return stateManager.getActiveState().hasSocksTop(); }
 
     public void setShorts(boolean b) { stateManager.getActiveState().setHasShorts(b); cargarCapas(); }
     public void setShortsStripe(boolean b) { stateManager.getActiveState().setHasShortsStripe(b); cargarCapas(); }
+    public void setShortsLinea(boolean b) { stateManager.getActiveState().setHasShortsLinea(b); cargarCapas(); }
     public void setShortsPicket(boolean b) { stateManager.getActiveState().setHasShortsPicket(b); cargarCapas(); }
     public void setShortsPocket(boolean b) { stateManager.getActiveState().setHasShortsPocket(b); cargarCapas(); }
     public void setShortsCuff(boolean b) { stateManager.getActiveState().setHasShortsCuff(b); cargarCapas(); }
@@ -545,8 +564,10 @@ public class PrendaVisualizer extends StackPane {
     public void setCuffColor(Color c) { setPunos(true); getColorManager().setCuffColor(c); }
     public void setMeshColor(Color c) { setMalla(true); getColorManager().setMeshColor(c); }
     public void setShirtStripeColor(Color c) { setShirtStripe(true); getColorManager().setShirtStripeColor(c, true); }
+    public void setShirtLineaColor(Color c) { setShirtLinea(true); getColorManager().setShirtLineaColor(c, true); }
     public void setShortsColor(Color c) { getColorManager().setShortsColor(c); }
     public void setShortsStripeColor(Color c) { setShortsStripe(true); getColorManager().setShortsStripeColor(c); }
+    public void setShortsLineaColor(Color c) { setShortsLinea(true); getColorManager().setShortsLineaColor(c, true); }
     public void setShortsPicketColor(Color c) { setShortsPicket(true); getColorManager().setShortsPicketColor(c); }
     public void setShortsCuffColor(Color c) { setShortsCuff(true); getColorManager().setShortsCuffColor(c); }
     public void setSocksBaseColor(Color c) { getColorManager().setSocksBaseColor(c); }

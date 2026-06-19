@@ -78,6 +78,7 @@ public class PrendaColorManager {
         colorState.put("mesh", Color.web("#95a5a6"));
         colorState.put("shorts", Color.WHITE);
         colorState.put("shortsStripe", Color.web("#95a5a6"));
+        colorState.put("shortsLinea", Color.web("#95a5a6"));
         colorState.put("shortsPicket", Color.web("#95a5a6"));
         colorState.put("shortsCuff", Color.web("#95a5a6"));
         colorState.put("shortsCord", Color.WHITE);
@@ -122,8 +123,10 @@ public class PrendaColorManager {
         colorState.putIfAbsent("cuff", lastKnownColors.getOrDefault("cuff", Color.web("#95a5a6")));
         colorState.putIfAbsent("mesh", lastKnownColors.getOrDefault("mesh", Color.web("#95a5a6")));
         colorState.putIfAbsent("shirtStripe", lastKnownColors.getOrDefault("shirtStripe", Color.web("#95a5a6")));
+        colorState.putIfAbsent("shirtLinea", lastKnownColors.getOrDefault("shirtLinea", Color.web("#95a5a6")));
         colorState.putIfAbsent("shorts", lastKnownColors.getOrDefault("shorts", Color.WHITE));
         colorState.putIfAbsent("shortsStripe", lastKnownColors.getOrDefault("shortsStripe", Color.web("#95a5a6")));
+        colorState.putIfAbsent("shortsLinea", lastKnownColors.getOrDefault("shortsLinea", Color.web("#95a5a6")));
         colorState.putIfAbsent("shortsPicket", lastKnownColors.getOrDefault("shortsPicket", Color.web("#95a5a6")));
         colorState.putIfAbsent("shortsCuff", lastKnownColors.getOrDefault("shortsCuff", Color.web("#95a5a6")));
         colorState.putIfAbsent("shortsCord", lastKnownColors.getOrDefault("shortsCord", Color.WHITE));
@@ -183,6 +186,24 @@ public class PrendaColorManager {
         if (state != null) {
             state.getColors().put("shirtStripe", c);
             lastKnownColors.put("shirtStripe", c);
+        }
+        reapplyColors();
+        if (notify) notifyChanged();
+    }
+
+    public void setShirtLineaColor(Color c, boolean notify) {
+        if (state != null) {
+            state.getColors().put("shirtLinea", c);
+            lastKnownColors.put("shirtLinea", c);
+        }
+        reapplyColors();
+        if (notify) notifyChanged();
+    }
+
+    public void setShortsLineaColor(Color c, boolean notify) {
+        if (state != null) {
+            state.getColors().put("shortsLinea", c);
+            lastKnownColors.put("shortsLinea", c);
         }
         reapplyColors();
         if (notify) notifyChanged();

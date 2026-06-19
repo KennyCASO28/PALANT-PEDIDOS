@@ -30,6 +30,8 @@ public class ShirtRenderer extends BaseGarmentRenderer {
 
     private final SVGPath mesh = new SVGPath();
     private final SVGPath shirtStripe = new SVGPath();
+    private final SVGPath shirtLinea = new SVGPath();
+    private final SVGPath shirtLineaClip = new SVGPath();
 
     private final SVGPath cuffs = new SVGPath();
     private final SVGPath cuffsShadow = new SVGPath();
@@ -39,6 +41,7 @@ public class ShirtRenderer extends BaseGarmentRenderer {
     private final SVGPath brandDetail = new SVGPath();
 
     private boolean telaNatural = false;
+    private boolean hasLinea = false;
     private String currentCollarType = "V";
 
     public ShirtRenderer() {
@@ -76,6 +79,10 @@ public class ShirtRenderer extends BaseGarmentRenderer {
 
         configureLayer(mesh, Color.web("#bdc3c7"), Color.BLACK);
         configureLayer(shirtStripe, Color.web("#7f8c8d"), Color.BLACK);
+        // shirtLinea: sin contorno (solo relleno puro, sin borde negro)
+        configureLayer(shirtLinea, Color.web("#7f8c8d"), null);
+        shirtLinea.setStrokeWidth(0);
+        shirtLinea.setClip(shirtLineaClip);
 
         configureLayer(cuffs, Color.web("#7f8c8d"), Color.BLACK);
         cuffs.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
@@ -90,15 +97,18 @@ public class ShirtRenderer extends BaseGarmentRenderer {
         brandDetail.setVisible(false); // No longer used as separate layer
 
         // GROUP 1: BASE LAYERS (Behind User Images)
+        // Orden: manga ANTES de linea para que las lineas queden encima visualmente, pero recortadas al contorno
         group.getChildren().addAll(
-                baseRedondo, backingLayer, body, sleeves);
+                baseRedondo, backingLayer, body, sleeves, shirtLinea);
 
         // GROUP 2: DETAILS (On Top of User Images)
         detailGroup.getChildren().addAll(
                 bodyShadow, sleevesShadow,
-                bodyOutline, sleevesOutline,
-                bodyDetail, sleevesDetail,
+                bodyOutline,
+                bodyDetail,
                 mesh, shirtStripe,
+                sleevesOutline,
+                sleevesDetail,
                 collarShadow, collar, collarDetail, canezuLayer,
                 cuffsShadow, cuffs, cuffsDetail,
                 brandBase, brandDetail);
@@ -127,8 +137,16 @@ public class ShirtRenderer extends BaseGarmentRenderer {
         safeSetContent(mesh, org.example.utils.SVGCache.loadPath(meshPath));
 
         // Stripe
-        String stripePath = org.example.logic.GarmentAssetManager.getShirtPath(g, c, l, isArquero).replace(".svg", "_franja.svg");
+        String stripePath = org.example.logic.GarmentAssetManager.getShirtPath(g, c, l, isArquero).replace(".svg",
+                "_franja.svg");
         safeSetContent(shirtStripe, org.example.utils.SVGCache.loadOptionalPath(stripePath));
+
+        // Linea (additional decoration)
+        String lineaPath = org.example.logic.GarmentAssetManager.getShirtPath(g, c, l, isArquero).replace(".svg",
+                "_linea.svg");
+        safeSetContent(shirtLinea, org.example.utils.SVGCache.loadOptionalPath(lineaPath));
+        shirtLinea.setVisible(hasLinea);
+        safeSetContent(shirtLineaClip, body.getContent() + " " + sleeves.getContent());
 
         // Cuffs
         String cuffsPath = org.example.logic.GarmentAssetManager.getCuffsPath(g, c, l);
@@ -274,7 +292,15 @@ public class ShirtRenderer extends BaseGarmentRenderer {
             shirtStripe.setStroke(getContrastStroke(c));
         }
 
-// Tela Natural: collarDetail follows body color for V and REDONDO (except dark colors)
+        if (colorState.containsKey("shirtLinea")) {
+            Color c = colorState.get("shirtLinea");
+            shirtLinea.setFill(sanitizeFillColor(c));
+            shirtLinea.setStroke(null); // Sin borde negro en líneas decorativas
+            shirtLinea.setStrokeWidth(0);
+        }
+
+        // Tela Natural: collarDetail follows body color for V and REDONDO (except dark
+        // colors)
         boolean isVOrRedondo = "V".equalsIgnoreCase(currentCollarType) || "REDONDO".equalsIgnoreCase(currentCollarType);
         if (telaNatural && isVOrRedondo && colorState.containsKey("body")) {
             Color bodyColor = colorState.get("body");
@@ -303,21 +329,21 @@ public class ShirtRenderer extends BaseGarmentRenderer {
     public void applyReferenceColor(Color color) {
         Color sanitized = sanitizeFillColor(color);
         Color stroke = getContrastStroke(sanitized);
-        
+
         body.setFill(sanitized);
         body.setStroke(stroke);
         bodyOutline.setStroke(stroke);
-        
+
         sleeves.setFill(sanitized);
         sleeves.setStroke(stroke);
         sleevesOutline.setStroke(stroke);
-        
+
         collar.setFill(sanitized);
         collar.setStroke(stroke);
-        
+
         cuffs.setFill(sanitized);
         cuffs.setStroke(stroke);
-        
+
         // Ensure detail layers are visible and have a contrast color if enabled
         if (mesh.getContent() != null && !mesh.getContent().isEmpty()) {
             mesh.setFill(sanitized.darker());
@@ -327,10 +353,11 @@ public class ShirtRenderer extends BaseGarmentRenderer {
             shirtStripe.setFill(sanitized.brighter());
             shirtStripe.setStroke(stroke);
         }
-        
+
         backingLayer.setVisible(false);
 
-        boolean isVOrRedondoRef = "V".equalsIgnoreCase(currentCollarType) || "REDONDO".equalsIgnoreCase(currentCollarType);
+        boolean isVOrRedondoRef = "V".equalsIgnoreCase(currentCollarType)
+                || "REDONDO".equalsIgnoreCase(currentCollarType);
         if (telaNatural && isVOrRedondoRef && !isDarkColor(sanitized)) {
             collarDetail.setFill(sanitized);
         } else {
@@ -415,16 +442,27 @@ public class ShirtRenderer extends BaseGarmentRenderer {
         this.telaNatural = telaNatural;
     }
 
+    public void setShirtLinea(boolean hasLinea) {
+        this.hasLinea = hasLinea;
+        // Actualizar visibilidad inmediatamente para que el botón funcione al instante
+        shirtLinea.setVisible(hasLinea && shirtLinea.getContent() != null && !shirtLinea.getContent().isEmpty());
+    }
+
+    public void setShirtLineaVisible(boolean visible) {
+        shirtLinea.setVisible(visible);
+    }
+
     private boolean isDarkColor(Color c) {
-        if (c == null) return false;
+        if (c == null)
+            return false;
         double brightness = c.getBrightness();
         return brightness < 0.2;
     }
 
     private boolean isBlackColor(Color c) {
-        if (c == null) return false;
+        if (c == null)
+            return false;
         double brightness = c.getBrightness();
         return brightness < 0.05;
     }
 }
-

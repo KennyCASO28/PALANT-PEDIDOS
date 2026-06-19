@@ -23,7 +23,7 @@ public class ShortConfigurator {
 
     // Keep reference for enabling/disabling
     private VBox boxOpcionesShort;
-    private CheckBox cbFranja, cbPiquete, cbBolsillo, cbPuno, cbPasador, cbForro;
+    private CheckBox cbFranja, cbLinea, cbPiquete, cbBolsillo, cbPuno, cbPasador, cbForro;
     private Label lblOpciones;
     private Runnable onConfigChanged;
 
@@ -60,6 +60,7 @@ public class ShortConfigurator {
         if (previousConfig != null && previousConfig.getTipoPrenda() == TipoPrenda.SHORT) {
             configBuilder.corteShort(previousConfig.getCorteShort());
             configBuilder.conFranjaShort(previousConfig.llevaFranjaShort());
+            configBuilder.conLineaShort(previousConfig.llevaLineaShort());
             configBuilder.conPiqueteShort(previousConfig.llevaPiqueteShort());
             configBuilder.conBolsilloShort(previousConfig.llevaBolsilloShort());
             configBuilder.conPunoShort(previousConfig.llevaPunoShort());
@@ -68,6 +69,7 @@ public class ShortConfigurator {
 
             visualizer.setShortsCorte(previousConfig.getCorteShort());
             visualizer.setShortsStripe(previousConfig.llevaFranjaShort());
+            visualizer.setShortsLinea(previousConfig.llevaLineaShort());
             visualizer.setShortsPicket(previousConfig.llevaPiqueteShort());
             visualizer.setShortsPocket(previousConfig.llevaBolsilloShort());
             visualizer.setShortsCuff(previousConfig.llevaPunoShort());
@@ -151,6 +153,7 @@ public class ShortConfigurator {
             } else {
                 // Restore options
                 configBuilder.conFranjaShort(previousConfig.llevaFranjaShort());
+                configBuilder.conLineaShort(previousConfig.llevaLineaShort());
                 configBuilder.conPiqueteShort(previousConfig.llevaPiqueteShort());
                 configBuilder.conBolsilloShort(previousConfig.llevaBolsilloShort());
                 configBuilder.conPunoShort(previousConfig.llevaPunoShort());
@@ -158,6 +161,7 @@ public class ShortConfigurator {
                 configBuilder.conForroShort(previousConfig.llevaForroShort());
 
                 visualizer.setShortsStripe(previousConfig.llevaFranjaShort());
+                visualizer.setShortsLinea(previousConfig.llevaLineaShort());
                 visualizer.setShortsPicket(previousConfig.llevaPiqueteShort());
                 visualizer.setShortsPocket(previousConfig.llevaBolsilloShort());
                 visualizer.setShortsCuff(previousConfig.llevaPunoShort());
@@ -319,6 +323,13 @@ public class ShortConfigurator {
         });
         cbFranja = (CheckBox) hbFranja.getChildren().get(0);
 
+        HBox hbLinea = createOptionToggle("Líneas Decorativas", config.llevaLineaShort(), val -> {
+            configBuilder.conLineaShort(val);
+            visualizer.setShortsLinea(val);
+            notifyChange();
+        });
+        cbLinea = (CheckBox) hbLinea.getChildren().get(0);
+
         HBox hbPiquete = createOptionToggle("Piquetes", config.llevaPiqueteShort(), val -> {
             configBuilder.conPiqueteShort(val);
             visualizer.setShortsPicket(val);
@@ -377,7 +388,7 @@ public class ShortConfigurator {
         VBox column = new VBox(8);
         column.setMaxWidth(Double.MAX_VALUE);
 
-        column.getChildren().addAll(hbFranja, hbPiquete, hbPuno, hbBolsillo, hbPasador, hbForro);
+        column.getChildren().addAll(hbFranja, hbLinea, hbPiquete, hbPuno, hbBolsillo, hbPasador, hbForro);
 
         boxOpcionesShort.getChildren().add(column);
 
@@ -430,22 +441,26 @@ public class ShortConfigurator {
             disableAndUncheck(fBolsillo);
             disableAndUncheck(fPasador);
             disableAndUncheck(fForro);
+            disableAndUncheck(cbLinea);
 
             // Sync dto
             configBuilder.conPunoShort(false);
             configBuilder.conBolsilloShort(false);
             configBuilder.conPasadorShort(false);
             configBuilder.conForroShort(false);
+            configBuilder.conLineaShort(false);
 
             visualizer.setShortsCuff(false);
             visualizer.setShortsPocket(false);
             visualizer.setShortsCord(false);
             visualizer.setShortsLining(false);
+            visualizer.setShortsLinea(false);
         } else {
             enable(cbPuno);
             enable(cbBolsillo);
             enable(cbPasador);
             enable(cbForro);
+            enable(cbLinea);
         }
     }
 

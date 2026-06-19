@@ -247,10 +247,12 @@ public class PedidoTableManager {
                 setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                 wrapper.setAlignment(Pos.CENTER);
                 cb.setMaxWidth(Double.MAX_VALUE);
-                cb.setItems(javafx.collections.FXCollections.observableArrayList("CORTA", "LARGA", "MANGA 0"));
                 cb.setOnAction(e -> {
                     if (getTableRow() != null && getTableRow().getItem() != null) {
-                        getTableRow().getItem().setTipoManga(cb.getValue());
+                        String val = cb.getValue();
+                        if (val != null) {
+                            getTableRow().getItem().setTipoManga(val);
+                        }
                     }
                 });
 
@@ -263,24 +265,49 @@ public class PedidoTableManager {
             }
 
             @Override
-            public void startEdit() {
-                if (configSupplier != null && configSupplier.get() != null &&
-                        configSupplier.get().getCorte() == org.example.model.TipoCorte.REDONDO) {
-                    if (cb.getItems().contains("MANGA 0")) {
-                        cb.getItems().remove("MANGA 0");
-                    }
-                }
-                super.startEdit();
-            }
-
-            @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(null); // CRITICAL
-                if (empty) {
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
                     setGraphic(null);
                 } else {
-                    cb.setValue(item);
+                    DetallePedido rowItem = getTableRow().getItem();
+                    ConfiguracionPrendaDTO config = (configSupplier != null) ? configSupplier.get() : null;
+                    org.example.model.TipoCorte corte = (config != null) ? config.getCorte() : org.example.model.TipoCorte.CUADRADO;
+                    
+                    org.example.model.TipoGenero genero = org.example.model.TipoGenero.HOMBRE;
+                    if (rowItem.getGenero() != null) {
+                        try {
+                            genero = org.example.model.TipoGenero.valueOf(rowItem.getGenero().toUpperCase());
+                        } catch (Exception ex) {}
+                    }
+
+                    java.util.List<String> options = new java.util.ArrayList<>();
+                    options.add("CORTA");
+                    options.add("LARGA");
+
+                    if (corte == org.example.model.TipoCorte.CUADRADO) {
+                        options.add("MANGA 0");
+                    } else {
+                        if (!(corte == org.example.model.TipoCorte.REDONDO && genero == org.example.model.TipoGenero.MUJER)) {
+                            options.add("MANGA 3/4");
+                        }
+                    }
+
+                    // Temporarily remove action to prevent unwanted trigger while populating
+                    javafx.event.EventHandler<javafx.event.ActionEvent> handler = cb.getOnAction();
+                    cb.setOnAction(null);
+
+                    cb.getItems().setAll(options);
+
+                    if (item == null || !options.contains(item)) {
+                        cb.setValue("CORTA");
+                        rowItem.setTipoManga("CORTA");
+                    } else {
+                        cb.setValue(item);
+                    }
+
+                    cb.setOnAction(handler);
                     setGraphic(wrapper);
                 }
             }

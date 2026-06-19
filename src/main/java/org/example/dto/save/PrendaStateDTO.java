@@ -29,10 +29,12 @@ public class PrendaStateDTO {
     private boolean hasMesh;
     private boolean hasCuffs;
     private boolean hasShirtStripe;
+    private boolean hasShirtLinea;
 
     // Visibility Booleans (Short)
     private boolean hasShorts;
     private boolean hasShortsStripe;
+    private boolean hasShortsLinea;
     private boolean hasShortsPicket;
     private boolean hasShortsPocket;
     private boolean hasShortsCuff;
@@ -97,8 +99,10 @@ public class PrendaStateDTO {
         copy.hasMesh = hasMesh;
         copy.hasCuffs = hasCuffs;
         copy.hasShirtStripe = hasShirtStripe;
+        copy.hasShirtLinea = hasShirtLinea;
         copy.hasShorts = hasShorts;
         copy.hasShortsStripe = hasShortsStripe;
+        copy.hasShortsLinea = hasShortsLinea;
         copy.hasShortsPicket = hasShortsPicket;
         copy.hasShortsPocket = hasShortsPocket;
         copy.hasShortsCuff = hasShortsCuff;
@@ -210,10 +214,12 @@ public class PrendaStateDTO {
             if (adicionales.containsKey("malla")) this.hasMesh = adicionales.get("malla");
             if (adicionales.containsKey("punoCamiseta")) this.hasCuffs = adicionales.get("punoCamiseta");
             if (adicionales.containsKey("franjaCamiseta")) this.hasShirtStripe = adicionales.get("franjaCamiseta");
+            if (adicionales.containsKey("lineaCamiseta")) this.hasShirtLinea = adicionales.get("lineaCamiseta");
             if (adicionales.containsKey("short")) this.hasShorts = adicionales.get("short");
             if (adicionales.containsKey("medias")) this.hasSocks = adicionales.get("medias");
             if (adicionales.containsKey("punoShort")) this.hasShortsCuff = adicionales.get("punoShort");
             if (adicionales.containsKey("franjaShort")) this.hasShortsStripe = adicionales.get("franjaShort");
+            if (adicionales.containsKey("lineaShort")) this.hasShortsLinea = adicionales.get("lineaShort");
             if (adicionales.containsKey("piqueteShort")) this.hasShortsPicket = adicionales.get("piqueteShort");
             if (adicionales.containsKey("bolsilloShort")) this.hasShortsPocket = adicionales.get("bolsilloShort");
             if (adicionales.containsKey("pasadorShort")) this.hasShortsCord = adicionales.get("pasadorShort");
@@ -305,6 +311,14 @@ public class PrendaStateDTO {
         this.hasShirtStripe = hasShirtStripe;
     }
 
+    public boolean isHasShirtLinea() {
+        return hasShirtLinea;
+    }
+
+    public void setHasShirtLinea(boolean hasShirtLinea) {
+        this.hasShirtLinea = hasShirtLinea;
+    }
+
     public boolean isHasShorts() {
         return hasShorts;
     }
@@ -319,6 +333,14 @@ public class PrendaStateDTO {
 
     public void setHasShortsStripe(boolean hasShortsStripe) {
         this.hasShortsStripe = hasShortsStripe;
+    }
+
+    public boolean isHasShortsLinea() {
+        return hasShortsLinea;
+    }
+
+    public void setHasShortsLinea(boolean hasShortsLinea) {
+        this.hasShortsLinea = hasShortsLinea;
     }
 
     public boolean isHasShortsPicket() {

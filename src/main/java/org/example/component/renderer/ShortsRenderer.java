@@ -14,6 +14,8 @@ import java.util.Map;
 public class ShortsRenderer extends BaseGarmentRenderer {
     private final SVGPath shorts = new SVGPath();
     private final SVGPath shortsStripe = new SVGPath();
+    private final SVGPath shortsLinea = new SVGPath();
+    private final SVGPath shortsLineaClip = new SVGPath();
     private final SVGPath shortsPicket = new SVGPath();
     private final SVGPath shortsWaist = new SVGPath();
     private final SVGPath shortsElastic = new SVGPath();
@@ -32,6 +34,10 @@ public class ShortsRenderer extends BaseGarmentRenderer {
 
         configureLayer(shorts, baseColor, strokeColor);
         configureDetailLayer(shortsStripe, leadColor);
+        // shortsLinea: no stroke (only pure fill color, no black outline)
+        configureDetailLayer(shortsLinea, leadColor);
+        shortsLinea.setStrokeWidth(0);
+        shortsLinea.setClip(shortsLineaClip);
         configureLayer(shortsPicket, leadColor, strokeColor);
         configureDetailLayer(shortsWaist, Color.BLACK);
         configureDetailLayer(shortsElastic, Color.BLACK);
@@ -54,7 +60,7 @@ public class ShortsRenderer extends BaseGarmentRenderer {
 
         // GROUP 2: Details (On Top)
         detailGroup.getChildren().addAll(
-                shortsStripe, shortsPicket, shortsWaist, shortsElastic,
+                shortsStripe, shortsLinea, shortsPicket, shortsWaist, shortsElastic,
                 shortsCuff, shortsCord, shortsShadow, shortsDetail, shortCrest,
                 brandBase, brandDetail);
     }
@@ -63,12 +69,14 @@ public class ShortsRenderer extends BaseGarmentRenderer {
     public void updateLayers(String gender, String cut, String length, String collar) {
     }
 
-    public void updateShorts(TipoGenero genero, TipoCorte corteShort, boolean hasStripe, boolean hasPicket,
-            boolean hasCuff, boolean hasCord, boolean hasPocket) {
+    public void updateShorts(TipoGenero genero, TipoCorte corteShort, boolean hasStripe, boolean hasLinea,
+            boolean hasPicket, boolean hasCuff, boolean hasCord, boolean hasPocket) {
         String basePath = GarmentAssetManager.getShortsPath(genero, corteShort);
         safeSetContent(shorts, SVGCache.loadPath(basePath));
 
         safeSetContent(shortsStripe, hasStripe ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_franja.svg")) : "");
+        safeSetContent(shortsLinea, hasLinea ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_linea.svg")) : "");
+        safeSetContent(shortsLineaClip, shorts.getContent());
         safeSetContent(shortsPicket, hasPicket ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_piquete.svg")) : "");
         safeSetContent(shortsWaist, SVGCache.loadOptionalPath(basePath.replace(".svg", "_cintura.svg")));
         safeSetContent(shortsCuff, hasCuff ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_puno.svg")) : "");
@@ -92,6 +100,11 @@ public class ShortsRenderer extends BaseGarmentRenderer {
         Color stripeC = colorState.getOrDefault("shortsStripe", Color.WHITE);
         shortsStripe.setFill(sanitizeFillColor(stripeC));
         shortsStripe.setStroke(getContrastStroke(stripeC));
+
+        Color lineaC = colorState.getOrDefault("shortsLinea", Color.WHITE);
+        shortsLinea.setFill(sanitizeFillColor(lineaC));
+        shortsLinea.setStroke(null); // No black outline for decorative lines
+        shortsLinea.setStrokeWidth(0);
 
         Color picketC = colorState.getOrDefault("shortsPicket", Color.WHITE);
         shortsPicket.setFill(sanitizeFillColor(picketC));
@@ -165,5 +178,10 @@ public class ShortsRenderer extends BaseGarmentRenderer {
 
     public SVGPath getShortsCord() {
         return shortsCord;
+    }
+
+    @Override
+    public void setShirtLinea(boolean hasLinea) {
+        // ShortsRenderer does not handle shirt lines
     }
 }

@@ -124,7 +124,7 @@ public class PrendaDelegate {
     private void mostrarSeleccionPrenda() {
         // Proactive memory management when switching garment types
         org.example.utils.SVGCache.clear();
-        
+
         if (visualizer != null) {
             visualizer.setVisible(false);
             // Fix: Reset visualizer state to prevent ghost elements
@@ -394,7 +394,7 @@ public class PrendaDelegate {
     private void agregarSeccionTela() {
         VBox box = new VBox(10);
         box.setPadding(new Insets(5, 0, 0, 0));
-        
+
         ComboBox<TipoTela> comboTela = new ComboBox<>();
         comboTela.getItems().addAll(TipoTela.values());
         comboTela.setValue(telaSeleccionada);
@@ -405,13 +405,14 @@ public class PrendaDelegate {
 
         TextField txtOtro = new TextField();
         txtOtro.setPromptText("Especifique el tipo de tela aquí...");
-        txtOtro.setStyle("-fx-background-color: white; -fx-border-color: #3498db; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 8; -fx-font-size: 13px;");
-        
+        txtOtro.setStyle(
+                "-fx-background-color: white; -fx-border-color: #3498db; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 8; -fx-font-size: 13px;");
+
         // Initial visibility
         boolean isInitialOtro = (telaSeleccionada == TipoTela.OTRO);
         txtOtro.setVisible(isInitialOtro);
         txtOtro.setManaged(isInitialOtro);
-        
+
         if (isInitialOtro && visualizer != null) {
             txtOtro.setText(visualizer.getState().getCustomTela());
         }
@@ -420,19 +421,19 @@ public class PrendaDelegate {
             TipoTela nuevaTela = comboTela.getValue();
             if (nuevaTela != null) {
                 telaSeleccionada = nuevaTela;
-                
+
                 boolean isOtro = (nuevaTela == TipoTela.OTRO);
                 txtOtro.setVisible(isOtro);
                 txtOtro.setManaged(isOtro);
-                
+
                 if (isOtro) {
                     javafx.application.Platform.runLater(txtOtro::requestFocus);
                 }
-                
+
                 if (visualizer != null) {
                     visualizer.setTela(nuevaTela);
                     if (!isOtro) {
-                         visualizer.getState().setCustomTela("");
+                        visualizer.getState().setCustomTela("");
                     }
                 }
 
@@ -597,7 +598,7 @@ public class PrendaDelegate {
                 // support it directly.
                 if (conjuntoConfig != null) {
                     ConfiguracionPrendaDTO c = conjuntoConfig.getConfiguration();
-                    return new ConfiguracionPrendaDTO.Builder().from(c).tela(telaSeleccionada).build();
+                    return new ConfiguracionPrendaDTO.Builder().from(c).tela(telaSeleccionada).tipoEscudo(this.tipoEscudo).build();
                 }
                 return null;
 
@@ -683,13 +684,19 @@ public class PrendaDelegate {
      * This ensures the configuration sidebar matches the loaded design.
      */
     public void restoreFromState(org.example.dto.save.PrendaStateDTO stateDTO) {
-        if (stateDTO == null)
-            return;
+        if (stateDTO == null) {
+            // Create a default state DTO if null to avoid throwing or exiting
+            stateDTO = new org.example.dto.save.PrendaStateDTO();
+            stateDTO.setCurrentGarmentType("CAMISETA");
+            stateDTO.setCurrentGenero(TipoGenero.HOMBRE);
+            stateDTO.setCurrentTela(TipoTela.WIN);
+        }
 
         // 1. Identify Garment Type
         String gTypeStr = stateDTO.getCurrentGarmentType();
-        if (gTypeStr == null)
-            return;
+        if (gTypeStr == null) {
+            gTypeStr = "CAMISETA";
+        }
 
         TipoPrenda prenda = null;
         try {
@@ -704,48 +711,60 @@ public class PrendaDelegate {
             }
         }
 
-        if (prenda == null)
-            return;
+        if (prenda == null) {
+            prenda = TipoPrenda.CAMISETA;
+        }
 
         // 2. Set Basic State
         this.tipoPrendaSeleccionada = prenda;
-        this.generoSeleccionado = stateDTO.getCurrentGenero();
-        this.telaSeleccionada = stateDTO.getCurrentTela();
+        this.generoSeleccionado = stateDTO.getCurrentGenero() != null ? stateDTO.getCurrentGenero() : TipoGenero.HOMBRE;
+        this.telaSeleccionada = stateDTO.getCurrentTela() != null ? stateDTO.getCurrentTela() : TipoTela.WIN;
 
         if (visualizer != null && this.telaSeleccionada != null) {
             visualizer.setTela(this.telaSeleccionada);
         }
 
         // 3. Rebuild UI Hierarchy
-        // This is tricky because we need to trigger the sequence: Prenda -> Genero ->
-        // Configuracion
-        // But mostrarConfiguracionPrenda clears and starts gender selection.
-
         // Let's call the configurator activator directly with a pseudo-DTO
         // reconstructed from the save state
         ConfiguracionPrendaDTO.Builder builder = new ConfiguracionPrendaDTO.Builder()
                 .tipoPrenda(prenda)
                 .genero(this.generoSeleccionado)
-                .corte(stateDTO.getCurrentCorte())
-                .largo(stateDTO.getCurrentLargo())
-                .cuello(stateDTO.getCurrentCuello())
+                .tela(this.telaSeleccionada)
+                .customTela(stateDTO.getCustomTela() != null ? stateDTO.getCustomTela() : "")
                 .conMalla(stateDTO.isHasMesh())
                 .conPunoCamiseta(stateDTO.isHasCuffs())
                 .conFranjaCamiseta(stateDTO.isHasShirtStripe())
+                .conLineaCamiseta(stateDTO.isHasShirtLinea())
                 .conAcolchado(stateDTO.isHasPadding())
                 .conShort(stateDTO.isHasShorts())
                 .conMedias(stateDTO.isHasSocks())
                 .conLigaMedias(stateDTO.isHasSocksTop())
                 // Short specific
-                .corteShort(stateDTO.getCurrentCorteShort())
                 .conFranjaShort(stateDTO.isHasShortsStripe())
+                .conLineaShort(stateDTO.isHasShortsLinea())
                 .conPiqueteShort(stateDTO.isHasShortsPicket())
                 .conBolsilloShort(stateDTO.isHasShortsPocket())
                 .conPunoShort(stateDTO.isHasShortsCuff())
                 .conPasadorShort(stateDTO.isHasShortsCord())
-                .conForroShort(stateDTO.isHasShortsLining())
-                .tipoMedias(stateDTO.getCurrentTipoMedias())
-                .tipoEscudo(org.example.model.TipoEscudo.valueOfTech(stateDTO.getShirtCrestTech()));
+                .conForroShort(stateDTO.isHasShortsLining());
+
+        if (stateDTO.getCurrentCorte() != null)
+            builder.corte(stateDTO.getCurrentCorte());
+        if (stateDTO.getCurrentLargo() != null)
+            builder.largo(stateDTO.getCurrentLargo());
+        if (stateDTO.getCurrentCuello() != null)
+            builder.cuello(stateDTO.getCurrentCuello());
+        if (stateDTO.getCurrentCorteShort() != null)
+            builder.corteShort(stateDTO.getCurrentCorteShort());
+        if (stateDTO.getCurrentTipoMedias() != null)
+            builder.tipoMedias(stateDTO.getCurrentTipoMedias());
+
+        if (stateDTO.getShirtCrestTech() != null) {
+            builder.tipoEscudo(org.example.model.TipoEscudo.valueOfTech(stateDTO.getShirtCrestTech()));
+        } else {
+            builder.tipoEscudo(org.example.model.TipoEscudo.SUBLIMADO);
+        }
 
         ConfiguracionPrendaDTO reconstructedConfig = builder.build();
 
@@ -810,4 +829,3 @@ public class PrendaDelegate {
         }
     }
 }
-
