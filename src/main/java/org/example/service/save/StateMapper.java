@@ -640,7 +640,8 @@ public class StateMapper {
                 }
                 
                 StateMapper.restoreDesign(visualizer, null, visualizer.getCamisetaState().getUserLayers());
-                visualizer.getNumberManager().restoreNumbersFromState(visualizer.getCamisetaState(), true, false);
+                // Use isSwappingDesign=false so numbers are immediately shown with correct visibility
+                visualizer.getNumberManager().restoreNumbersFromState(visualizer.getCamisetaState(), false, false);
                 visualizer.applyVisibility();
             } finally {
                 visualizer.setSwappingDesign(false);
@@ -652,6 +653,9 @@ public class StateMapper {
         } finally {
             visualizer.setVisible(true);
             visualizer.setNotificationsSuspended(false);
+            // Clear the node signature cache so cargarCapas() does a complete re-evaluation
+            // This prevents a stale cache from hiding numbers that are marked visible in the saved state
+            visualizer.invalidateSignatures();
             visualizer.cargarCapas(); // Forces regeneration of SVGs and PowerClip refresh
             visualizer.notifyStateChanged();
         }

@@ -274,5 +274,11 @@ public class GarmentNumberManager {
 
     public void clearNodeSignatures() {
         this.lastNodeSignatures.clear();
+        if (chestNumber != null && chestNumber.getRoot() != null) chestNumber.getRoot().setUserData(null);
+        if (backNumber != null && backNumber.getRoot() != null) backNumber.getRoot().setUserData(null);
+        if (shortNumber != null && shortNumber.getRoot() != null) shortNumber.getRoot().setUserData(null);
+        if (arqueroChestNumber != null && arqueroChestNumber.getRoot() != null) arqueroChestNumber.getRoot().setUserData(null);
+        if (arqueroBackNumber != null && arqueroBackNumber.getRoot() != null) arqueroBackNumber.getRoot().setUserData(null);
+        if (arqueroShortNumber != null && arqueroShortNumber.getRoot() != null) arqueroShortNumber.getRoot().setUserData(null);
     }
 }

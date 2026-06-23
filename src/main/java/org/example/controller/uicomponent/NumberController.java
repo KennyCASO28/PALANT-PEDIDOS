@@ -106,7 +106,14 @@ public class NumberController {
         sectionBox.setStyle("-fx-background-color: #f8fafc; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-radius: 8; -fx-padding: 15;");
         sectionBox.setMaxWidth(Double.MAX_VALUE);
 
-        HBox hbActive = UIFactory.crearFilaOpcion("Número " + label, composition.isVisible(), visualizer.getGenero(),
+        // Read visibility from the authoritative PrendaState, not the JavaFX node.
+        // This fixes the bug where opening a project showed the switch OFF despite the saved state being ON.
+        boolean isCurrentlyVisible;
+        if (label.equalsIgnoreCase("Pecho")) isCurrentlyVisible = visualizer.isChestNumberVisible();
+        else if (label.equalsIgnoreCase("Espalda")) isCurrentlyVisible = visualizer.isBackNumberVisible();
+        else isCurrentlyVisible = visualizer.isShortNumberVisible();
+
+        HBox hbActive = UIFactory.crearFilaOpcion("Número " + label, isCurrentlyVisible, visualizer.getGenero(),
                 selected -> {
                     boolean oldActive = !selected;
                     PropertyChangeCommand<Boolean> cmd = new PropertyChangeCommand<>("Toggle Number: " + label, oldActive, selected, val -> {

@@ -112,6 +112,7 @@ public class NumberComposition {
         }
         nameText.setText("");
         nameText.setVisible(false);
+        root.setUserData(null);
     }
 
     public void resetColorsToDefault() {

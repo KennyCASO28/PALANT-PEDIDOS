@@ -426,10 +426,12 @@ public class UIFactory {
         dialogPane.setStyle(
                 "-fx-background-color: #ffffff; -fx-font-family: 'Segoe UI'; -fx-font-size: 13px;");
 
-        // Prevent Alert dialogs from stretching too wide on laptops
         if (dialog instanceof javafx.scene.control.Alert) {
             dialogPane.setMaxWidth(480);
             dialogPane.setPrefWidth(480);
+        } else {
+            dialogPane.setMaxWidth(500);
+            dialogPane.setPrefWidth(500);
         }
 
         // Auto-Center dialog on active window

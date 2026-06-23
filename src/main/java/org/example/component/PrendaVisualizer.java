@@ -497,12 +497,40 @@ public class PrendaVisualizer extends StackPane {
     public void setSocksBrandVisible(boolean v) { stateManager.getActiveState().setHasSocksBrand(v); cargarCapas(); }
 
     // Number Management Bridge
-    public void setChestNumberVisible(boolean v) { stateManager.getActiveState().setChestNumberVisible(v); cargarCapas(); }
-    public void setBackNumberVisible(boolean v) { stateManager.getActiveState().setBackNumberVisible(v); cargarCapas(); }
-    public void setShortNumberVisible(boolean v) { stateManager.getActiveState().setShortNumberVisible(v); cargarCapas(); }
+    public void setChestNumberVisible(boolean v) {
+        stateManager.getActiveState().setChestNumberVisible(v);
+        // If enabling visibility but no digit set yet, default to "9" so vector loads immediately
+        if (v && numberManager.hasNumberDigit(stateManager.getActiveState().getCurrentChestNumber()) == false) {
+            numberManager.setGlobalNumberDigit("9", stateManager.getActiveState(),
+                stateManager.getActiveState().hasShorts(), stateManager.isEditandoArquero());
+            numberManager.clearNodeSignatures();
+        }
+        cargarCapas();
+    }
+    public void setBackNumberVisible(boolean v) {
+        stateManager.getActiveState().setBackNumberVisible(v);
+        if (v && numberManager.hasNumberDigit(stateManager.getActiveState().getCurrentBackNumber()) == false) {
+            numberManager.setGlobalNumberDigit("9", stateManager.getActiveState(),
+                stateManager.getActiveState().hasShorts(), stateManager.isEditandoArquero());
+            numberManager.clearNodeSignatures();
+        }
+        cargarCapas();
+    }
+    public void setShortNumberVisible(boolean v) {
+        stateManager.getActiveState().setShortNumberVisible(v);
+        if (v && numberManager.hasNumberDigit(stateManager.getActiveState().getCurrentShortNumber()) == false) {
+            numberManager.setGlobalNumberDigit("9", stateManager.getActiveState(),
+                stateManager.getActiveState().hasShorts(), stateManager.isEditandoArquero());
+            numberManager.clearNodeSignatures();
+        }
+        cargarCapas();
+    }
     public String getCurrentChestNumberStr() { return stateManager.getActiveState().getCurrentChestNumber(); }
     public String getCurrentBackNumberStr() { return stateManager.getActiveState().getCurrentBackNumber(); }
     public String getCurrentShortNumberStr() { return stateManager.getActiveState().getCurrentShortNumber(); }
+    public boolean isChestNumberVisible() { return stateManager.getActiveState().isChestNumberVisible(); }
+    public boolean isBackNumberVisible() { return stateManager.getActiveState().isBackNumberVisible(); }
+    public boolean isShortNumberVisible() { return stateManager.getActiveState().isShortNumberVisible(); }
     public NumberComposition getChestNumber() { return numberManager.getChestNumber(stateManager.isEditandoArquero()); }
     public NumberComposition getBackNumber() { return numberManager.getBackNumber(stateManager.isEditandoArquero()); }
     public NumberComposition getShortNumber() { return numberManager.getShortNumber(stateManager.isEditandoArquero()); }
