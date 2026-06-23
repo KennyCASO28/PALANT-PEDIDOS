@@ -25,6 +25,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.*;
 import java.util.Base64;
+import com.google.common.cache.CacheBuilder;
+import java.util.concurrent.TimeUnit;
 
 public class StateMapper {
     private static double safeScale(double s) {
@@ -80,13 +82,13 @@ public class StateMapper {
         
         restoreGarmentState(visualizer, state, colorManager, config);
         
+        visualizer.cargarCapas();
+        
         if (layers != null) {
             visualizer.clearUserLayers();
             restoreLayers(visualizer.getUserLayerGroup(), layers, visualizer);
             state.setUserLayers(new ArrayList<>(layers));
         }
-        
-        visualizer.cargarCapas();
     }
 
     public static ProjectState extractState(PrendaVisualizer visualizer, ObservableList<DetallePedido> roster,
@@ -605,6 +607,9 @@ public class StateMapper {
             if (visualizer.getPowerClipManager() != null) visualizer.getPowerClipManager().reset();
             visualizer.clearUserLayers();
 
+            // 2.5 Restore Goalie Personalized Flag (V2.8+)
+            visualizer.setArqueroDisenoPersonalizado(project.isArqueroPersonalizado());
+
             // 3. Restore State Objects (Camiseta & Arquero) - Values and Layer Definitions
             if (project.getGarmentConfig() != null) {
                 restoreGarmentState(visualizer, visualizer.getCamisetaState(), visualizer.getCamisetaColorManager(), project.getGarmentConfig());
@@ -861,10 +866,22 @@ public class StateMapper {
         return null;
     }
 
+    private static final java.util.Map<String, javafx.scene.image.Image> imageCache = CacheBuilder.newBuilder()
+            .maximumSize(100)
+            .weakValues()
+            .expireAfterAccess(10, TimeUnit.MINUTES)
+            .<String, javafx.scene.image.Image>build()
+            .asMap();
+
     private static javafx.scene.image.Image decodeImage(String base64) {
+        if (base64 == null || base64.isEmpty()) return null;
+        javafx.scene.image.Image cached = imageCache.get(base64);
+        if (cached != null) return cached;
         try {
             byte[] imageBytes = Base64.getDecoder().decode(base64);
-            return new javafx.scene.image.Image(new java.io.ByteArrayInputStream(imageBytes));
+            javafx.scene.image.Image img = new javafx.scene.image.Image(new java.io.ByteArrayInputStream(imageBytes));
+            imageCache.put(base64, img);
+            return img;
         } catch (Exception e) {
             e.printStackTrace();
             return null;

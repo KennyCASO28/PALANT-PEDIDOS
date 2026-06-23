@@ -5,6 +5,9 @@ import javafx.geometry.Point2D;
 import javafx.application.Platform;
 import javafx.scene.Group;
 import javafx.scene.Node;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import org.example.component.ImageLayer;
 import org.example.component.PrendaVisualizer;
 import org.example.component.ShapeLayer;
@@ -374,6 +377,55 @@ public class PowerClipManager {
 
         for (Node node : layerManager.getLayerGroup().getChildren()) {
             // Logic to enforce state if needed
+        }
+    }
+
+    /**
+     * Extracts a node from its PowerClip container back to the main layer group,
+     * restoring selection and editability.
+     */
+    public void extractFromContainer(Node node) {
+        if (node == null) return;
+        for (SmartZoneContainer container : containers.values()) {
+            if (container.getContentGroup().getChildren().contains(node)) {
+                container.getContentGroup().getChildren().remove(node);
+                container.removeItemState(node);
+                layerManager.getLayerGroup().getChildren().add(node);
+                setZoneRecursively(node, null);
+                if (node instanceof ShapeLayer) ((ShapeLayer) node).setSystemLocked(false);
+                else if (node instanceof ImageLayer) ((ImageLayer) node).setSystemLocked(false);
+                else if (node instanceof org.example.component.TextLayer) ((org.example.component.TextLayer) node).setSystemLocked(false);
+                node.setMouseTransparent(false);
+                node.setOpacity(1.0);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Removes a zone container and extracts all its children back to the main layer group.
+     */
+    public void removeContainer(String zoneName) {
+        SmartZoneContainer container = containers.get(zoneName);
+        if (container == null) return;
+
+        List<Node> children = new ArrayList<>(container.getContentGroup().getChildren());
+        for (Node child : children) {
+            extractFromContainer(child);
+        }
+
+        layerManager.getLayerGroup().getChildren().remove(container);
+        containers.remove(zoneName);
+    }
+
+    public void extractOrphanContent() {
+        List<String> available = visualizer.getAvailableZones();
+        for (Map.Entry<String, SmartZoneContainer> entry : new ArrayList<>(containers.entrySet())) {
+            String zone = entry.getKey();
+            SmartZoneContainer container = entry.getValue();
+            if (!available.contains(zone) && container.getContentGroup().getChildren().size() > 0) {
+                removeContainer(zone);
+            }
         }
     }
 

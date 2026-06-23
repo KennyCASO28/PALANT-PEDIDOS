@@ -4,6 +4,8 @@ import javafx.beans.property.*;
 import javafx.scene.paint.Color;
 
 public class DetallePedido {
+    public static java.util.function.Supplier<String> defaultSocksTypeProvider = () -> null;
+
     private final StringProperty nombre = new SimpleStringProperty("");
     private final StringProperty numero = new SimpleStringProperty("");
     private final StringProperty talla = new SimpleStringProperty("");
@@ -23,6 +25,7 @@ public class DetallePedido {
     private final StringProperty tallaShort = new SimpleStringProperty("");
     private final StringProperty tipoMedias = new SimpleStringProperty("PROFESIONAL");
     private final IntegerProperty arqueroOrdenMarcado = new SimpleIntegerProperty(0);
+    private final StringProperty arqueroDesignId = new SimpleStringProperty("");
 
     public DetallePedido() {
         setTalla(""); // Initialize with default logic
@@ -56,8 +59,13 @@ public class DetallePedido {
     public String getTalla() { return talla.get(); }
     public void setTalla(String v) { 
         this.talla.set(v); 
-        // Force auto-calculation of socks type
-        setTipoMedias(resolveAutoSocksType(v));
+        // Force auto-calculation of socks type or use default bulk category if active
+        String providerDefault = defaultSocksTypeProvider != null ? defaultSocksTypeProvider.get() : null;
+        if (providerDefault != null) {
+            setTipoMedias(providerDefault);
+        } else {
+            setTipoMedias(resolveAutoSocksType(v));
+        }
     }
     public StringProperty tallaProperty() { return talla; }
 
@@ -81,6 +89,7 @@ public class DetallePedido {
     public void setEsArquero(boolean v) {
         this.esArquero.set(v);
         if (v) {
+            ensureArqueroDesignId();
             String mangaActual = getTipoManga();
             if (mangaActual != null && !mangaActual.isBlank()) {
                 this.tipoMangaArquero.set(mangaActual);
@@ -92,11 +101,19 @@ public class DetallePedido {
     public BooleanProperty esArqueroProperty() { return esArquero; }
 
     public String getTipoMangaArquero() { return tipoMangaArquero.get(); }
-    public void setTipoMangaArquero(String v) { this.tipoMangaArquero.set(v); }
+    public void setTipoMangaArquero(String v) {
+        this.tipoMangaArquero.set(v);
+        this.tipoManga.set(v); // Keep in sync for the roster table
+    }
     public StringProperty tipoMangaArqueroProperty() { return tipoMangaArquero; }
 
     public String getTipoManga() { return tipoManga.get(); }
-    public void setTipoManga(String v) { this.tipoManga.set(v); }
+    public void setTipoManga(String v) {
+        this.tipoManga.set(v);
+        if (isEsArquero()) {
+            this.tipoMangaArquero.set(v); // Keep in sync for goalkeeper config
+        }
+    }
     public StringProperty tipoMangaProperty() { return tipoManga; }
 
     public Color getColorArquero() { return colorArquero.get(); }
@@ -119,6 +136,17 @@ public class DetallePedido {
     public void setArqueroOrdenMarcado(int v) { this.arqueroOrdenMarcado.set(v); }
     public IntegerProperty arqueroOrdenMarcadoProperty() { return arqueroOrdenMarcado; }
 
+    public String getArqueroDesignId() { return arqueroDesignId.get(); }
+    public void setArqueroDesignId(String v) { this.arqueroDesignId.set(v != null ? v : ""); }
+    public StringProperty arqueroDesignIdProperty() { return arqueroDesignId; }
+
+    public String ensureArqueroDesignId() {
+        if (getArqueroDesignId() == null || getArqueroDesignId().isBlank()) {
+            setArqueroDesignId("arq-" + java.util.UUID.randomUUID());
+        }
+        return getArqueroDesignId();
+    }
+
     private String resolveAutoSocksType(String t) {
         if (t == null) return "PROFESIONAL";
         String tag = t.toUpperCase().trim();
@@ -129,4 +157,3 @@ public class DetallePedido {
         return "PROFESIONAL";
     }
 }
-

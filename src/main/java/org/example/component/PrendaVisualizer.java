@@ -63,6 +63,7 @@ public class PrendaVisualizer extends StackPane {
     private String lastCargarCapasSignature = "";
     private String lastColorSignature = "";
     private String lastNumberSignature = "";
+    private String lastHotspotSignature = "";
 
     public PrendaVisualizer() {
         this.setMinSize(0, 0);
@@ -200,6 +201,8 @@ public class PrendaVisualizer extends StackPane {
         if (structuralChange) {
             renderOrchestrator.updateLayers(state, stateManager.isEditandoArquero());
             applyVisibility();
+            powerClipManager.extractOrphanContent();
+            syncZoneBuckets();
             updateAllBranding();
             updateShortsCrest();
         }
@@ -216,7 +219,14 @@ public class PrendaVisualizer extends StackPane {
             lastNumberSignature = numSig;
         }
 
-        refreshHotspotsFromState();
+        // Skip hotspot reload if the same state slot with identical hotspot data
+        PrendaState hotspotState = stateManager.getActiveState();
+        String hotspotSig = System.identityHashCode(hotspotState)
+                + "|" + (hotspotState != null ? hotspotState.getReferenceHotspots().size() : 0);
+        if (!hotspotSig.equals(lastHotspotSignature)) {
+            refreshHotspotsFromState();
+            lastHotspotSignature = hotspotSig;
+        }
         reapplyColors();
         syncZoneBuckets();
         uiOrchestrator.autoScale();
@@ -290,6 +300,7 @@ public class PrendaVisualizer extends StackPane {
     }
     public void notifyStateChanged() { stateManager.notifyStateChanged(); }
     public void addOnStateChanged(Runnable r) { stateManager.addOnStateChanged(r); }
+    public Runnable getOnStateChanged() { return stateManager.getOnStateChanged(); }
     public void setOnStateChanged(Runnable r) { stateManager.setOnStateChanged(r); }
     public boolean isPendingNotification() { return stateManager.isPendingNotification(); }
 
@@ -328,6 +339,9 @@ public class PrendaVisualizer extends StackPane {
         stateManager.setEditandoArquero(b); 
         ensureArqueroInitialized();
         cargarCapas();
+        if (uiController != null) {
+            uiController.updateModeIndicatorVisuals(b, null);
+        }
     }
     public void setActiveDesign(boolean b) { setEditandoArquero(b); }
     public boolean isArqueroDisenoPersonalizado() { return stateManager.isArqueroDisenoPersonalizado(); }
@@ -616,7 +630,10 @@ public class PrendaVisualizer extends StackPane {
     }
 
     // --- Legacy Bridge: Design Tools (Alignment/Snapshot/Etc) ---
-    public void clearHotspots() { alignmentService.clearHotspots(); }
+    public void clearHotspots() { 
+        alignmentService.clearHotspots(); 
+        hotspotLayer.getChildren().clear();
+    }
     public void removeHotspot(Node h) { 
         alignmentService.removeHotspot(h);
         hotspotLayer.getChildren().remove(h);
@@ -628,7 +645,8 @@ public class PrendaVisualizer extends StackPane {
     public void startShapeCreationInternal(org.example.model.ShapeType type, Color fill, Color stroke, double width, java.util.function.Consumer<ShapeLayer> onFinish) {
         shapeHelper.startShapeCreation(type, fill, stroke, width, onFinish);
     }
-    public WritableImage takeSafeSnapshot(boolean forArquero) { return snapshotService.takeSafeSnapshot(forArquero); }
+    public WritableImage takeSafeSnapshot(boolean forArquero) { return snapshotService.takeSafeSnapshot(forArquero, 2.0); }
+    public WritableImage takeSafeSnapshot(boolean forArquero, double scale) { return snapshotService.takeSafeSnapshot(forArquero, scale); }
 
     public org.example.controller.uicomponent.ShapeManagerController getShapeManagerController() { return shapeManagerController; }
     private org.example.component.helper.DrawingToolContext drawingToolContext;
@@ -655,8 +673,8 @@ public class PrendaVisualizer extends StackPane {
             stateManager.getActiveState().hasShirt(), 
             stateManager.getActiveState().hasShorts(), 
             stateManager.getActiveState().getCorteShort(),
-            (org.example.component.renderer.GarmentRenderer)renderOrchestrator.getActiveShirtRenderer(false),
-            renderOrchestrator.getActiveShortsRenderer(false));
+            (org.example.component.renderer.GarmentRenderer)renderOrchestrator.getActiveShirtRenderer(stateManager.isEditandoArquero()),
+            renderOrchestrator.getActiveShortsRenderer(stateManager.isEditandoArquero()));
     }
     
     public void updateOverlayForShapeDrag(ShapeLayer l) {

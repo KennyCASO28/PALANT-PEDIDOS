@@ -8,6 +8,7 @@
 <?import javafx.scene.effect.*?>
 <?import javafx.scene.shape.*?>
 <?import javafx.scene.input.*?>
+<?import javafx.scene.Group?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox fx:id="rootVBox" prefHeight="650.0" prefWidth="1024.0" stylesheets="@styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.controller.PedidoController">
@@ -27,14 +28,24 @@
                 <menus>
                    <Menu mnemonicParsing="false" text="Archivo">
                     <items>
-                      <MenuItem mnemonicParsing="false" onAction="#nuevoPedidoNuevaVentanaAction" text="Nuevo Pedido (Nueva ventana)">
+                      <MenuItem mnemonicParsing="false" onAction="#nuevoPedidoTabAction" text="Nuevo Pedido">
                              <accelerator>
                                 <KeyCodeCombination alt="UP" code="N" control="DOWN" meta="UP" shift="UP" shortcut="UP" />
+                             </accelerator>
+                      </MenuItem>
+                      <MenuItem mnemonicParsing="false" onAction="#nuevoPedidoNuevaVentanaAction" text="Nueva Ventana">
+                             <accelerator>
+                                <KeyCodeCombination alt="UP" code="N" control="DOWN" meta="UP" shift="DOWN" shortcut="UP" />
                              </accelerator>
                       </MenuItem>
                       <MenuItem mnemonicParsing="false" onAction="#guardarProyectoAction" text="Guardar Proyecto">
                              <accelerator>
                                 <KeyCodeCombination alt="UP" code="S" control="DOWN" meta="UP" shift="UP" shortcut="UP" />
+                             </accelerator>
+                      </MenuItem>
+                      <MenuItem mnemonicParsing="false" onAction="#guardarProyectoComoAction" text="Guardar Proyecto Como...">
+                             <accelerator>
+                                <KeyCodeCombination alt="UP" code="S" control="DOWN" meta="UP" shift="DOWN" shortcut="UP" />
                              </accelerator>
                       </MenuItem>
                       <MenuItem mnemonicParsing="false" onAction="#cargarProyectoAction" text="Abrir Proyecto">
@@ -93,8 +104,8 @@
       <AnchorPane VBox.vgrow="ALWAYS">
          <children>
     
-          <!-- HEADER FIXO (Compact, Height 50) -->
-          <HBox fx:id="headerContainer" alignment="CENTER_LEFT" layoutX="0.0" layoutY="0.0" prefHeight="50.0" spacing="10.0" styleClass="header-section" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+          <!-- HEADER FIXO (Compact, Height 60) -->
+          <HBox fx:id="headerContainer" alignment="CENTER_LEFT" layoutX="0.0" layoutY="0.0" prefHeight="60.0" minHeight="60.0" maxHeight="60.0" spacing="10.0" styleClass="header-section" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
              <children>
                 <!-- RESTORED GREEN LOGO SECTION -->
                 <HBox alignment="CENTER_LEFT" spacing="10.0" minWidth="-Infinity">
@@ -117,7 +128,7 @@
     
                 <!-- CENTERED INPUTS GROUP -->
                 <!-- Fixed spacing and centered, no growing inputs -->
-                <HBox fx:id="headerInputsSection" spacing="10" alignment="CENTER">
+                <HBox fx:id="headerInputsSection" spacing="6" alignment="CENTER">
                     <VBox spacing="2.0" alignment="CENTER_LEFT" visible="false" managed="false">
                        <Label text="CLIENTE" styleClass="header-input-label" />
                        <!-- Fixed Width, centered -->
@@ -130,9 +141,9 @@
                     </VBox>
 
                      <!-- DATOS DE ENVIO (UNIFICADO) -->
-                    <VBox spacing="2.0" alignment="CENTER_LEFT" minWidth="-Infinity">
+                    <VBox spacing="2.0" alignment="CENTER_LEFT" maxWidth="150.0">
                        <Label text="ENVÍO" styleClass="header-input-label" />
-                       <Button fx:id="btnDatosEnvio" onAction="#datosEnvioAction" minWidth="-Infinity" prefHeight="28.0" text="Datos de envío" styleClass="header-input-glass">
+                       <Button fx:id="btnDatosEnvio" onAction="#datosEnvioAction" maxWidth="150.0" prefHeight="28.0" text="Datos de envío" styleClass="header-input-glass">
                             <graphic>
                                 <FontIcon iconLiteral="mdi2t-truck-delivery" iconSize="16" />
                             </graphic>
@@ -168,7 +179,7 @@
                 <Region HBox.hgrow="ALWAYS" />
     
                  <!-- ACTION BUTTON (Right) -->
-                 <VBox spacing="4.0" alignment="CENTER_LEFT" HBox.hgrow="NEVER" minWidth="180.0">
+                 <VBox spacing="4.0" alignment="CENTER_LEFT" HBox.hgrow="NEVER">
                      <Label text="" textFill="transparent"><font><Font size="10.0" /></font></Label> <!-- Invisible Label for Alignment -->
                      <Button fx:id="btnFinalizar" prefHeight="28.0" styleClass="button-primary" text="CONTINUAR >">
                          <font><Font size="13.0" /></font>
@@ -180,7 +191,7 @@
           </HBox>
     
           <!-- MAIN TAB PANE (Ahora ocupa todo el ancho y alto) -->
-          <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" styleClass="main-workflow-tabs" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="50.0">
+          <TabPane fx:id="mainTabPane" tabClosingPolicy="UNAVAILABLE" styleClass="main-workflow-tabs" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="60.0">
             <tabs>
     
               <Tab text="1. Diseño y Técnica">
@@ -193,14 +204,14 @@
                                   <HBox spacing="10.0" alignment="CENTER">
                                      <children>
                                         <!-- PANEL IZQUIERDO: CONFIGURACIÓN (Side-by-side) -->
-                                        <VBox fx:id="configSideWrapper" visible="${btnToggleDesignPanel.selected}" managed="${btnToggleDesignPanel.selected}" minHeight="0.0" minWidth="360.0" prefWidth="360.0" maxWidth="360.0" spacing="0.0" style="-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);" pickOnBounds="true">
+                                        <VBox fx:id="configSideWrapper" visible="${btnToggleDesignPanel.selected}" managed="${btnToggleDesignPanel.selected}" minHeight="0.0" minWidth="320.0" prefWidth="320.0" maxWidth="320.0" spacing="0.0" style="-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-border-radius: 15; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);" pickOnBounds="true">
                                            <children>
                                                <HBox alignment="CENTER_LEFT" spacing="10" prefHeight="60.0" minHeight="60.0" style="-fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0; -fx-padding: 0 15 0 65;">
                                                   <Label style="-fx-text-fill: #1e293b; -fx-font-size: 16px; -fx-font-weight: bold;" text="Configuración" />
                                                </HBox>
                                                <ScrollPane fitToWidth="true" hbarPolicy="NEVER" style="-fx-background-color: transparent; -fx-background: transparent;" styleClass="custom-sidebar-scroll" VBox.vgrow="ALWAYS">
                                                   <content>
-                                                      <VBox fx:id="configSidePanel" spacing="15.0" style="-fx-padding: 15;">
+                                                      <VBox fx:id="configSidePanel" spacing="15.0" style="-fx-padding: 10;">
                                                          <children>
                                                              <VBox fx:id="dynamicFormContainer" alignment="TOP_CENTER" spacing="20.0">
                                                                <!-- Botones inyectados dinámicamente -->
@@ -235,9 +246,9 @@
                                   </HBox>
 
                                   <!-- BOTÓN FLOTANTE PARA MOSTRAR/OCULTAR EL PANEL (Z-INDEX SUPERIOR) -->
-                                  <ToggleButton fx:id="btnToggleDesignPanel" selected="true" style="-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);" StackPane.alignment="TOP_LEFT" prefWidth="40" prefHeight="40" minWidth="40" minHeight="40" maxWidth="40" maxHeight="40">
+                                  <ToggleButton fx:id="btnToggleDesignPanel" selected="true" style="-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);" StackPane.alignment="TOP_LEFT" prefWidth="46" prefHeight="46" minWidth="46" minHeight="46" maxWidth="46" maxHeight="46">
                                       <StackPane.margin><Insets top="10" left="10" /></StackPane.margin>
-                                      <graphic><FontIcon iconLiteral="mdi2m-menu" iconSize="24" iconColor="#1e293b"/></graphic>
+                                      <graphic><FontIcon iconLiteral="mdi2m-menu" iconSize="28" iconColor="#1e293b"/></graphic>
                                       <tooltip><Tooltip text="Alternar Panel de Configuración" /></tooltip>
                                   </ToggleButton>
                                </children>
@@ -256,14 +267,14 @@
                               <HBox spacing="10.0" alignment="CENTER">
                                  <children>
                                     <!-- PANEL IZQUIERDO: HERRAMIENTAS DE LOGOS (Side-by-side) -->
-                                    <VBox fx:id="logosSideWrapper" visible="${btnToggleLogosPanel.selected}" managed="${btnToggleLogosPanel.selected}" minHeight="0.0" minWidth="360.0" prefWidth="360.0" maxWidth="360.0" spacing="0.0" style="-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);" pickOnBounds="true">
+                                    <VBox fx:id="logosSideWrapper" visible="${btnToggleLogosPanel.selected}" managed="${btnToggleLogosPanel.selected}" minHeight="0.0" minWidth="320.0" prefWidth="320.0" maxWidth="320.0" spacing="0.0" style="-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-border-radius: 15; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);" pickOnBounds="true">
                                        <children>
                                           <HBox alignment="CENTER_LEFT" spacing="10" prefHeight="60.0" minHeight="60.0" style="-fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0; -fx-padding: 0 15 0 65;">
                                               <Label style="-fx-text-fill: #1e293b; -fx-font-size: 16px; -fx-font-weight: bold;" text="Estampería y Logos" />
                                           </HBox>
                                           <ScrollPane fitToWidth="true" hbarPolicy="NEVER" style="-fx-background-color: transparent; -fx-background: transparent;" VBox.vgrow="ALWAYS">
                                              <content>
-                                                 <VBox fx:id="logosSidePanel" spacing="15.0" style="-fx-padding: 15;">
+                                                 <VBox fx:id="logosSidePanel" spacing="15.0" style="-fx-padding: 10;">
                                                    <children>
                                                        <VBox fx:id="dynamicLogosContainer" alignment="TOP_CENTER" spacing="20.0">
                                                          <!-- Tools will be injected here -->
@@ -285,9 +296,9 @@
                               </HBox>
 
                               <!-- BOTÓN FLOTANTE PARA MOSTRAR/OCULTAR EL PANEL (Z-INDEX SUPERIOR) -->
-                              <ToggleButton fx:id="btnToggleLogosPanel" selected="true" style="-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);" StackPane.alignment="TOP_LEFT" prefWidth="40" prefHeight="40" minWidth="40" minHeight="40" maxWidth="40" maxHeight="40">
+                              <ToggleButton fx:id="btnToggleLogosPanel" selected="true" style="-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);" StackPane.alignment="TOP_LEFT" prefWidth="46" prefHeight="46" minWidth="46" minHeight="46" maxWidth="46" maxHeight="46">
                                   <StackPane.margin><Insets top="10" left="10" /></StackPane.margin>
-                                  <graphic><FontIcon iconLiteral="mdi2m-menu" iconSize="24" iconColor="#1e293b"/></graphic>
+                                  <graphic><FontIcon iconLiteral="mdi2m-menu" iconSize="28" iconColor="#1e293b"/></graphic>
                                   <tooltip><Tooltip text="Alternar Panel de Propiedades" /></tooltip>
                                </ToggleButton>
                            </children>
@@ -329,6 +340,9 @@
             </tabs>
           </TabPane>
           
+          <!-- WELCOME SCREEN OVERLAY -->
+          <StackPane fx:id="welcomeOverlay" style="-fx-background-color: #f8fafc;" visible="false" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+          </StackPane>
        </children>
     </AnchorPane>
   </children>

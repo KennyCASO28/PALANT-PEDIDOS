@@ -25,6 +25,7 @@ public class ShapeLayerState {
     public Color strokeColor = Color.BLACK;
     public double strokeWidth = 1.0;
     public StrokeLineJoin strokeLineJoin = StrokeLineJoin.ROUND;
+    public javafx.scene.shape.StrokeType strokeType = javafx.scene.shape.StrokeType.CENTERED;
 
     // Custom Geometry
     public String svgPathData;
@@ -64,6 +65,7 @@ public class ShapeLayerState {
         copy.strokeColor = this.strokeColor;
         copy.strokeWidth = this.strokeWidth;
         copy.strokeLineJoin = this.strokeLineJoin;
+        copy.strokeType = this.strokeType;
         copy.svgPathData = this.svgPathData;
         if (this.bezierNodes != null) copy.bezierNodes = new ArrayList<>(this.bezierNodes);
         if (this.originalBezierNodes != null) copy.originalBezierNodes = new ArrayList<>(this.originalBezierNodes);

@@ -54,12 +54,18 @@ public class MassiveInputView {
         HBox rootWrapper = new HBox();
         rootWrapper.setAlignment(Pos.CENTER);
 
-        // --- 1. CONFIGURATION SECTION (Top - Compact) ---
-        VBox topPanel = new VBox(10); // Reduced spacing
-        topPanel.setPadding(new Insets(10, 15, 10, 15)); // Good padding
-        topPanel.setStyle("-fx-background-color: white;");
-        topPanel.setMinHeight(0); // Allow collapsing manually by user
+        // Main scroll pane for vertical scrolling on small screens/laptops
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
+        HBox.setHgrow(scrollPane, Priority.ALWAYS);
 
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(10, 15, 15, 15));
+        container.setStyle("-fx-background-color: white;");
+        scrollPane.setContent(container);
+
+        // --- 1. CONFIGURATION SECTION ---
         VBox configSection = new VBox(8);
         configSection.setStyle(
                 "-fx-background-color: #f8f9fa; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #ecf0f1; -fx-border-radius: 8;");
@@ -136,6 +142,7 @@ public class MassiveInputView {
 
         configSection.getChildren().addAll(lblTitle1, gridConfig);
 
+        // --- 2. ACTIONS SECTION ---
         VBox actionsSection = new VBox(8);
         Label lblTitle2 = new Label("2. Acciones");
         lblTitle2.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-font-size: 13px;");
@@ -149,17 +156,10 @@ public class MassiveInputView {
         btnAddRow.setOnAction(e -> addSizeRow());
         actionsSection.getChildren().addAll(lblTitle2, btnAddRow);
 
-        topPanel.getChildren().addAll(configSection, actionsSection); // Removed Separators
-
-        // --- 2. DISTRIBUTION SECTION (Bottom) ---
-        VBox bottomPanel = new VBox(10);
-        bottomPanel.setPadding(new Insets(10, 15, 15, 15));
-        bottomPanel.setStyle("-fx-background-color: white;");
-        bottomPanel.setMinHeight(0);
-
+        // --- 3. DISTRIBUTION SECTION ---
         HBox distHeader = new HBox(10);
         distHeader.setAlignment(Pos.CENTER_LEFT);
-        VBox.setMargin(distHeader, new Insets(25, 0, 0, 0)); // Extra margin to avoid overlap
+        VBox.setMargin(distHeader, new Insets(15, 0, 0, 0)); // Extra margin to avoid overlap
         Label lblTitle3 = new Label("Distribución de Tallas");
         lblTitle3.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-font-size: 13px;");
         Region spacer = new Region();
@@ -177,39 +177,9 @@ public class MassiveInputView {
         rowsContainer = new FlowPane(10, 10);
         rowsContainer.setPadding(new Insets(10));
         rowsContainer.setStyle("-fx-background-color: #f4f4f4; -fx-background-radius: 5;");
-        ScrollPane scrollCards = new ScrollPane(rowsContainer);
-        scrollCards.setFitToWidth(true);
-        scrollCards.setStyle(
-                "-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
-        VBox.setVgrow(scrollCards, Priority.ALWAYS);
 
-        bottomPanel.getChildren().addAll(distHeader, scrollCards);
-
-        // --- VERTICAL SPLIT PANE ---
-        SplitPane splitPane = new SplitPane();
-        splitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
-        splitPane.getItems().addAll(topPanel, bottomPanel);
-        splitPane.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
-
-        // Dynamically set divider position when layout is actually calculated
-        topPanel.boundsInLocalProperty().addListener((obs, oldBounds, newBounds) -> {
-            if (newBounds.getHeight() > 0 && splitPane.getHeight() > 0) {
-                // Use natural preferred height to avoid SplitPane-stretching loops
-                double naturalHeight = topPanel.prefHeight(splitPane.getWidth());
-                // Add a 12px buffer below the button for a tight, clean look
-                double ratio = (naturalHeight + 12) / splitPane.getHeight();
-                splitPane.setDividerPositions(Math.min(ratio, 0.85)); // Guard against extreme shrinking
-            }
-        });
-
-        // "Calculated" behavior: prevent top panel from growing too much, but allow
-        // shrinking
-        SplitPane.setResizableWithParent(topPanel, false);
-
-        VBox.setVgrow(splitPane, Priority.ALWAYS);
-
-        HBox.setHgrow(splitPane, Priority.ALWAYS);
-        rootWrapper.getChildren().add(splitPane);
+        container.getChildren().addAll(configSection, actionsSection, distHeader, rowsContainer);
+        rootWrapper.getChildren().add(scrollPane);
 
         addSizeRow();
         return rootWrapper;

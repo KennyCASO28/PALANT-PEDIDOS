@@ -31,6 +31,7 @@ public class ExportDataDTO {
     private final Image arqueroSnapshotMujer;
     private final Image mainGarmentSnapshot;
     private final List<org.example.service.PdfExportService.ShieldEntry> shields;
+    private final java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero;
 
     private ExportDataDTO(Builder builder) {
         this.targetFile = builder.targetFile;
@@ -50,6 +51,7 @@ public class ExportDataDTO {
         this.arqueroSnapshotMujer = builder.arqueroSnapshotMujer;
         this.mainGarmentSnapshot = builder.mainGarmentSnapshot;
         this.shields = new ArrayList<>(builder.shields);
+        this.disenosArquero = builder.disenosArquero;
     }
 
     // Getters
@@ -121,6 +123,10 @@ public class ExportDataDTO {
         return shields;
     }
 
+    public java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> getDisenosArquero() {
+        return disenosArquero;
+    }
+
     public static class Builder {
         private File targetFile;
         private PrendaVisualizer visualizer;
@@ -139,6 +145,7 @@ public class ExportDataDTO {
         private Image arqueroSnapshotMujer;
         private Image mainGarmentSnapshot;
         private List<org.example.service.PdfExportService.ShieldEntry> shields = new ArrayList<>();
+        private java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero;
 
         public Builder targetFile(File targetFile) {
             this.targetFile = targetFile;
@@ -222,6 +229,11 @@ public class ExportDataDTO {
 
         public Builder shields(List<org.example.service.PdfExportService.ShieldEntry> shields) {
             this.shields = shields;
+            return this;
+        }
+
+        public Builder disenosArquero(java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero) {
+            this.disenosArquero = disenosArquero;
             return this;
         }
 

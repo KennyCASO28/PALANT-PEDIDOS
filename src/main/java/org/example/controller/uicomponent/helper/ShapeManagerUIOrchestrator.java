@@ -287,7 +287,60 @@ public class ShapeManagerUIOrchestrator {
             }
         });
 
-        box.getChildren().addAll(lblWidth, slWidth, lblVal);
+        Label lblType = new Label("Alineación del Borde:");
+        lblType.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #2c3e50;");
+
+        ToggleButton btnInside = new ToggleButton("Interior");
+        ToggleButton btnCentered = new ToggleButton("Compartido");
+        ToggleButton btnOutside = new ToggleButton("Exterior");
+
+        String TOGGLE_STYLE = "-fx-background-radius: 4; -fx-padding: 4 8; -fx-cursor: hand; -fx-background-color: transparent; -fx-border-color: #ccc; -fx-border-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #475569;";
+        String TOGGLE_SELECTED = "-fx-background-radius: 4; -fx-padding: 4 8; -fx-cursor: hand; -fx-background-color: #d6eaf8; -fx-border-color: #3498db; -fx-border-radius: 4; -fx-font-size: 11px; -fx-font-weight: 900; -fx-text-fill: #2563eb;";
+
+        btnInside.setStyle(TOGGLE_STYLE);
+        btnCentered.setStyle(TOGGLE_STYLE);
+        btnOutside.setStyle(TOGGLE_STYLE);
+
+        ToggleGroup typeGroup = new ToggleGroup();
+        btnInside.setToggleGroup(typeGroup);
+        btnCentered.setToggleGroup(typeGroup);
+        btnOutside.setToggleGroup(typeGroup);
+
+        javafx.scene.shape.StrokeType currentType = (active != null) ? active.getStrokeType() : javafx.scene.shape.StrokeType.CENTERED;
+        if (currentType == javafx.scene.shape.StrokeType.INSIDE) {
+            btnInside.setSelected(true);
+            btnInside.setStyle(TOGGLE_SELECTED);
+        } else if (currentType == javafx.scene.shape.StrokeType.OUTSIDE) {
+            btnOutside.setSelected(true);
+            btnOutside.setStyle(TOGGLE_SELECTED);
+        } else {
+            btnCentered.setSelected(true);
+            btnCentered.setStyle(TOGGLE_SELECTED);
+        }
+
+        typeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) {
+                typeGroup.selectToggle(oldVal);
+                return;
+            }
+            javafx.scene.shape.StrokeType type = javafx.scene.shape.StrokeType.CENTERED;
+            if (newVal == btnInside) type = javafx.scene.shape.StrokeType.INSIDE;
+            else if (newVal == btnOutside) type = javafx.scene.shape.StrokeType.OUTSIDE;
+
+            btnInside.setStyle(newVal == btnInside ? TOGGLE_SELECTED : TOGGLE_STYLE);
+            btnCentered.setStyle(newVal == btnCentered ? TOGGLE_SELECTED : TOGGLE_STYLE);
+            btnOutside.setStyle(newVal == btnOutside ? TOGGLE_SELECTED : TOGGLE_STYLE);
+
+            if (!controller.isUpdatingUI()) {
+                javafx.scene.shape.StrokeType finalType = type;
+                controller.getActionHandler().recordPropertyChange("Alineación del Borde", ShapeLayer::getStrokeType, ShapeLayer::setStrokeType, finalType);
+            }
+        });
+
+        HBox typeBox = new HBox(5, btnInside, btnCentered, btnOutside);
+        typeBox.setAlignment(Pos.CENTER);
+
+        box.getChildren().addAll(lblWidth, slWidth, lblVal, new Separator(), lblType, typeBox);
         showPopup(anchor, box, "BORDE / TRAZO");
     }
 

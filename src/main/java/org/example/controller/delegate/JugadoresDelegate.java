@@ -322,7 +322,7 @@ public class JugadoresDelegate {
 
             // --- LEFT PANEL (Inputs & Config) ---
             VBox leftPanel = new VBox(10);
-            leftPanel.setMinWidth(350);
+            leftPanel.setMinWidth(320);
 
             VBox.setVgrow(leftPanel, Priority.ALWAYS); // Grow vertically
 
@@ -332,7 +332,7 @@ public class JugadoresDelegate {
             VBox.setVgrow(tabPane, Priority.ALWAYS);
 
             // TAB 1: GENERACIÓN MASIVA
-            tabMassive = new Tab("Masiva / Correlativa"); // Shortened title
+            tabMassive = new Tab("Masiva"); // Shortened title
             tabMassive.setClosable(false);
             massiveView = new org.example.controller.uicomponent.MassiveInputView(
                     configSupplier);
@@ -432,7 +432,7 @@ public class JugadoresDelegate {
             mainSplitPane.setDividerPositions(0.40);
 
             // Ensure Tabs fit
-            leftPanel.setMinWidth(420.0);
+            leftPanel.setMinWidth(320.0);
 
             // Remove rigid bindings to allow SplitPane to work normally and prevent
             // squashing

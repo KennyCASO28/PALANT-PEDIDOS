@@ -251,19 +251,16 @@ public class Main extends Application {
 
                 primaryStage.setResizable(true);
 
-                // Initial suggested size (fallback)
-                primaryStage.setWidth(1280);
-                primaryStage.setHeight(850);
-                primaryStage.centerOnScreen();
-
-                // INITIAL STATE: Maximized respecting Taskbar (Visual Bounds)
+                // Dynamically detect screen bounds and set size cleanly
                 javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
+                
+                // Start maximized occupying the full visual bounds on all screens (laptops and PCs)
                 primaryStage.setX(bounds.getMinX());
                 primaryStage.setY(bounds.getMinY());
                 primaryStage.setWidth(bounds.getWidth());
                 primaryStage.setHeight(bounds.getHeight());
 
-                // Show Main Stage directly (Login is now optional and accessed via Profile widget)
+                // Show Main Stage directly
                 primaryStage.show();
 
                 // Force Focus Strategy

@@ -374,7 +374,7 @@ public class TechnicalSheetDataService {
     }
 
     public static String resolveAutoSocksType(DetallePedido p) {
-        if (p.getTipoMedias() != null && !p.getTipoMedias().isBlank() && !p.getTipoMedias().equalsIgnoreCase("PROFESIONAL"))
+        if (p.getTipoMedias() != null && !p.getTipoMedias().isBlank())
             return p.getTipoMedias().trim().toUpperCase();
         String t = (p.getTalla() != null) ? p.getTalla().toUpperCase().trim() : "";
         if (t.matches("S|M|L|XL|XXL|3XXL|4XXL|G|XG|2XL|3XL|4XL")) return "ADULTO";

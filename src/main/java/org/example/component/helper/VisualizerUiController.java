@@ -19,10 +19,62 @@ public class VisualizerUiController {
     private ToggleButton btnLockBg;
     private ToggleButton btnToggleRefPoints;
     private Button btnFinishEditOverlay;
+    private javafx.scene.control.Label lblModeIndicator;
+    private javafx.scene.control.Label externalModeIndicator;
 
     public VisualizerUiController(PrendaVisualizer visualizer) {
         this.visualizer = visualizer;
+        initModeIndicator();
         initButtons();
+    }
+
+    public void setExternalModeIndicator(javafx.scene.control.Label label) {
+        this.externalModeIndicator = label;
+        if (label != null) {
+            updateModeIndicatorVisuals(visualizer.isEditandoArquero(), null);
+        }
+    }
+
+    private void initModeIndicator() {
+        this.lblModeIndicator = new javafx.scene.control.Label("EDICIÓN: JUGADOR DE CAMPO");
+        this.lblModeIndicator.setFont(javafx.scene.text.Font.font("System", javafx.scene.text.FontWeight.BOLD, 12));
+        updateModeIndicatorVisuals(false, null);
+    }
+
+    public void updateModeIndicatorVisuals(boolean editandoArquero, String extraInfo) {
+        if (lblModeIndicator == null) return;
+        String text;
+        String style;
+        if (editandoArquero) {
+            text = "EDICIÓN: ARQUERO";
+            if (extraInfo != null && !extraInfo.isBlank()) {
+                text += " (" + extraInfo + ")";
+            }
+            style =
+                "-fx-background-color: linear-gradient(to right, #e67e22, #d35400); " +
+                "-fx-text-fill: white; " +
+                "-fx-padding: 6px 14px; " +
+                "-fx-background-radius: 20px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-font-size: 13px; " +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 5, 0, 0, 2);";
+        } else {
+            text = "EDICIÓN: JUGADOR DE CAMPO";
+            style =
+                "-fx-background-color: linear-gradient(to right, #2c3e50, #34495e); " +
+                "-fx-text-fill: white; " +
+                "-fx-padding: 6px 14px; " +
+                "-fx-background-radius: 20px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-font-size: 13px; " +
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 5, 0, 0, 2);";
+        }
+        lblModeIndicator.setText(text);
+        lblModeIndicator.setStyle(style);
+        if (externalModeIndicator != null) {
+            externalModeIndicator.setText(text);
+            externalModeIndicator.setStyle(style);
+        }
     }
 
     private void initButtons() {
@@ -32,6 +84,7 @@ public class VisualizerUiController {
     }
 
     public void attachTo(StackPane container) {
+        // Mode indicator is now placed in FXML outside the vector container
         if (btnLockBg != null && !container.getChildren().contains(btnLockBg)) {
             container.getChildren().add(btnLockBg);
             StackPane.setAlignment(btnLockBg, Pos.TOP_LEFT);
@@ -157,20 +210,21 @@ public class VisualizerUiController {
             }
         });
 
-        btnFinishEditOverlay.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> {
+        btnFinishEditOverlay.setOnMousePressed(e -> {
             isBtnPressed[0] = true;
             btnFinishEditOverlay.setStyle(STYLE_PRESSED);
             pressAnim.playFromStart();
             e.consume();
         });
 
-        btnFinishEditOverlay.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_RELEASED, e -> {
+        btnFinishEditOverlay.setOnMouseReleased(e -> {
             isBtnPressed[0] = false;
             btnFinishEditOverlay.setStyle(STYLE_HOVER);
             releaseAnim.playFromStart();
+            e.consume();
         });
 
-        btnFinishEditOverlay.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_CLICKED, e -> {
+        btnFinishEditOverlay.setOnMouseClicked(e -> {
             e.consume();
             visualizer.finishEditMode();
         });
@@ -181,9 +235,6 @@ public class VisualizerUiController {
         // Visibility is controlled exclusively via setVisible(boolean).
         btnFinishEditOverlay.setMouseTransparent(false);
         btnFinishEditOverlay.setPickOnBounds(true);
-        btnFinishEditOverlay.setOnMouseClicked(javafx.scene.input.MouseEvent::consume);
-
-        btnFinishEditOverlay.setOnMouseClicked(javafx.scene.input.MouseEvent::consume);
     }
 
     public void setEditOverlayVisible(boolean visible) {

@@ -314,6 +314,11 @@ public class ShortConfigurator {
             visualizer.setShortsStripe(val);
             notifyChange();
             if (val) {
+                if (cbLinea != null && cbLinea.isSelected()) {
+                    cbLinea.setSelected(false);
+                    configBuilder.conLineaShort(false);
+                    visualizer.setShortsLinea(false);
+                }
                 if (cbPiquete != null && cbPiquete.isSelected()) {
                     cbPiquete.setSelected(false);
                     configBuilder.conPiqueteShort(false);
@@ -327,6 +332,13 @@ public class ShortConfigurator {
             configBuilder.conLineaShort(val);
             visualizer.setShortsLinea(val);
             notifyChange();
+            if (val) {
+                if (cbFranja != null && cbFranja.isSelected()) {
+                    cbFranja.setSelected(false);
+                    configBuilder.conFranjaShort(false);
+                    visualizer.setShortsStripe(false);
+                }
+            }
         });
         cbLinea = (CheckBox) hbLinea.getChildren().get(0);
 

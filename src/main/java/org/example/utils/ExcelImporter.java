@@ -22,19 +22,36 @@ public class ExcelImporter {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.iterator();
 
-            // Saltamos la cabecera si existe
+            // Leemos la cabecera para identificar columnas dinámicamente
+            int colNombre = 0;
+            int colTalla = 1;
+            int colNumero = 2;
+            int colGenero = 3;
+
             if (rowIterator.hasNext()) {
-                rowIterator.next();
+                Row headerRow = rowIterator.next();
+                for (int i = 0; i < Math.max(4, headerRow.getLastCellNum()); i++) {
+                    String headerText = getCellValue(headerRow.getCell(i)).toLowerCase().trim();
+                    if (headerText.contains("nombre") || headerText.contains("jugador")) {
+                        colNombre = i;
+                    } else if (headerText.contains("talla")) {
+                        colTalla = i;
+                    } else if (headerText.contains("numero") || headerText.contains("número") || headerText.contains("nº") || headerText.contains("num")) {
+                        colNumero = i;
+                    } else if (headerText.contains("genero") || headerText.contains("género") || headerText.contains("sexo")) {
+                        colGenero = i;
+                    }
+                }
             }
 
             while (rowIterator.hasNext()) {
                 Row row = rowIterator.next();
 
-                // Mapping based on USER EXCEL: 0=Nombre, 1=Talla, 2=Número, 3=Género
-                String nombre = getCellValue(row.getCell(0));
-                String talla = getCellValue(row.getCell(1));
-                String numero = getCellValue(row.getCell(2));
-                String genero = getCellValue(row.getCell(3));
+                // Usamos los índices detectados de la cabecera
+                String nombre = getCellValue(row.getCell(colNombre));
+                String talla = getCellValue(row.getCell(colTalla));
+                String numero = getCellValue(row.getCell(colNumero));
+                String genero = getCellValue(row.getCell(colGenero));
 
                 if (!nombre.isEmpty()) {
                     DetallePedido p = new DetallePedido(nombre, numero, talla, genero);

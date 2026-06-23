@@ -754,7 +754,7 @@ public class BrandingController {
         if (files != null) {
             for (File f : files) {
                 try {
-                    Image img = new Image(f.toURI().toString(), 2000, 2000, true, true);
+                    Image img = new Image(f.toURI().toString(), 800, 800, true, true);
                     addShieldToZonedGallery(zone, img);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -901,7 +901,7 @@ public class BrandingController {
                 if (referenceImages.size() >= 6)
                     break;
                 try {
-                    referenceImages.add(new Image(f.toURI().toString(), 2000, 2000, true, true));
+                    referenceImages.add(new Image(f.toURI().toString(), 800, 800, true, true));
                 } catch (Exception e) {
                 }
             }

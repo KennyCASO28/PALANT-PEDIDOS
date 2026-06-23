@@ -259,7 +259,7 @@ public class HotspotLayer extends StackPane {
             try {
                 Image img = null;
                 if (data.getImageData() != null && data.getImageData().length > 0) {
-                    img = new Image(new ByteArrayInputStream(data.getImageData()));
+                    img = new Image(new ByteArrayInputStream(data.getImageData()), 300, 300, true, true);
                 } else {
                     img = new Image(data.getImagePath(), 150, 150, true, true);
                 }

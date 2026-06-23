@@ -95,20 +95,7 @@ public class GarmentInputHandler {
     private boolean isSidePanelTextFieldFocused() {
         if (visualizer.getScene() == null) return false;
         javafx.scene.Node focusOwner = visualizer.getScene().getFocusOwner();
-        if (!(focusOwner instanceof javafx.scene.control.TextInputControl)) return false;
-
-        // Walk up the scene graph — if we reach the visualizer, the "TextField" is
-        // actually an overlay inside the canvas (no such thing currently, but
-        // future-proof). If we never reach the visualizer, it is a side-panel field.
-        // Walk up the scene graph — if we reach the visualizer, the "TextField" is
-        // actually an overlay inside the canvas (no such thing currently, but
-        // future-proof). If we never reach the visualizer, it is a side-panel field.
-        javafx.scene.Node current = focusOwner;
-        while (current != null) {
-            if (current == visualizer) return false; // inside canvas — not a side-panel
-            current = current.getParent();
-        }
-        return true; // outside the visualizer — real side-panel field
+        return (focusOwner instanceof javafx.scene.control.TextInputControl);
     }
 
     private final long[] lastUndoTime = {0};

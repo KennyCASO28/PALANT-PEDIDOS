@@ -48,6 +48,7 @@
                                       </MenuItem>
                                       <MenuItem onAction="#onGuardarProyectoComo" text="Guardar como...">
                                         <graphic><FontIcon iconLiteral="mdi2c-content-save-all-outline" iconSize="16" /></graphic>
+                                        <accelerator><KeyCodeCombination alt="UP" code="S" control="DOWN" meta="UP" shift="DOWN" shortcut="UP" /></accelerator>
                                       </MenuItem>
                                       <SeparatorMenuItem />
                                       <MenuItem onAction="#salirAction" text="Salir">

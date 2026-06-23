@@ -47,7 +47,7 @@ public class FichaTecnicaManager {
 
         // 2. Isolated Snapshots
         System.out.println("DEBUG: Taking isolated snapshots for PDF Export...");
-        javafx.scene.image.Image mainSnapshot = (controller.prendaVisualizer != null) ? controller.prendaVisualizer.takeSafeSnapshot(false) : null;
+        javafx.scene.image.Image mainSnapshot = (controller.prendaVisualizer != null) ? controller.prendaVisualizer.takeSafeSnapshot(false, 1.2) : null;
 
         javafx.scene.image.Image arqSnapshotHombre = null;
         javafx.scene.image.Image arqSnapshotMujer = null;
@@ -62,11 +62,11 @@ public class FichaTecnicaManager {
 
                 if (hasManArq) {
                     controller.prendaVisualizer.getArqueroState().setGenero(org.example.model.TipoGenero.HOMBRE);
-                    arqSnapshotHombre = controller.prendaVisualizer.takeSafeSnapshot(true);
+                    arqSnapshotHombre = controller.prendaVisualizer.takeSafeSnapshot(true, 1.2);
                 }
                 if (hasWomanArq) {
                     controller.prendaVisualizer.getArqueroState().setGenero(org.example.model.TipoGenero.MUJER);
-                    arqSnapshotMujer = controller.prendaVisualizer.takeSafeSnapshot(true);
+                    arqSnapshotMujer = controller.prendaVisualizer.takeSafeSnapshot(true, 1.2);
                 }
 
                 // Restore
@@ -108,6 +108,7 @@ public class FichaTecnicaManager {
                 .priority((controller.comboPrioridad != null && controller.comboPrioridad.getValue() != null) ? controller.comboPrioridad.getValue().getLabel() : "NORMAL")
                 .shortType((controller.disenoCampoConfig != null && controller.disenoCampoConfig.getCurrentCorteShort() != null) ? controller.disenoCampoConfig.getCurrentCorteShort().name() : "N/A")
                 .referenceImages(controller.personalizacionDelegate != null ? controller.personalizacionDelegate.getHotspotImages() : new java.util.ArrayList<>())
+                .disenosArquero(controller.disenosArquero)
                 .build();
     }
 
@@ -304,124 +305,163 @@ public class FichaTecnicaManager {
             if (lblZoomLevel != null) lblZoomLevel.setText("100%");
             
             boolean modoOriginalArquero = controller.editandoDisenoArquero;
-            controller.prendaVisualizer.setVisible(false);
+            String originalDesignId = controller.arqueroActivoDesignId;
+            // PREVENT CRASH: Keeping visualizer visible (visible=true) ensures D3D textures/context remain allocated in JavaFX
+            // controller.prendaVisualizer.setVisible(false);
 
             try {
                 // 1. SYNC: Ensure both design slots are up-to-date in memory
                 refreshAndApplyStoredDesignsForSnapshot();
 
-                // 2. PLAYER SNAPSHOT (Always needed for Page 1)
-                System.out.println("DEBUG: [PERF] Capturando Camiseta Campo...");
-                // If we are already in player mode, this is fast. If not, it swaps once.
-                javafx.scene.image.Image mainGarmentSnapshot = controller.prendaVisualizer.takeSafeSnapshot(false);
-                
-                // 3. GOALIE SNAPSHOT (Dual-Gender Support + Sleeve Consistency)
+                // Suppress refreshContent callback during mode switches to prevent 
+                // Platform.runLater(refreshContent) pileup that causes OOM
+                Runnable savedOnStateChanged = controller.prendaVisualizer.getOnStateChanged();
+                controller.prendaVisualizer.setOnStateChanged(null);
+
+                org.example.model.PrendaState qState = controller.prendaVisualizer.getArqueroState();
+                org.example.model.TipoGenero originalGen = qState != null ? qState.getGenero() : null;
+                org.example.model.TipoLargo originalLargo = qState != null ? qState.getLargo() : null;
+
+                javafx.scene.image.Image mainGarmentSnapshot = null;
                 javafx.scene.image.Image arqSketchHombre = null;
                 javafx.scene.image.Image arqSketchMujer = null;
-                
-                // We identify the first arquero of each gender in the roster to use as a model for the sketches
-                org.example.model.DetallePedido firstManArq = controller.listaJugadores.stream()
-                        .filter(p -> p.isEsArquero() && (p.getGenero() == null || p.getGenero().toUpperCase().contains("HO") || p.getGenero().toUpperCase().contains("VA")))
-                        .findFirst().orElse(null);
-                        
-                org.example.model.DetallePedido firstWomanArq = controller.listaJugadores.stream()
-                        .filter(p -> p.isEsArquero() && p.getGenero() != null && (p.getGenero().toUpperCase().contains("MU") || p.getGenero().toUpperCase().contains("FE") || p.getGenero().toUpperCase().contains("DA")))
-                        .findFirst().orElse(null);
+                try {
 
-                // Fallback check: if we have arqueros but logic failed to categorize, use the first one available
-                if (firstManArq == null && firstWomanArq == null) {
-                    org.example.model.DetallePedido anyArq = controller.listaJugadores.stream()
-                        .filter(org.example.model.DetallePedido::isEsArquero)
-                        .findFirst().orElse(null);
-                    if (anyArq != null) firstManArq = anyArq; 
-                }
-
-                if (firstManArq != null || firstWomanArq != null) {
-                    System.out.println("DEBUG: [PERF] Capturando Arqueros Independientes...");
-                    org.example.model.PrendaState qState = controller.prendaVisualizer.getArqueroState();
-                    org.example.model.TipoGenero originalGen = qState.getGenero();
-                    org.example.model.TipoLargo originalLargo = qState.getLargo();
-
-                    if (firstManArq != null) {
-                        qState.setGenero(org.example.model.TipoGenero.HOMBRE);
-                        // Respect roster sleeve type for this specific gender's sketch
-                        if ("LARGA".equalsIgnoreCase(firstManArq.getTipoMangaArquero())) {
-                            qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
-                        } else {
-                            qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
-                        }
-                        arqSketchHombre = controller.prendaVisualizer.takeSafeSnapshot(true);
+                    // 2. PLAYER SNAPSHOT (Always needed for Page 1)
+                    System.out.println("DEBUG: [PERF] Capturando Camiseta Campo...");
+                    if (controller.editandoDisenoArquero) {
+                        controller.cambiarModoDiseno(false, null);
                     }
-                    if (firstWomanArq != null) {
-                        qState.setGenero(org.example.model.TipoGenero.MUJER);
-                        // Respect roster sleeve type for this specific gender's sketch
-                        if ("LARGA".equalsIgnoreCase(firstWomanArq.getTipoMangaArquero())) {
-                            qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
-                        } else {
-                            qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
-                        }
-                        arqSketchMujer = controller.prendaVisualizer.takeSafeSnapshot(true);
-                    }
-                    // Restore original state
-                    qState.setGenero(originalGen);
-                    qState.setLargo(originalLargo);
-                }
-
-                // 4. DATA COLLECTION: COLLECT DATA while in a deterministic state (Player mode)
-                if (controller.editandoDisenoArquero) {
-                    controller.prendaVisualizer.setActiveDesign(false);
-                }
-                
-                List<PdfExportService.ShieldEntry> shields = PdfExportService.collectShields(controller.prendaVisualizer);
-                ConfiguracionPrendaDTO configReporte = org.example.service.save.StateMapper.toConfigDTO(controller.disenoCampoConfig);
-                
-                // 5. BUILD VIEW (Static layout construction)
-                System.out.println("DEBUG: [PERF] Construyendo FichaTecnicaView...");
-                java.time.LocalDate fechaLocalDate = (controller.fechaEntregaCalculada != null) ? controller.fechaEntregaCalculada : java.time.LocalDate.now();
-                String cliente = (controller.datosEnvio != null && controller.datosEnvio.getNombreCompleto() != null) ? controller.datosEnvio.getNombreCompleto() : (controller.txtCliente != null ? controller.txtCliente.getText() : null);
-                String codigo = (controller.lblCodigoPedido != null) ? controller.lblCodigoPedido.getText() : "S/N";
-                String prioridad = controller.comboPrioridad != null && controller.comboPrioridad.getValue() != null ? controller.comboPrioridad.getValue().getLabel() : "Normal";
-                String vendedor = (controller.datosEnvio != null && controller.datosEnvio.getVendedorAtiende() != null) ? controller.datosEnvio.getVendedorAtiende() : (controller.comboVendedor != null ? controller.comboVendedor.getValue() : null);
-                ConfiguracionPrendaDTO arqueroConfig = (controller.disenoArqueroConfig != null) ? org.example.service.save.StateMapper.toConfigDTO(controller.disenoArqueroConfig) : null;
-
-                final javafx.scene.layout.Region content = org.example.controller.uicomponent.FichaTecnicaView.build(
-                    configReporte, 
-                    mainGarmentSnapshot, 
-                    controller.disenoCampoLayers, 
-                    controller.prendaVisualizer, 
-                    (java.util.List<org.example.model.DetallePedido>) controller.listaJugadores, 
-                    cliente, 
-                    codigo, 
-                    (java.util.List<org.example.service.PdfExportService.ShieldEntry>) shields, 
-                    fechaLocalDate, 
-                    prioridad, 
-                    (configReporte != null && configReporte.getCorteShort() != null) ? configReporte.getCorteShort().name() : "N/A", 
-                    vendedor, 
-                    (java.util.List<javafx.scene.image.Image>) (controller.personalizacionDelegate != null ? controller.personalizacionDelegate.getHotspotImages() : new java.util.ArrayList<javafx.scene.image.Image>()), 
-                    controller.datosEnvio, 
-                    arqSketchHombre, 
-                    arqSketchMujer, 
-                    arqueroConfig
-                );
-
-                // 6. RESTORE: Return to user's original editing mode
-                if (modoOriginalArquero) {
-                    controller.prendaVisualizer.setActiveDesign(true);
-                }
-
-                // Final UI Update
-                javafx.application.Platform.runLater(() -> {
-                    zoomGroup.getChildren().setAll(content);
-                    content.applyCss();
-                    content.layout();
+                    mainGarmentSnapshot = controller.prendaVisualizer.takeSafeSnapshot(false, 1.0);
                     
-                    controller.fichaDirty = false;
-                    controller.isGeneratingFicha = false;
-                    System.out.println("DEBUG: [PERF] Ficha Técnica Generada.");
-                });
+                    // 3. GOALIE SNAPSHOT (Dual-Gender Support + Sleeve Consistency)
+                    // We identify the first arquero of each gender in the roster to use as a model for the sketches
+                    org.example.model.DetallePedido firstManArq = controller.listaJugadores.stream()
+                            .filter(p -> p.isEsArquero() && (p.getGenero() == null || p.getGenero().toUpperCase().contains("HO") || p.getGenero().toUpperCase().contains("VA")))
+                            .findFirst().orElse(null);
+                            
+                    org.example.model.DetallePedido firstWomanArq = controller.listaJugadores.stream()
+                            .filter(p -> p.isEsArquero() && p.getGenero() != null && (p.getGenero().toUpperCase().contains("MU") || p.getGenero().toUpperCase().contains("FE") || p.getGenero().toUpperCase().contains("DA")))
+                            .findFirst().orElse(null);
+
+                    // Fallback check: if we have arqueros but logic failed to categorize, use the first one available
+                    if (firstManArq == null && firstWomanArq == null) {
+                        org.example.model.DetallePedido anyArq = controller.listaJugadores.stream()
+                            .filter(org.example.model.DetallePedido::isEsArquero)
+                            .findFirst().orElse(null);
+                        if (anyArq != null) firstManArq = anyArq; 
+                    }
+
+                    if ((firstManArq != null || firstWomanArq != null) && qState != null) {
+                        System.out.println("DEBUG: [PERF] Capturando Arqueros Independientes...");
+                        String fichaDesignId = controller.getArqueroFichaDesignId();
+                        if (fichaDesignId == null || fichaDesignId.isBlank()) {
+                            if (firstManArq != null) {
+                                fichaDesignId = firstManArq.getArqueroDesignId();
+                            } else {
+                                fichaDesignId = firstWomanArq.getArqueroDesignId();
+                            }
+                        }
+                        controller.cambiarModoDiseno(true, fichaDesignId);
+
+                        if (firstManArq != null) {
+                            qState.setGenero(org.example.model.TipoGenero.HOMBRE);
+                            // Respect roster sleeve type for this specific gender's sketch
+                            if ("LARGA".equalsIgnoreCase(firstManArq.getTipoMangaArquero())) {
+                                qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
+                            } else {
+                                qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
+                            }
+                            arqSketchHombre = controller.prendaVisualizer.takeSafeSnapshot(true, 1.0);
+                        }
+                        if (firstWomanArq != null) {
+                            qState.setGenero(org.example.model.TipoGenero.MUJER);
+                            // Respect roster sleeve type for this specific gender's sketch
+                            if ("LARGA".equalsIgnoreCase(firstWomanArq.getTipoMangaArquero())) {
+                                qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
+                            } else {
+                                qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
+                            }
+                            arqSketchMujer = controller.prendaVisualizer.takeSafeSnapshot(true, 1.0);
+                        }
+                    }
+
+                    // 4. DATA COLLECTION: COLLECT DATA while in a deterministic state (Player mode)
+                    if (controller.editandoDisenoArquero) {
+                        controller.cambiarModoDiseno(false, null);
+                    }
+                    
+                    List<PdfExportService.ShieldEntry> shields = PdfExportService.collectShields(controller.prendaVisualizer);
+                    ConfiguracionPrendaDTO configReporte = org.example.service.save.StateMapper.toConfigDTO(controller.disenoCampoConfig);
+                    
+                    // 5. BUILD VIEW (Static layout construction)
+                    System.out.println("DEBUG: [PERF] Construyendo FichaTecnicaView...");
+                    java.time.LocalDate fechaLocalDate = (controller.fechaEntregaCalculada != null) ? controller.fechaEntregaCalculada : java.time.LocalDate.now();
+                    String cliente = (controller.datosEnvio != null && controller.datosEnvio.getNombreCompleto() != null) ? controller.datosEnvio.getNombreCompleto() : (controller.txtCliente != null ? controller.txtCliente.getText() : null);
+                    String codigo = (controller.lblCodigoPedido != null) ? controller.lblCodigoPedido.getText() : "S/N";
+                    String prioridad = controller.comboPrioridad != null && controller.comboPrioridad.getValue() != null ? controller.comboPrioridad.getValue().getLabel() : "Normal";
+                    String vendedor = (controller.datosEnvio != null && controller.datosEnvio.getVendedorAtiende() != null) ? controller.datosEnvio.getVendedorAtiende() : (controller.comboVendedor != null ? controller.comboVendedor.getValue() : null);
+                    
+                    org.example.dto.save.GoalkeeperDesignDTO designDTO = null;
+                    if (controller.getArqueroFichaDesignId() != null) {
+                        designDTO = controller.disenosArquero.get(controller.getArqueroFichaDesignId());
+                    }
+                    ConfiguracionPrendaDTO arqueroConfig = (designDTO != null && designDTO.getGarmentConfig() != null) 
+                        ? org.example.service.save.StateMapper.toConfigDTO(designDTO.getGarmentConfig()) 
+                        : null;
+
+                    final javafx.scene.layout.Region content = org.example.controller.uicomponent.FichaTecnicaView.build(
+                        configReporte, 
+                        mainGarmentSnapshot, 
+                        controller.disenoCampoLayers, 
+                        controller.prendaVisualizer, 
+                        (java.util.List<org.example.model.DetallePedido>) controller.listaJugadores, 
+                        cliente, 
+                        codigo, 
+                        (java.util.List<org.example.service.PdfExportService.ShieldEntry>) shields, 
+                        fechaLocalDate, 
+                        prioridad, 
+                        (configReporte != null && configReporte.getCorteShort() != null) ? configReporte.getCorteShort().name() : "N/A", 
+                        vendedor, 
+                        (java.util.List<javafx.scene.image.Image>) (controller.personalizacionDelegate != null ? controller.personalizacionDelegate.getHotspotImages() : new java.util.ArrayList<javafx.scene.image.Image>()), 
+                        controller.datosEnvio, 
+                        arqSketchHombre, 
+                        arqSketchMujer, 
+                        arqueroConfig,
+                        controller.disenosArquero
+                    );
+
+                    // Final UI Update (inside try block so 'content' stays in scope)
+                    javafx.application.Platform.runLater(() -> {
+                        try {
+                            zoomGroup.getChildren().setAll(content);
+                            content.applyCss();
+                            content.layout();
+                            System.out.println("DEBUG: [PERF] Ficha Técnica Generada.");
+                            // GC to free memory of snapshot images and previous specs panels
+                            System.gc();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            controller.fichaDirty = false;
+                            controller.isGeneratingFicha = false;
+                        }
+                    });
+
+                } finally {
+                    // Restore original goalkeeper state values
+                    if (qState != null) {
+                        if (originalGen != null) qState.setGenero(originalGen);
+                        if (originalLargo != null) qState.setLargo(originalLargo);
+                    }
+                    // Restore original state changed listener
+                    controller.prendaVisualizer.setOnStateChanged(savedOnStateChanged);
+                    // RESTORE: Return to user's original editing mode
+                    controller.cambiarModoDiseno(modoOriginalArquero, originalDesignId);
+                }
 
             } finally {
-                controller.prendaVisualizer.setVisible(true);
+                // controller.prendaVisualizer.setVisible(true);
             }
 
         } catch (Exception e) {

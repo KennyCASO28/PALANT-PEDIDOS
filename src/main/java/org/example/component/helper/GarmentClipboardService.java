@@ -4,6 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javafx.scene.Node;
+import javafx.animation.ScaleTransition;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.SequentialTransition;
+import javafx.animation.Interpolator;
+import javafx.util.Duration;
 
 import org.example.component.ImageLayer;
 import org.example.component.ShapeLayer;
@@ -22,6 +28,7 @@ public class GarmentClipboardService {
 
     // Centralized Clipboard for Multi-Selection
     private static List<Node> centralClipboard = null;
+    private static boolean isCutOperation = false;
 
     public GarmentClipboardService(UserLayerManager layerManager, PrendaLayerFactory layerFactory, 
                                    PrendaHistoryManager historyManager, PowerClipManager powerClipManager) {
@@ -37,6 +44,7 @@ public class GarmentClipboardService {
         ShapeLayer.clearClipboard();
         TextLayer.clearClipboard();
         centralClipboard = null;
+        isCutOperation = false;
 
         // Get ALL selected nodes
         Set<Node> selectedNodes = layerManager.getSelectedNodes();
@@ -50,6 +58,7 @@ public class GarmentClipboardService {
             Node clone = cloneNode(node);
             if (clone != null) {
                 centralClipboard.add(clone);
+                playCopyAnimation(node);
             }
         }
     }
@@ -118,6 +127,7 @@ public class GarmentClipboardService {
 
     public void cutSelectedLayer() {
         copySelectedLayer(); // Copy first
+        isCutOperation = true; // Mark as cut operation
         deleteSelectedLayer(); // Then delete
     }
 
@@ -131,17 +141,33 @@ public class GarmentClipboardService {
         for (Node stored : centralClipboard) {
             Node freshClone = cloneNode(stored);
             if (freshClone != null) {
+                if (!isCutOperation) {
+                    // Offset translations so they don't perfectly overlap
+                    freshClone.setTranslateX(freshClone.getTranslateX() + 15);
+                    freshClone.setTranslateY(freshClone.getTranslateY() + 15);
+                }
                 freshClones.add(freshClone);
             }
         }
 
+        // Reset the cut flag after the first paste, so further duplicate pastes will be offset
+        isCutOperation = false;
+
         // Context-aware insertion
-        for (Node node : freshClones) {
-            // Use Factory to ensure ALL Handlers (PowerClip, etc) are wired correctly.
-            // Factory internally handles the "If editing PowerClip" insertion logic.
-            layerManager.setPerformingHistoryAction(true); // Stop individual history recording
-            layerFactory.addUserLayer(node);
-            layerManager.setPerformingHistoryAction(false);
+        layerFactory.setAnimationsSuspended(true);
+        try {
+            for (Node node : freshClones) {
+                // Use Factory to ensure ALL Handlers (PowerClip, etc) are wired correctly.
+                // Factory internally handles the "If editing PowerClip" insertion logic.
+                layerManager.setPerformingHistoryAction(true); // Stop individual history recording
+                layerFactory.addUserLayer(node);
+                layerManager.setPerformingHistoryAction(false);
+                
+                // Play spring pop-in animation
+                playPasteAnimation(node);
+            }
+        } finally {
+            layerFactory.setAnimationsSuspended(false);
         }
         
         // Record History as ONE action
@@ -186,5 +212,77 @@ public class GarmentClipboardService {
         for (Node node : toDelete) {
             layerManager.removeLayer(node);
         }
+    }
+
+    private void playCopyAnimation(Node node) {
+        if (node == null) return;
+        
+        double origScaleX = node.getScaleX();
+        double origScaleY = node.getScaleY();
+        double origOpacity = node.getOpacity();
+
+        ScaleTransition st = new ScaleTransition(Duration.millis(120), node);
+        st.setFromX(origScaleX);
+        st.setFromY(origScaleY);
+        st.setToX(origScaleX * 1.06);
+        st.setToY(origScaleY * 1.06);
+        st.setAutoReverse(true);
+        st.setCycleCount(2);
+
+        FadeTransition ft = new FadeTransition(Duration.millis(120), node);
+        ft.setFromValue(origOpacity);
+        ft.setToValue(Math.max(0.4, origOpacity - 0.3));
+        ft.setAutoReverse(true);
+        ft.setCycleCount(2);
+
+        ParallelTransition pt = new ParallelTransition(st, ft);
+        pt.setOnFinished(e -> {
+            node.setScaleX(origScaleX);
+            node.setScaleY(origScaleY);
+            node.setOpacity(origOpacity);
+        });
+        pt.play();
+    }
+
+    private void playPasteAnimation(Node node) {
+        if (node == null) return;
+
+        double origScaleX = node.getScaleX();
+        double origScaleY = node.getScaleY();
+        double origOpacity = node.getOpacity();
+
+        // Start state: small and transparent
+        node.setScaleX(origScaleX * 0.4);
+        node.setScaleY(origScaleY * 0.4);
+        node.setOpacity(0.0);
+
+        ScaleTransition st1 = new ScaleTransition(Duration.millis(140), node);
+        st1.setFromX(origScaleX * 0.4);
+        st1.setFromY(origScaleY * 0.4);
+        st1.setToX(origScaleX * 1.15);
+        st1.setToY(origScaleY * 1.15);
+        st1.setInterpolator(Interpolator.EASE_OUT);
+
+        ScaleTransition st2 = new ScaleTransition(Duration.millis(90), node);
+        st2.setFromX(origScaleX * 1.15);
+        st2.setFromY(origScaleY * 1.15);
+        st2.setToX(origScaleX);
+        st2.setToY(origScaleY);
+        st2.setInterpolator(Interpolator.EASE_IN);
+
+        SequentialTransition scaleSeq = new SequentialTransition(st1, st2);
+
+        FadeTransition ft = new FadeTransition(Duration.millis(140), node);
+        ft.setFromValue(0.0);
+        ft.setToValue(origOpacity);
+        ft.setInterpolator(Interpolator.EASE_OUT);
+
+        ParallelTransition pt = new ParallelTransition(scaleSeq, ft);
+        pt.setOnFinished(e -> {
+            node.setScaleX(origScaleX);
+            node.setScaleY(origScaleY);
+            node.setOpacity(origOpacity);
+        });
+        pt.play();
     }
 }

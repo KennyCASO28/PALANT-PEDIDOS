@@ -16,9 +16,17 @@ import org.example.component.ui.ColorSearchReplaceDialog;
 public class KeyboardShortcutManager {
 
     private final PrendaVisualizer visualizer;
+    private final Runnable saveAction;
+    private final Runnable saveAsAction;
 
     public KeyboardShortcutManager(PrendaVisualizer visualizer) {
+        this(visualizer, null, null);
+    }
+
+    public KeyboardShortcutManager(PrendaVisualizer visualizer, Runnable saveAction, Runnable saveAsAction) {
         this.visualizer = visualizer;
+        this.saveAction = saveAction;
+        this.saveAsAction = saveAsAction;
     }
 
     /**
@@ -38,6 +46,22 @@ public class KeyboardShortcutManager {
                 }
             }
         );
+
+        // Ctrl + S: Guardar
+        if (saveAction != null) {
+            scene.getAccelerators().put(
+                KeyCombination.valueOf("Shortcut+S"),
+                saveAction
+            );
+        }
+
+        // Ctrl + Shift + S: Guardar como
+        if (saveAsAction != null) {
+            scene.getAccelerators().put(
+                KeyCombination.valueOf("Shortcut+Shift+S"),
+                saveAsAction
+            );
+        }
     }
 
     /**
@@ -57,18 +81,40 @@ public class KeyboardShortcutManager {
                 return;
             }
 
-            // Ctrl + B: Bloquear seleccionados
-            if (event.isControlDown() && !event.isAltDown() && event.getCode() == KeyCode.B) {
-                visualizer.setUserLockedOnSelected(true);
+            // Ctrl + B: Bloquear seleccionados o alternar bloqueo de fondo si no hay selección
+            if (event.isControlDown() && !event.isShiftDown() && !event.isAltDown() && event.getCode() == KeyCode.B) {
+                if (visualizer.getLayerManager() != null && !visualizer.getLayerManager().getSelectedNodes().isEmpty()) {
+                    visualizer.setUserLockedOnSelected(true);
+                } else {
+                    visualizer.toggleBackgroundLock();
+                }
                 event.consume();
                 return;
             }
 
             // Ctrl + Shift + B: Desbloquear seleccionados
-            if (event.isControlDown() && event.isShiftDown() && event.getCode() == KeyCode.B) {
+            if (event.isControlDown() && event.isShiftDown() && !event.isAltDown() && event.getCode() == KeyCode.B) {
                 visualizer.setUserLockedOnSelected(false);
                 event.consume();
                 return;
+            }
+
+            // Ctrl + S fallback (cuando no hay foco en un TextInputControl)
+            if (event.isControlDown() && !event.isShiftDown() && event.getCode() == KeyCode.S) {
+                if (saveAction != null && !isTyping) {
+                    saveAction.run();
+                    event.consume();
+                    return;
+                }
+            }
+
+            // Ctrl + Shift + S fallback (cuando no hay foco en un TextInputControl)
+            if (event.isControlDown() && event.isShiftDown() && event.getCode() == KeyCode.S) {
+                if (saveAsAction != null && !isTyping) {
+                    saveAsAction.run();
+                    event.consume();
+                    return;
+                }
             }
 
             // Si está escribiendo, no interceptar teclas de letras simples

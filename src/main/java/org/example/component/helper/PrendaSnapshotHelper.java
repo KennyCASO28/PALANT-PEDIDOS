@@ -24,10 +24,15 @@ public final class PrendaSnapshotHelper {
     }
 
     public static WritableImage captureCenteredSnapshot(Pane sandbox, Group contentGroup, boolean isLongSleeve) {
-        VisibleScanner scanner = new VisibleScanner(isLongSleeve);
+        return captureCenteredSnapshot(sandbox, contentGroup, isLongSleeve, 2.0);
+    }
+
+    public static WritableImage captureCenteredSnapshot(Pane sandbox, Group contentGroup, boolean isLongSleeve, double scaleFactor) {
+        VisibleScanner scanner = new VisibleScanner(isLongSleeve, contentGroup);
         scanner.scan(contentGroup);
 
         if (!scanner.found) {
+            System.out.println("DEBUG Snapshot: No content found to capture");
             return new WritableImage(1, 1);
         }
 
@@ -41,22 +46,26 @@ public final class PrendaSnapshotHelper {
 
             double boundsWidth = scanner.maxX - scanner.minX;
             double boundsHeight = scanner.maxY - scanner.minY;
+            System.out.println("DEBUG Snapshot: bounds=" + boundsWidth + "x" + boundsHeight + " scale=" + scaleFactor + " longSleeve=" + isLongSleeve);
             double padding = isLongSleeve ? LONG_SLEEVE_PADDING : DEFAULT_PADDING;
             double viewportWidth = boundsWidth * padding;
             double viewportHeight = boundsHeight * padding;
+            System.out.println("DEBUG Snapshot: viewport=" + viewportWidth + "x" + viewportHeight);
 
             SnapshotParameters parameters = new SnapshotParameters();
             parameters.setFill(Color.TRANSPARENT);
 
             Affine transform = new Affine();
-            transform.appendScale(2, 2);
+            transform.appendScale(scaleFactor, scaleFactor);
             transform.appendTranslation(
                     -scanner.minX + (viewportWidth - boundsWidth) / 2.0,
                     -scanner.minY + (viewportHeight - boundsHeight) / 2.0);
 
             parameters.setTransform(transform);
-            parameters.setViewport(new javafx.geometry.Rectangle2D(0, 0, viewportWidth * 2, viewportHeight * 2));
-            return sandbox.snapshot(parameters, null);
+            parameters.setViewport(new javafx.geometry.Rectangle2D(0, 0, viewportWidth, viewportHeight));
+            WritableImage result = sandbox.snapshot(parameters, null);
+            System.out.println("DEBUG Snapshot: captured image=" + result.getWidth() + "x" + result.getHeight());
+            return result;
         } finally {
             if (shifted) {
                 applyDeepShift(contentGroup, -LONG_SLEEVE_SHIFT);
@@ -141,14 +150,26 @@ public final class PrendaSnapshotHelper {
 
     private static final class VisibleScanner {
         private final boolean longSleeve;
+        private final Group contentGroup;
         private double minX = Double.MAX_VALUE;
         private double minY = Double.MAX_VALUE;
         private double maxX = -Double.MAX_VALUE;
         private double maxY = -Double.MAX_VALUE;
         private boolean found = false;
 
-        private VisibleScanner(boolean longSleeve) {
+        private VisibleScanner(boolean longSleeve, Group contentGroup) {
             this.longSleeve = longSleeve;
+            this.contentGroup = contentGroup;
+        }
+
+        private javafx.geometry.Bounds getBoundsInContentGroup(Node node) {
+            javafx.geometry.Bounds b = node.getBoundsInLocal();
+            Node current = node;
+            while (current != null && current != contentGroup && current.getParent() != null) {
+                b = current.localToParent(b);
+                current = current.getParent();
+            }
+            return b;
         }
 
         private void scan(Node node) {
@@ -156,12 +177,16 @@ public final class PrendaSnapshotHelper {
                 return;
             }
 
-            if (node instanceof SVGPath svgPath) {
-                if (svgPath.getContent() == null || svgPath.getContent().isEmpty()) {
-                    return;
+            if (node instanceof javafx.scene.shape.Shape || node instanceof javafx.scene.image.ImageView) {
+                // Ignore empty SVGPaths to avoid false bounds
+                if (node instanceof SVGPath) {
+                    SVGPath svgPath = (SVGPath) node;
+                    if (svgPath.getContent() == null || svgPath.getContent().isEmpty()) {
+                        return;
+                    }
                 }
 
-                javafx.geometry.Bounds bounds = node.localToParent(svgPath.getBoundsInLocal());
+                javafx.geometry.Bounds bounds = getBoundsInContentGroup(node);
                 if (bounds.getWidth() > MAX_SNAPSHOT_PART_WIDTH) {
                     return;
                 }

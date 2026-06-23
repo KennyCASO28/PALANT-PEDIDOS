@@ -40,7 +40,8 @@ public class TechnicalSheetSketchService {
 
     public static TechnicalSheetPaginationManager.RosterChunk createArqueroBocetoSection(
             List<DetallePedido> jugadores, PrendaVisualizer visualizer,
-            Image arqSketchHombre, Image arqSketchMujer, ConfiguracionPrendaDTO arqueroConfig) {
+            Image arqSketchHombre, Image arqSketchMujer, ConfiguracionPrendaDTO arqueroConfig,
+            java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero) {
 
         List<DetallePedido> allArqueros = (jugadores == null) ? new ArrayList<>() :
                 jugadores.stream().filter(DetallePedido::isEsArquero)
@@ -60,83 +61,100 @@ public class TechnicalSheetSketchService {
         boolean isFullSet = arqueroConfig != null && (arqueroConfig.llevaShort() || arqueroConfig.llevaMedias());
         double sketchHeight = isFullSet ? 420 : 360;
 
-        StackPane sketchPane = new StackPane();
-        sketchPane.setMinHeight(sketchHeight);
-        sketchPane.setPrefWidth(550);
-        sketchPane.getStyleClass().add("ficha-sketch-pane");
+        HBox sketchBox = new HBox(15);
+        sketchBox.setPrefHeight(sketchHeight);
+
+        StackPane leftPane = new StackPane();
+        leftPane.setMinSize(arqSketchMujer != null ? 260.0 : 530.0, sketchHeight - 20);
+        leftPane.setPrefSize(arqSketchMujer != null ? 260.0 : 530.0, sketchHeight - 20);
+        leftPane.setMaxSize(arqSketchMujer != null ? 260.0 : 530.0, sketchHeight - 20);
+
+        StackPane rightPane = new StackPane();
+        rightPane.setMinSize(arqSketchHombre != null ? 260.0 : 530.0, sketchHeight - 20);
+        rightPane.setPrefSize(arqSketchHombre != null ? 260.0 : 530.0, sketchHeight - 20);
+        rightPane.setMaxSize(arqSketchHombre != null ? 260.0 : 530.0, sketchHeight - 20);
 
         if (arqSketchHombre != null) {
             ImageView iv = new ImageView(arqSketchHombre);
+            double maxW = arqSketchMujer != null ? 260.0 : 530.0;
+            double maxH = sketchHeight - 20;
             iv.setPreserveRatio(true);
-            iv.setFitWidth(arqSketchMujer != null ? 260 : 530);
-            iv.setFitHeight(sketchHeight - 20);
-            sketchPane.getChildren().add(iv);
-            if (arqSketchMujer != null) StackPane.setAlignment(iv, Pos.CENTER_LEFT);
+            iv.setFitWidth(maxW);
+            iv.setFitHeight(maxH); // Asegurar que no exceda el alto permitido
+            iv.setSmooth(true);
+            iv.setCache(false);
+            StackPane.setAlignment(iv, Pos.CENTER);
+            leftPane.getChildren().add(iv);
         }
         if (arqSketchMujer != null) {
             ImageView iv = new ImageView(arqSketchMujer);
+            double maxW = arqSketchHombre != null ? 260.0 : 530.0;
+            double maxH = sketchHeight - 20;
             iv.setPreserveRatio(true);
-            iv.setFitWidth(arqSketchHombre != null ? 260 : 530);
-            iv.setFitHeight(sketchHeight - 20);
-            sketchPane.getChildren().add(iv);
-            if (arqSketchHombre != null) StackPane.setAlignment(iv, Pos.CENTER_RIGHT);
+            iv.setFitWidth(maxW);
+            iv.setFitHeight(maxH); // Asegurar que no exceda el alto permitido
+            iv.setSmooth(true);
+            iv.setCache(false);
+            StackPane.setAlignment(iv, Pos.CENTER);
+            rightPane.getChildren().add(iv);
+        }
+
+        sketchBox.getChildren().add(leftPane);
+        if (arqSketchMujer != null) {
+            sketchBox.getChildren().add(rightPane);
         }
 
         VBox extrasBox = new VBox(8);
         extrasBox.setPadding(new Insets(5));
+        extrasBox.setAlignment(Pos.TOP_CENTER);
         Label lblSpecs = new Label("ESPECIFICACIONES:");
         lblSpecs.getStyleClass().add("ficha-specs-label");
         extrasBox.getChildren().add(lblSpecs);
 
-        DetallePedido arcP = allArqueros.get(0);
-        VBox card = new VBox(5);
-        card.getStyleClass().add("ficha-card");
-        
-        HBox colorRow = new HBox(8, new Rectangle(18, 18, arcP.getColorArquero() != null ? arcP.getColorArquero() : Color.WHITE),
-                new Label(TechnicalSheetDataService.resolveColorName(arcP.getColorArquero()) + " - " + resolveArqueroSleeve(arcP)));
-        ((Rectangle)colorRow.getChildren().get(0)).setStroke(Color.GRAY);
-        colorRow.getChildren().get(1).getStyleClass().add("ficha-color-row-label");
-        colorRow.setAlignment(Pos.CENTER_LEFT);
-        card.getChildren().add(colorRow);
+        for (DetallePedido arcP : allArqueros) {
+            VBox card = new VBox(5);
+            card.getStyleClass().add("ficha-card");
 
-        if (arqueroConfig != null && arqueroConfig.llevaAcolchado()) {
-            Label lblAco = new Label("SI LLEVA ACOLCHADO");
-            lblAco.getStyleClass().add("ficha-badge-acolchado");
-            card.getChildren().add(lblAco);
+            String colorName = TechnicalSheetDataService.resolveColorName(arcP.getColorArquero());
+            String manga = resolveArqueroSleeve(arcP);
+            String title = "Arquero " + arcP.getArqueroOrdenMarcado() + " (" + colorName + " - " + manga + ")";
+            Label lblTitle = new Label(title);
+            lblTitle.setWrapText(true);
+            lblTitle.setPrefWidth(160); // Constrain to force wrapping
+            lblTitle.setMinHeight(Region.USE_PREF_SIZE);
+
+            HBox colorRow = new HBox(8, new Rectangle(18, 18, arcP.getColorArquero() != null ? arcP.getColorArquero() : Color.WHITE),
+                    lblTitle);
+            ((Rectangle)colorRow.getChildren().get(0)).setStroke(Color.GRAY);
+            colorRow.getChildren().get(1).getStyleClass().add("ficha-color-row-label-small"); // Uses a slightly smaller class if we want, or same
+            colorRow.setAlignment(Pos.CENTER_LEFT);
+            card.getChildren().add(colorRow);
+
+            String designId = arcP.getArqueroDesignId();
+            org.example.dto.save.GoalkeeperDesignDTO dto = disenosArquero != null ? disenosArquero.get(designId) : null;
+            if (dto != null && dto.getGarmentConfig() != null && dto.getGarmentConfig().isHasPadding()) {
+                Label lblAco = new Label("SI LLEVA ACOLCHADO");
+                lblAco.getStyleClass().add("ficha-badge-acolchado");
+                card.getChildren().add(lblAco);
+            } else if (dto == null && arqueroConfig != null && arqueroConfig.llevaAcolchado()) {
+                // Fallback for backward compatibility or when missing
+                Label lblAco = new Label("SI LLEVA ACOLCHADO");
+                lblAco.getStyleClass().add("ficha-badge-acolchado");
+                card.getChildren().add(lblAco);
+            }
+            extrasBox.getChildren().add(card);
         }
-        extrasBox.getChildren().add(card);
 
-        VBox arqSummary = new VBox(4);
-        arqSummary.setPadding(new Insets(8, 0, 0, 0));
-        Label lblSum = new Label("RESUMEN DE PRODUCCIÓN:");
-        lblSum.getStyleClass().add("ficha-summary-label");
-        arqSummary.getChildren().add(lblSum);
-
-        Map<String, Integer> tSizes = new TreeMap<>(), bSizes = new TreeMap<>();
-        for (DetallePedido p : allArqueros) {
-            if (p.isIncludeTop()) tSizes.put(TechnicalSheetDataService.getSizeDisplay(p), tSizes.getOrDefault(TechnicalSheetDataService.getSizeDisplay(p), 0) + 1);
-            if (p.isIncludeBottom()) bSizes.put(p.getTallaShort() != null ? p.getTallaShort().toUpperCase() : TechnicalSheetDataService.getSizeDisplay(p), bSizes.getOrDefault(p.getTallaShort(), 0) + 1);
-        }
-
-        if (!tSizes.isEmpty()) {
-            Label l = new Label("POLOS: " + tSizes.entrySet().stream().map(e -> e.getKey() + "(" + e.getValue() + ")").collect(Collectors.joining(", ")));
-            l.getStyleClass().add("ficha-summary-shirt");
-            arqSummary.getChildren().add(l);
-        }
-        if (!bSizes.isEmpty()) {
-            Label l = new Label("SHORTS: " + bSizes.entrySet().stream().map(e -> e.getKey() + "(" + e.getValue() + ")").collect(Collectors.joining(", ")));
-            l.getStyleClass().add("ficha-summary-shorts");
-            arqSummary.getChildren().add(l);
-        }
-        extrasBox.getChildren().add(arqSummary);
-
-        HBox layout = new HBox(15, sketchPane, extrasBox);
+        HBox layout = new HBox(15, sketchBox, extrasBox);
         layout.setAlignment(Pos.CENTER_LEFT);
         container.getChildren().add(layout);
 
         VBox arqTableBox = new VBox(5, new Label("TALLERO ESPECIAL ARQUEROS:"));
         arqTableBox.getChildren().get(0).getStyleClass().add("ficha-table-title-small");
-        arqTableBox.getChildren().add(TechnicalSheetPaginationManager.createSmartTable(allArqueros, null, false).get(0).node());
+        List<TechnicalSheetPaginationManager.RosterChunk> smartTableChunks = TechnicalSheetPaginationManager.createSmartTable(allArqueros, null, false, TechnicalSheetPaginationManager.PAGE_CONTENT_WIDTH - 30);
+        if (!smartTableChunks.isEmpty()) {
+            arqTableBox.getChildren().add(smartTableChunks.get(0).node());
+        }
         container.getChildren().add(arqTableBox);
 
         return new TechnicalSheetPaginationManager.RosterChunk(container, (isFullSet ? 370 : 310) + (allArqueros.size() * 26) + 100);

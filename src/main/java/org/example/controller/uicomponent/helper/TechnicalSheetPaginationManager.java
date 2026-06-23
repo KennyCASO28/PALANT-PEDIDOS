@@ -213,6 +213,10 @@ public class TechnicalSheetPaginationManager {
     }
 
     public static List<RosterChunk> createSmartTable(List<DetallePedido> roster, String title, boolean limitFirst) {
+        return createSmartTable(roster, title, limitFirst, PAGE_CONTENT_WIDTH);
+    }
+
+    public static List<RosterChunk> createSmartTable(List<DetallePedido> roster, String title, boolean limitFirst, double width) {
         List<RosterChunk> chunks = new ArrayList<>();
         List<DetallePedido> det = new ArrayList<>(), com = new ArrayList<>(), sim = new ArrayList<>();
         roster.forEach(p -> {
@@ -222,28 +226,28 @@ public class TechnicalSheetPaginationManager {
         });
 
         if (!sim.isEmpty()) {
-            VBox box = buildContainer(title, " (RESUMEN)"); box.getChildren().add(createSimpleGrid(sim, PAGE_CONTENT_WIDTH));
+            VBox box = buildContainer(title, " (RESUMEN)", width); box.getChildren().add(createSimpleGrid(sim, width));
             chunks.add(new RosterChunk(box, 40 + (new HashSet<>(sim.stream().map(TechnicalSheetDataService::getSizeDisplay).toList()).size() * 30) + 20));
         }
         if (!com.isEmpty()) {
-            VBox box = buildContainer(title, " (NUMERACION)"); box.getChildren().add(createCompactGrid(com, PAGE_CONTENT_WIDTH));
+            VBox box = buildContainer(title, " (NUMERACION)", width); box.getChildren().add(createCompactGrid(com, width));
             chunks.add(new RosterChunk(box, 40 + (new HashSet<>(com.stream().map(TechnicalSheetDataService::getSizeDisplay).toList()).size() * 30) + 20));
         }
         if (!det.isEmpty()) {
             int i = 0; while (i < det.size()) {
                 int take = Math.min(det.size() - i, (i == 0 && limitFirst) ? 12 : 40);
-                VBox box = buildContainer(title, i == 0 ? "" : " (CONT)"); box.getChildren().add(createMergedRoster(det.subList(i, i + take), PAGE_CONTENT_WIDTH));
+                VBox box = buildContainer(title, i == 0 ? "" : " (CONT)", width); box.getChildren().add(createMergedRoster(det.subList(i, i + take), width));
                 chunks.add(new RosterChunk(box, 32 + (take * 30) + 40)); i += take;
             }
         }
         return chunks;
     }
 
-    private static VBox buildContainer(String t, String s) {
+    private static VBox buildContainer(String t, String s, double width) {
         VBox b = new VBox(0); b.getStyleClass().add("ficha-table-container");
         if (t != null) { 
             Label l = new Label(t + s); 
-            l.setMinWidth(PAGE_CONTENT_WIDTH-2); 
+            l.setMinWidth(width-2); 
             l.setAlignment(Pos.CENTER); 
             l.getStyleClass().add("ficha-table-header");
             b.getChildren().add(l); 

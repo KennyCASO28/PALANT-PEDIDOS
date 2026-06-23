@@ -39,6 +39,11 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
     private final SVGPath brandBase = new SVGPath();
     private final SVGPath brandDetail = new SVGPath();
 
+    // Linea decorativa en pecho (espejo de ShirtRenderer)
+    private final SVGPath shirtLinea = new SVGPath();
+    private final SVGPath shirtLineaClip = new SVGPath();
+    private boolean hasLinea = false;
+
     private boolean telaNatural = false;
     private String currentCollarType = "V";
 
@@ -84,8 +89,13 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
         configureDetailLayer(brandDetail, Color.WHITE);
         brandDetail.setVisible(false);
 
+        // Linea decorativa (igual que ShirtRenderer)
+        configureLayer(shirtLinea, Color.web("#7f8c8d"), null);
+        shirtLinea.setStrokeWidth(0);
+        shirtLinea.setClip(shirtLineaClip);
+
         // GROUP 1: BASE LAYERS (Behind User Images)
-        group.getChildren().addAll(backingLayer, body, sleeves);
+        group.getChildren().addAll(backingLayer, body, sleeves, shirtLinea);
 
         // GROUP 2: DETAILS (On Top of User Images)
         detailGroup.getChildren().addAll(
@@ -133,6 +143,12 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
         String collarFilename = collarType.replace(" ", "_").toLowerCase() + ".svg";
         String collarPath = ("/vectors/" + genderFolder + "/cuellos/" + cutFolder + "/" + collarFilename).toLowerCase();
         loadLayerWithExtras(collar, collarShadow, collarDetail, collarPath);
+
+        // Linea decorativa (carga el vector _linea.svg del arquero si existe)
+        String lineaPath = arqueroShirtPath.replace(".svg", "_linea.svg");
+        shirtLinea.setContent(SVGCache.loadOptionalPath(lineaPath));
+        shirtLinea.setVisible(hasLinea && shirtLinea.getContent() != null && !shirtLinea.getContent().isEmpty());
+        shirtLineaClip.setContent(body.getContent() + " " + sleeves.getContent());
     }
 
     private void applyCategorizedLayer(SVGPath body, SVGPath sleeves, SVGPath bodyShadow, SVGPath sleevesShadow,
@@ -296,6 +312,12 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
             mesh.setStroke(Color.BLACK);
         }
 
+        if (colorState.containsKey("shirtLinea")) {
+            Color c = colorState.get("shirtLinea");
+            shirtLinea.setFill(sanitizeFillColor(c));
+            shirtLinea.setStrokeWidth(0);
+        }
+
         boolean isVOrRedondo = "V".equalsIgnoreCase(currentCollarType) || "REDONDO".equalsIgnoreCase(currentCollarType);
         if (telaNatural && isVOrRedondo && colorState.containsKey("body")) {
             Color bodyColor = colorState.get("body");
@@ -350,7 +372,8 @@ private boolean isDarkColor(Color c) {
 
     @Override
     public void setShirtLinea(boolean hasLinea) {
-        // ArqueroRenderer does not handle separate shirt lines
+        this.hasLinea = hasLinea;
+        shirtLinea.setVisible(hasLinea && shirtLinea.getContent() != null && !shirtLinea.getContent().isEmpty());
     }
 }
 

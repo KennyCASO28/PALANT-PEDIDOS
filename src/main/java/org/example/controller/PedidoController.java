@@ -44,8 +44,9 @@ public class PedidoController {
     // Recompile trigger: Resolved UIFactory dependency.
 
     File currentProjectFile;
-    private final PedidoGoalkeeperCoordinator goalkeeperCoordinator = new PedidoGoalkeeperCoordinator(this);
+    public final PedidoGoalkeeperCoordinator goalkeeperCoordinator = new PedidoGoalkeeperCoordinator(this);
     boolean wizardStarted = false;
+    private boolean proyectoIniciado = false;
     private boolean isStandalone = true;
 
     // --- LISTENER FOR TAB TITLE ---
@@ -58,6 +59,7 @@ public class PedidoController {
     @FXML
     private HBox titleBar;
 
+    private ShellController shellController;
     public void setShellMode(boolean shellMode) {
         this.isStandalone = !shellMode;
         if (titleBar != null) {
@@ -65,6 +67,12 @@ public class PedidoController {
             titleBar.setVisible(isStandalone);
         }
     }
+    public void setShellController(ShellController shell) {
+        this.shellController = shell;
+        setShellMode(true);
+    }
+    
+
 
     org.example.dto.DatosEnvioDTO datosEnvio = new org.example.dto.DatosEnvioDTO();
 
@@ -80,6 +88,10 @@ public class PedidoController {
     @FXML
     private Button btnDatosEnvio;
 
+    // --- MODO DE EDICIÓN INDICATOR (External in FXML) ---
+    @FXML
+    private Label lblModeIndicator;
+
     // --- VISTA DINÁMICA (WIZARD) ---
     @FXML
     private VBox dynamicFormContainer;
@@ -89,6 +101,10 @@ public class PedidoController {
     private VBox rootVBox;
     @FXML
     TabPane mainTabPane;
+    @FXML
+    private StackPane welcomeOverlay;
+    @FXML
+    private HBox headerContainer;
     @FXML
     private Button btnFinalizar;
     @FXML
@@ -119,7 +135,7 @@ public class PedidoController {
 
     // --- PESTAÑA 2 (Tabla Nombres) ---
     @FXML
-    private TableView<DetallePedido> tablaDetalles;
+    TableView<DetallePedido> tablaDetalles;
     // ... (otras columnas y campos se mantienen igual, solo limpieza de imports
     // viejos si aplica)
     @FXML
@@ -239,6 +255,11 @@ public class PedidoController {
     @FXML
     ComboBox<String> comboModoDiseno;
     boolean editandoDisenoArquero = false;
+    public java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero = new java.util.HashMap<>();
+    public java.util.Map<String, String> comboArqueroDesignIds = new java.util.HashMap<>();
+    public String arqueroFichaDesignId = null;
+    public String arqueroActivoDesignId = null;
+    public String getArqueroFichaDesignId() { return arqueroFichaDesignId; }
     boolean switchingDesignMode = false;
     boolean isRestoringDesign = false; // Flag to prevent UI updates from marking goalie as personalized
     boolean projectDirty = false; // Tracks if there are unsaved changes
@@ -258,6 +279,7 @@ public class PedidoController {
 
     @FXML
     public void initialize() {
+        org.example.model.DetallePedido.defaultSocksTypeProvider = () -> activeBulkSocksCategory;
         setupResponsiveSidebars();
         setupOverlayPanelToggles();
         cargarVendedores();
@@ -439,13 +461,17 @@ public class PedidoController {
                 if (switchingDesignMode || !wizardStarted || prendaVisualizer == null || newVal == null)
                     return;
 
-                boolean toArquero = "Arquero".equalsIgnoreCase(newVal.trim());
-                if (toArquero == editandoDisenoArquero)
+                boolean toArquero = !"Jugador".equalsIgnoreCase(newVal.trim());
+                String designId = toArquero ? goalkeeperCoordinator.getDesignIdForComboLabel(newVal) : null;
+
+                boolean matchesActiveId = (designId == null && arqueroActivoDesignId == null) || 
+                                          (designId != null && designId.equals(arqueroActivoDesignId));
+                if (toArquero == editandoDisenoArquero && matchesActiveId)
                     return;
 
-                System.out.println("SWITCH DESIGN triggered by Combo: " + newVal);
+                System.out.println("SWITCH DESIGN triggered by Combo: " + newVal + " (Design ID: " + designId + ")");
                 // Force sync call to avoid async racing with other events
-                cambiarModoDiseno(toArquero);
+                cambiarModoDiseno(toArquero, designId);
             });
         }
 
@@ -473,6 +499,7 @@ public class PedidoController {
         }
 
         prendaVisualizer = new PrendaVisualizer();
+        goalkeeperCoordinator.setupVisualizerListener(prendaVisualizer);
         prendaVisualizer.setRulersVisible(false); // Default to Hidden for Tab 1 startup
 
         if (stackVectorContainer != null) {
@@ -488,6 +515,11 @@ public class PedidoController {
             // Agregar el visualizador al contenedor
             stackVectorContainer.getChildren().add(prendaVisualizer);
             prendaVisualizer.setEditModeContainer(stackVectorContainer);
+            
+            // Conectar el indicador de modo de edición externo (FXML)
+            if (lblModeIndicator != null) {
+                prendaVisualizer.getUiController().setExternalModeIndicator(lblModeIndicator);
+            }
 
             // --- FLOATING CONTROLS ---
             // 1. Center View Button
@@ -570,6 +602,13 @@ public class PedidoController {
             // --- DELEGATE INITIALIZATION ---
             prendaDelegate = new PrendaDelegate(dynamicFormContainer, prendaVisualizer, lblPlaceholder);
             prendaDelegate.setOnConfigChanged(() -> {
+                if (editandoDisenoArquero && prendaVisualizer != null) {
+                    prendaVisualizer.setArqueroDisenoPersonalizado(true);
+                }
+                if (prendaVisualizer != null) {
+                    prendaVisualizer.notifyStateChanged();
+                }
+                updateActiveBulkSocksCategory();
                 fichaDirty = true;
                 markProjectDirty();
                 if (tablaDetalles != null) {
@@ -581,9 +620,11 @@ public class PedidoController {
             jugadoresDelegate = new JugadoresDelegate(tablaDetalles, txtInputNombre, txtInputNumero, comboInputTalla,
                     lblTotalPrendas, listaJugadores);
             jugadoresDelegate.setConfigSupplier(() -> prendaDelegate.getConfiguracion());
+            updateActiveBulkSocksCategory();
 
             // --- RESET LOGIC ON GARMENT CHANGE ---
             prendaDelegate.setOnPrendaChanged(() -> {
+                updateActiveBulkSocksCategory();
                 // 1. Lock future tabs
                 if (mainTabPane != null) {
                     if (mainTabPane.getTabs().size() > 1)
@@ -620,18 +661,11 @@ public class PedidoController {
                 // should mark the technical sheet as dirty so it re-generates when entering Tab
                 // 4.
                 prendaVisualizer.addOnStateChanged(() -> {
+                    if (isGeneratingFicha || isRestoringDesign || switchingDesignMode) return;
+
                     fichaDirty = true;
                     markProjectDirty();
-                    if (editandoDisenoArquero) {
-                        if (!isRestoringDesign && !switchingDesignMode) {
-                            prendaVisualizer.setArqueroDisenoPersonalizado(true); // User is manually painting/designing
-                                                                                  // the goalie
-                        }
-                    } else if (!prendaVisualizer.isArqueroDisenoPersonalizado()) {
-                        // Real-time Inheritance: Sync to the goalie if the user is editing the player
-                        // and hasn't manually customized the goalie yet.
-                        syncArqueroDesignFromPlayer(getArqueroPrincipal());
-                    }
+                    // Let goalkeeperCoordinator handle goalkeeper state synchronization to avoid racing and duplicate/restricted sleeve mappings.
 
                     if (mainTabPane != null
                             && mainTabPane.getSelectionModel().getSelectedItem() == getFichaTecnicaManager().tabFicha) {
@@ -985,6 +1019,7 @@ public class PedidoController {
     private void resetConfiguracion() {
         if (prendaDelegate != null) {
             prendaDelegate.reset();
+            updateActiveBulkSocksCategory();
             fichaDirty = true;
         }
     }
@@ -995,6 +1030,10 @@ public class PedidoController {
     }
 
     private void handleMainAction() {
+        if (!proyectoIniciado) {
+            org.example.utils.UIFactory.mostrarAlerta(javafx.scene.control.Alert.AlertType.WARNING, "Atención", "Debe iniciar un Nuevo Pedido o Abrir un Proyecto antes de continuar.");
+            return;
+        }
         if (wizardFlowManager == null)
             return;
         boolean stepped = wizardFlowManager.handleMainAction();
@@ -1005,7 +1044,17 @@ public class PedidoController {
 
     void iniciarWizard() {
         wizardStarted = true;
+        proyectoIniciado = true;
         fichaDirty = true;
+        
+        if (welcomeOverlay != null) welcomeOverlay.setVisible(false);
+        if (mainTabPane != null) mainTabPane.setVisible(true);
+        if (headerContainer != null) headerContainer.setVisible(true);
+
+        if (stackVectorContainer != null) {
+            stackVectorContainer.getChildren().removeIf(node -> "startBox".equals(node.getId()));
+        }
+
 
         editandoDisenoArquero = false;
         if (prendaVisualizer != null) {
@@ -1042,6 +1091,17 @@ public class PedidoController {
         }
     }
 
+    private java.util.List<org.example.dto.save.LayerDTO> deepCopyLayers(java.util.List<org.example.dto.save.LayerDTO> source) {
+        if (source == null) return null;
+        java.util.List<org.example.dto.save.LayerDTO> copy = new java.util.ArrayList<>();
+        for (org.example.dto.save.LayerDTO layer : source) {
+            if (layer != null) {
+                copy.add(layer.deepCopy());
+            }
+        }
+        return copy;
+    }
+
     void guardarDisenoActualEnSlot() {
         if (prendaVisualizer == null)
             return;
@@ -1053,12 +1113,21 @@ public class PedidoController {
         java.util.List<org.example.dto.save.LayerDTO> layers = org.example.service.save.StateMapper
                 .extractUserLayers(prendaVisualizer);
 
-        if (editandoDisenoArquero) {
-            disenoArqueroConfig = cfg;
-            disenoArqueroLayers = layers;
+        // ENFORCE ATOMICITY: Use the visualizer's actual active design mode instead of the controller flag
+        boolean visualizerIsArquero = prendaVisualizer.isEditandoArquero();
+
+        if (visualizerIsArquero) {
+            disenoArqueroConfig = cfg != null ? cfg.deepCopy() : null;
+            disenoArqueroLayers = deepCopyLayers(layers);
+            
+            if (arqueroActivoDesignId != null && disenosArquero.containsKey(arqueroActivoDesignId)) {
+                org.example.dto.save.GoalkeeperDesignDTO design = disenosArquero.get(arqueroActivoDesignId);
+                design.setGarmentConfig(disenoArqueroConfig != null ? disenoArqueroConfig.deepCopy() : null);
+                design.setLayers(deepCopyLayers(layers));
+            }
         } else {
-            disenoCampoConfig = cfg;
-            disenoCampoLayers = layers;
+            disenoCampoConfig = cfg != null ? cfg.deepCopy() : null;
+            disenoCampoLayers = deepCopyLayers(layers);
         }
     }
 
@@ -1069,9 +1138,13 @@ public class PedidoController {
 
         isRestoringDesign = true;
         try {
+            // First update the controller flag to ensure they are synchronized from the beginning of transition
+            editandoDisenoArquero = forArquero;
             prendaVisualizer.setActiveDesign(forArquero); // Switch slot
             org.example.service.save.StateMapper.restoreDesign(prendaVisualizer, cfg, layers);
-            editandoDisenoArquero = forArquero;
+            if (prendaDelegate != null) {
+                prendaDelegate.restoreFromState(cfg);
+            }
         } finally {
             isRestoringDesign = false;
         }
@@ -1117,6 +1190,10 @@ public class PedidoController {
             if (disenoArqueroLayers != null && !disenoArqueroLayers.isEmpty()) {
                 state.setArqueroLayers(disenoArqueroLayers);
             }
+            
+            // Populating multi-goalkeeper designs to guarantee persistence across saves
+            state.setGoalkeeperDesigns(new java.util.ArrayList<>(disenosArquero.values()));
+            state.setSelectedGoalkeeperDesignId(arqueroFichaDesignId);
 
             // 5. Restaurar el modo visual original
             if (wasArquero) {
@@ -1158,6 +1235,10 @@ public class PedidoController {
 
     private void cambiarModoDiseno(boolean toArquero) {
         goalkeeperCoordinator.changeDesignMode(toArquero);
+    }
+
+    public void cambiarModoDiseno(boolean toArquero, String designId) {
+        goalkeeperCoordinator.changeDesignMode(toArquero, designId);
     }
 
     private void applyGoalieSpecificsFromTable() {
@@ -1209,6 +1290,11 @@ public class PedidoController {
             return;
 
         java.util.Set<org.example.model.TipoMedias> active = new java.util.HashSet<>();
+        org.example.dto.ConfiguracionPrendaDTO config = prendaDelegate.getConfiguracion();
+        if (config != null && config.getTipoMedias() != null) {
+            active.add(config.getTipoMedias());
+        }
+
         for (DetallePedido p : listaJugadores) {
             if (!p.isIncludeSocks())
                 continue;
@@ -1229,7 +1315,7 @@ public class PedidoController {
             return base.toUpperCase();
         }
         String t = p.getTalla() != null ? p.getTalla().toUpperCase().trim() : "";
-        if (t.matches("S|M|L|XL|XXL|3XXL|4XXL|G|XG|2XL|3XL|4XL"))
+            if (t.matches("S|M|L|XL|XXL|3XXL|4XXL|G|XG|2XL|3XL|4XL"))
             return "ADULTO";
         if (t.matches("12|14|16"))
             return "JUVENIL";
@@ -1240,6 +1326,7 @@ public class PedidoController {
 
     private void mostrarPantallaInicio() {
         wizardStarted = true;
+        proyectoIniciado = false;
         editandoDisenoArquero = false;
         if (comboModoDiseno != null) {
             switchingDesignMode = true;
@@ -1254,45 +1341,38 @@ public class PedidoController {
         actualizarArchivoActualUI();
         actualizarDatosEnvioUI();
 
-        if (dynamicFormContainer == null)
+        if (dynamicFormContainer == null || welcomeOverlay == null)
             return;
 
         dynamicFormContainer.getChildren().clear();
-        dynamicFormContainer.setAlignment(Pos.TOP_CENTER);
-        dynamicFormContainer.setSpacing(14);
-        VBox.setMargin(dynamicFormContainer, new Insets(0));
+
+        // 1. Mostrar overlays completamente y vaciar
+        welcomeOverlay.setVisible(true);
+        welcomeOverlay.getChildren().clear();
+        
+        // 2. Ocultar contenedores principales (Tabs) pero dejar header visible si lo desean, aunque usualmente se deja visible.
+        if (mainTabPane != null) {
+            mainTabPane.setVisible(false);
+        }
+        if (headerContainer != null) headerContainer.setVisible(true); // Header keeps the logo
 
         Label title = new Label("INICIAR PEDIDO");
-        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #0B213E;");
-
+        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
         Label hint = new Label("Elige una opción antes de seleccionar la prenda.");
-        hint.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748b;");
-        hint.setWrapText(true);
-        hint.setMaxWidth(320);
-
+        hint.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748b; -fx-wrap-text: true; -fx-text-alignment: center;");
+        
         Button btnNuevo = new Button("Nuevo Pedido");
         btnNuevo.setMaxWidth(Double.MAX_VALUE);
-        btnNuevo.setPrefHeight(42);
-        btnNuevo.setStyle(
-                "-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 8;");
-
+        btnNuevo.setStyle("-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10; -fx-background-radius: 6; -fx-cursor: hand;");
+        
         Button btnAbrir = new Button("Abrir Proyecto");
         btnAbrir.setMaxWidth(Double.MAX_VALUE);
-        btnAbrir.setPrefHeight(42);
-        btnAbrir.setStyle(
-                "-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 8;");
-
-        VBox box = new VBox(10, title, hint, btnNuevo, btnAbrir);
-        box.setMaxWidth(Double.MAX_VALUE);
-        box.setAlignment(Pos.TOP_CENTER);
-        box.setPadding(new Insets(14));
-        box.setStyle(
-                "-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e2e8f0; -fx-border-radius: 10;");
+        btnAbrir.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-border-color: #3498db; -fx-border-radius: 6; -fx-padding: 9; -fx-background-radius: 6; -fx-cursor: hand;");
 
         btnNuevo.setOnAction(e -> comenzarNuevoPedidoEnEstaVentana());
         btnAbrir.setOnAction(e -> {
-            File file = UIFactory.seleccionarArchivoAbrir(
-                    (mainTabPane != null && mainTabPane.getScene() != null) ? mainTabPane.getScene().getWindow() : null,
+            java.io.File file = org.example.utils.UIFactory.seleccionarArchivoAbrir(
+                    (welcomeOverlay != null && welcomeOverlay.getScene() != null) ? welcomeOverlay.getScene().getWindow() : null,
                     "Abrir Proyecto",
                     "*.tlp;*.plt");
             if (file != null) {
@@ -1300,14 +1380,70 @@ public class PedidoController {
             }
         });
 
-        dynamicFormContainer.getChildren().add(box);
+        VBox box = new VBox(10, title, hint, btnNuevo, btnAbrir);
+        box.setMaxWidth(Double.MAX_VALUE);
+        box.setAlignment(Pos.TOP_CENTER);
+        box.setPadding(new Insets(20));
+        
+        VBox wrapper = new VBox();
+        wrapper.setMinWidth(320);
+        wrapper.setPrefWidth(320);
+        wrapper.setMaxWidth(320);
+        wrapper.setMaxHeight(Double.MAX_VALUE);
+        wrapper.setStyle("-fx-background-color: rgba(255, 255, 255, 0.95); -fx-background-radius: 15; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-border-radius: 15; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 15, 0, 4, 0);");
+        
+        HBox header = new HBox(10);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPrefHeight(60);
+        header.setMinHeight(60);
+        header.setStyle("-fx-border-color: #e2e8f0; -fx-border-width: 0 0 1 0; -fx-padding: 0 15 0 65;");
+        Label headerTitle = new Label("Configuración");
+        headerTitle.setStyle("-fx-text-fill: #1e293b; -fx-font-size: 16px; -fx-font-weight: bold;");
+        header.getChildren().add(headerTitle);
+        
+        StackPane topBarStack = new StackPane(header);
+        
+        ToggleButton burger = new ToggleButton();
+        burger.setSelected(true);
+        burger.setStyle("-fx-background-color: white; -fx-background-radius: 50; -fx-border-color: #cbd5e1; -fx-border-radius: 50; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 2);");
+        burger.setPrefSize(46, 46);
+        burger.setMinSize(46, 46);
+        burger.setMaxSize(46, 46);
+        StackPane.setAlignment(burger, Pos.TOP_LEFT);
+        StackPane.setMargin(burger, new Insets(10, 0, 0, 10));
+        try {
+            org.kordamp.ikonli.javafx.FontIcon icon = new org.kordamp.ikonli.javafx.FontIcon("mdi2m-menu");
+            icon.setIconSize(28);
+            icon.setIconColor(javafx.scene.paint.Color.web("#1e293b"));
+            burger.setGraphic(icon);
+        } catch (Exception ignored) {}
+        topBarStack.getChildren().add(burger);
+
+        wrapper.getChildren().addAll(topBarStack, box);
+
+        // -- THE RIGHT SIDE (Mimicking stackVectorContainer) --
+        StackPane fakeVectorContainer = new StackPane();
+        fakeVectorContainer.setAlignment(Pos.CENTER);
+        HBox.setHgrow(fakeVectorContainer, javafx.scene.layout.Priority.ALWAYS);
+        fakeVectorContainer.setStyle("-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-width: 2; -fx-background-radius: 10; -fx-border-radius: 10; -fx-padding: 2;");
+        
+        Label lblFakePlaceholder = new Label("Seleccione \"Nuevo Pedido\" o \"Abrir Proyecto\" para comenzar.");
+        lblFakePlaceholder.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-wrap-text: true; -fx-text-alignment: center;");
+        
+        fakeVectorContainer.getChildren().add(lblFakePlaceholder);
+
+        HBox mainLayout = new HBox(10);
+        mainLayout.setAlignment(Pos.CENTER_LEFT);
+        mainLayout.setPadding(new Insets(5, 5, 5, 5));
+        mainLayout.getChildren().addAll(wrapper, fakeVectorContainer);
+        
+        welcomeOverlay.getChildren().add(mainLayout);
 
         if (lblPlaceholder != null) {
-            lblPlaceholder.setText("Seleccione \"Nuevo Pedido\" o \"Abrir Proyecto\" para comenzar.");
-            lblPlaceholder.setVisible(true);
+            lblPlaceholder.setVisible(false);
         }
         if (prendaVisualizer != null) {
-            prendaVisualizer.setVisible(false);
+            prendaVisualizer.setVisible(false); // Hide the real one
         }
     }
 
@@ -1581,6 +1717,15 @@ public class PedidoController {
     }
 
     @FXML
+    public void nuevoPedidoTabAction(ActionEvent event) {
+        if (shellController != null) {
+            shellController.addNewTabAction(null);
+        } else {
+            comenzarNuevoPedidoEnEstaVentana();
+        }
+    }
+
+    @FXML
     public void nuevoPedidoNuevaVentanaAction(ActionEvent event) {
         abrirNuevaVentana(null);
     }
@@ -1826,5 +1971,21 @@ public class PedidoController {
         // Mark dirty
         this.projectDirty = true;
         this.fichaDirty = true;
+    }
+
+    private static volatile String activeBulkSocksCategory = null;
+
+    public void updateActiveBulkSocksCategory() {
+        if (prendaDelegate != null) {
+            org.example.dto.ConfiguracionPrendaDTO config = prendaDelegate.getConfiguracion();
+            if (config != null && config.llevaMedias() && config.getTipoMedias() != null) {
+                activeBulkSocksCategory = config.getTipoMedias().getLabel().toUpperCase();
+            } else {
+                activeBulkSocksCategory = null;
+            }
+        } else {
+            activeBulkSocksCategory = null;
+        }
+        System.out.println("DEBUG: updateActiveBulkSocksCategory set to: " + activeBulkSocksCategory);
     }
 }

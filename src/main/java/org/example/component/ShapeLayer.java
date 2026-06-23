@@ -170,6 +170,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
     public double getVisualMinY() { return state.visualMinY; }
     public ShapeType getType() { return state.type; }
     public void setType(ShapeType t) { this.state.type = t; renderShape(); }
+    public javafx.scene.shape.StrokeType getStrokeType() { return state.strokeType; }
+    public void setStrokeType(javafx.scene.shape.StrokeType t) { this.state.strokeType = t; renderShape(); }
 
     public void updatePivot(double lx, double ly) {
         Point2D parentBefore = localToParent(0, 0);
@@ -226,7 +228,7 @@ public class ShapeLayer extends Group implements GraphicLayer {
 
         shape.setStroke(state.strokeColor != null ? state.strokeColor : Color.TRANSPARENT);
         shape.setStrokeWidth(Math.max(0.001, state.strokeWidth));
-        shape.setStrokeType(StrokeType.CENTERED);
+        shape.setStrokeType(state.strokeType != null ? state.strokeType : StrokeType.CENTERED);
         shape.setStrokeLineJoin(state.strokeLineJoin);
         shape.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
         shape.setPickOnBounds(true);

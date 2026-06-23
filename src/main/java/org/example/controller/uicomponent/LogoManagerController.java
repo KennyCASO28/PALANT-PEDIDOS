@@ -160,7 +160,7 @@ public class LogoManagerController {
                 try {
                     // OPTIMIZATION: Limit texture memory payload per image (max 2000px, preserve
                     // ratio, smooth scaling)
-                    Image img = new Image(f.toURI().toString(), 2000, 2000, true, true);
+                    Image img = new Image(f.toURI().toString(), 800, 800, true, true);
                     addToGallery(img);
                 } catch (Exception e) {
                     e.printStackTrace();

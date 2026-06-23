@@ -83,11 +83,11 @@ public final class PrendaGoalkeeperDesignCoordinator {
         }
 
         boolean targetHasCustomization = target.hasAnyCustomization();
-        if (currentLayers != null && !targetHasCustomization) {
+        if (currentLayers != null && !targetHasCustomization && target != arqueroState) {
             target.setUserLayers(deepCopyLayers(currentLayers));
         }
 
-        if (!targetHasCustomization) {
+        if (!targetHasCustomization && target != arqueroState) {
             synchronizeNumbersAndBranding(source, target, arqueroState);
         }
 

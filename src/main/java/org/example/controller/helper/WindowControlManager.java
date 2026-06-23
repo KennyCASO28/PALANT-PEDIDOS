@@ -31,11 +31,14 @@ public class WindowControlManager {
     }
 
     public void initChecks(Stage stage) {
-        Screen screen = Screen.getPrimary();
+        if (stage == null) return;
+        List<Screen> screens = Screen.getScreensForRectangle(stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight());
+        Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
         Rectangle2D visualBounds = screen.getVisualBounds();
 
         // If window matches visual bounds, we are "maximized"
-        if (Math.abs(stage.getWidth() - visualBounds.getWidth()) < 10) {
+        if (Math.abs(stage.getWidth() - visualBounds.getWidth()) < 20 &&
+            Math.abs(stage.getHeight() - visualBounds.getHeight()) < 20) {
             isMaximized = true;
             if (iconWinMax != null) {
                 iconWinMax.setContent(PATH_RESTORE);
@@ -47,7 +50,8 @@ public class WindowControlManager {
         double centerX = stage.getX() + stage.getWidth() / 2;
         double centerY = stage.getY() + stage.getHeight() / 2;
 
-        Screen screen = Screen.getScreensForRectangle(centerX, centerY, 1, 1).get(0);
+        List<Screen> screens = Screen.getScreensForRectangle(centerX, centerY, 1, 1);
+        Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
         Rectangle2D visualBounds = screen.getVisualBounds();
 
         boolean physicallyMaximized = Math.abs(stage.getWidth() - visualBounds.getWidth()) < 20 &&
@@ -59,8 +63,8 @@ public class WindowControlManager {
 
         if (isMaximized) {
             if (lastWidth >= visualBounds.getWidth() - 10 || lastHeight >= visualBounds.getHeight() - 10) {
-                lastWidth = 1100;
-                lastHeight = 750;
+                lastWidth = Math.min(1100, visualBounds.getWidth() - 40);
+                lastHeight = Math.min(700, visualBounds.getHeight() - 40);
                 lastX = visualBounds.getMinX() + (visualBounds.getWidth() - lastWidth) / 2;
                 lastY = visualBounds.getMinY() + (visualBounds.getHeight() - lastHeight) / 2;
             }

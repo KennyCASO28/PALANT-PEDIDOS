@@ -342,7 +342,7 @@ public class ViewportController {
                 boolean isLaptop = (availableHeight < 720); // Threshold for typical laptop screens
                 if (isLaptop) {
                     // === LAPTOP INITIALIZATION (Safe) ===
-                    double laptopFactor = 1.10; // Reduced to 1.10 ("A little less")
+                    double laptopFactor = 0.95; // Capped to 0.95 to never overflow by default
 
                     if (contentRatio > 1.2)
                         laptopFactor *= 0.90; // Wide Safety (Long Sleeves)

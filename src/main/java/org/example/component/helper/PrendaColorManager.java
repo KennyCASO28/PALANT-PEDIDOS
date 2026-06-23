@@ -28,6 +28,7 @@ public class PrendaColorManager {
     private final Runnable onStateChangedCallback;
 
     private boolean notificationsSuspended = false;
+    private boolean locked = false;
 
     public PrendaColorManager(PrendaState state, BaseGarmentRenderer shirt, ShortsRenderer shorts, SocksRenderer socks,
             Runnable onStateChanged) {
@@ -48,6 +49,14 @@ public class PrendaColorManager {
 
     public void setNotificationsSuspended(boolean suspended) {
         this.notificationsSuspended = suspended;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
+    }
+
+    public boolean isLocked() {
+        return this.locked;
     }
 
     public void setState(PrendaState newState) {
@@ -152,6 +161,7 @@ public class PrendaColorManager {
     // --- Setters (Persistent) --
 
     public void setPartColor(String key, Color c) {
+        if (locked) return;
         if (state != null) {
             state.getColors().put(key, c);
             lastKnownColors.put(key, c);
@@ -177,12 +187,14 @@ public class PrendaColorManager {
     
     public void setChestBrandColor(Color c) { setPartColor("brandChest", c); }
     public void setChestBrandColor(Color c, boolean notify) {
+        if (locked) return;
         if (state != null) state.getColors().put("brandChest", c);
         reapplyColors();
         if (notify) notifyChanged();
     }
 
     public void setShirtStripeColor(Color c, boolean notify) {
+        if (locked) return;
         if (state != null) {
             state.getColors().put("shirtStripe", c);
             lastKnownColors.put("shirtStripe", c);
@@ -192,6 +204,7 @@ public class PrendaColorManager {
     }
 
     public void setShirtLineaColor(Color c, boolean notify) {
+        if (locked) return;
         if (state != null) {
             state.getColors().put("shirtLinea", c);
             lastKnownColors.put("shirtLinea", c);
@@ -201,6 +214,7 @@ public class PrendaColorManager {
     }
 
     public void setShortsLineaColor(Color c, boolean notify) {
+        if (locked) return;
         if (state != null) {
             state.getColors().put("shortsLinea", c);
             lastKnownColors.put("shortsLinea", c);
@@ -211,6 +225,7 @@ public class PrendaColorManager {
     
     public void setShortBrandColor(Color c) { setPartColor("brandShort", c); }
     public void setShortBrandColor(Color c, boolean notify) {
+        if (locked) return;
         if (state != null) state.getColors().put("brandShort", c);
         reapplyColors();
         if (notify) notifyChanged();
@@ -218,6 +233,7 @@ public class PrendaColorManager {
     
     public void setSocksBrandColor(Color c) { setPartColor("brandSocks", c); }
     public void setSocksBrandColor(Color c, boolean notify) {
+        if (locked) return;
         if (state != null) {
             state.getColors().put("brandSocks", c);
             lastKnownColors.put("brandSocks", c);
@@ -234,6 +250,7 @@ public class PrendaColorManager {
      * Used mainly for Goalkeepers who use a single reference color from table.
      */
     public void applyFullGarmentColor(Color c) {
+        if (locked) return;
         if (c == null || state == null) return;
         state.getColors().put("body", c);
         state.getColors().put("sleeves", c);

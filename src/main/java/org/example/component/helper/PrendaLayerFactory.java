@@ -7,6 +7,13 @@ import org.example.component.UserLayerManager;
 import org.example.component.PrendaVisualizer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import javafx.scene.Node;
+import javafx.animation.ScaleTransition;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.SequentialTransition;
+import javafx.animation.Interpolator;
+import javafx.util.Duration;
 
 /**
  * Factory and Configurator for User Layers (Images, Text).
@@ -20,6 +27,12 @@ public class PrendaLayerFactory {
 
     // We need access to check shorts state for visibility logic
     private final BooleanSupplier shortsVisibilityCondition;
+
+    private boolean animationsSuspended = false;
+
+    public void setAnimationsSuspended(boolean value) {
+        this.animationsSuspended = value;
+    }
 
     public PrendaLayerFactory(UserLayerManager layerManager, PrendaVisualizer visualizer,
             BooleanSupplier shortsVisibilityCondition) {
@@ -95,6 +108,10 @@ public class PrendaLayerFactory {
         });
 
         layerManager.selectNode(layer);
+        
+        if (!animationsSuspended) {
+            playAppearanceAnimation(layer);
+        }
     }
 
     public void addUserLayer(javafx.scene.Node node) {
@@ -207,6 +224,10 @@ public class PrendaLayerFactory {
         });
 
         layerManager.selectNode(layer);
+        
+        if (!animationsSuspended) {
+            playAppearanceAnimation(layer);
+        }
     }
 
     // --- Shape Layer Creation ---
@@ -300,6 +321,10 @@ public class PrendaLayerFactory {
         });
 
         layerManager.selectNode(layer);
+        
+        if (!animationsSuspended) {
+            playAppearanceAnimation(layer);
+        }
     }
 
     private void recordAddInHistory(javafx.scene.Node layer, String zone) {
@@ -339,6 +364,10 @@ public class PrendaLayerFactory {
 
         if (autoSelect) {
             layerManager.selectNode(layer);
+        }
+
+        if (autoSelect && !animationsSuspended) {
+            playAppearanceAnimation(layer);
         }
     }
 
@@ -496,5 +525,47 @@ public class PrendaLayerFactory {
                 clearActiveZoneRecursively(child);
             }
         }
+    }
+
+    private void playAppearanceAnimation(Node node) {
+        if (node == null) return;
+
+        double origScaleX = node.getScaleX();
+        double origScaleY = node.getScaleY();
+        double origOpacity = node.getOpacity();
+
+        // Start collapsed and transparent
+        node.setScaleX(origScaleX * 0.4);
+        node.setScaleY(origScaleY * 0.4);
+        node.setOpacity(0.0);
+
+        ScaleTransition st1 = new ScaleTransition(Duration.millis(140), node);
+        st1.setFromX(origScaleX * 0.4);
+        st1.setFromY(origScaleY * 0.4);
+        st1.setToX(origScaleX * 1.15);
+        st1.setToY(origScaleY * 1.15);
+        st1.setInterpolator(Interpolator.EASE_OUT);
+
+        ScaleTransition st2 = new ScaleTransition(Duration.millis(90), node);
+        st2.setFromX(origScaleX * 1.15);
+        st2.setFromY(origScaleY * 1.15);
+        st2.setToX(origScaleX);
+        st2.setToY(origScaleY);
+        st2.setInterpolator(Interpolator.EASE_IN);
+
+        SequentialTransition scaleSeq = new SequentialTransition(st1, st2);
+
+        FadeTransition ft = new FadeTransition(Duration.millis(140), node);
+        ft.setFromValue(0.0);
+        ft.setToValue(origOpacity);
+        ft.setInterpolator(Interpolator.EASE_OUT);
+
+        ParallelTransition pt = new ParallelTransition(scaleSeq, ft);
+        pt.setOnFinished(e -> {
+            node.setScaleX(origScaleX);
+            node.setScaleY(origScaleY);
+            node.setOpacity(origOpacity);
+        });
+        pt.play();
     }
 }

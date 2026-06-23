@@ -99,6 +99,18 @@ public class ShellController {
 
         // Load profile UI
         refreshProfileUI();
+
+        // Detect initial state and sync icon
+        javafx.application.Platform.runLater(() -> {
+            try {
+                if (tabsContainer != null && tabsContainer.getScene() != null && tabsContainer.getScene().getWindow() != null) {
+                    Stage stage = (Stage) tabsContainer.getScene().getWindow();
+                    checkInitialMaximization(stage);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void createBurgerButton() {
@@ -355,6 +367,7 @@ public class ShellController {
     }
 
     private void setupAndAddTab(TabInfo info) {
+        info.controller.setShellController(this);
         info.title = "Sin guardar " + tabCount++;
         tabs.add(info);
         createTabButton(info);
@@ -423,8 +436,10 @@ public class ShellController {
         tabs.remove(info);
         tabsContainer.getChildren().remove(info.tabButton);
         if (tabs.isEmpty()) {
-            Stage stage = (Stage) tabsContainer.getScene().getWindow();
-            if (stage != null) stage.close();
+            contentArea.getChildren().clear();
+            ensureBurgerOnTop();
+            activeTab = null;
+            addAndSelectNewTab();
             return;
         }
         if (activeTab == info) switchToTab(tabs.get(0));
@@ -448,7 +463,7 @@ public class ShellController {
             newShell.dock(info);
             Scene scene = new Scene(root); scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
             stage.initStyle(StageStyle.UNDECORATED); stage.setScene(scene);
-            stage.setX(100); stage.setY(100);
+            configureStageSizeAndPosition(stage);
             stage.show();
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -506,6 +521,7 @@ public class ShellController {
             Parent root = loader.load();
             Scene scene = new Scene(root); scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
             stage.initStyle(StageStyle.UNDECORATED); stage.setScene(scene);
+            configureStageSizeAndPosition(stage);
             stage.show();
         } catch (IOException e) { e.printStackTrace(); }
     }
@@ -608,6 +624,58 @@ public class ShellController {
             isMaximized = true;
         }
     }
+    private void configureStageSizeAndPosition(Stage stage) {
+        javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
+        javafx.stage.Window activeWindow = javafx.stage.Window.getWindows().stream()
+                .filter(javafx.stage.Window::isFocused).findFirst().orElse(null);
+        if (activeWindow != null) {
+            javafx.collections.ObservableList<javafx.stage.Screen> screens = javafx.stage.Screen.getScreensForRectangle(
+                    activeWindow.getX(), activeWindow.getY(), activeWindow.getWidth(), activeWindow.getHeight());
+            if (!screens.isEmpty()) {
+                bounds = screens.get(0).getVisualBounds();
+            }
+        }
+        
+        // Start maximized occupying the full visual bounds of the screen it opens on
+        stage.setX(bounds.getMinX());
+        stage.setY(bounds.getMinY());
+        stage.setWidth(bounds.getWidth());
+        stage.setHeight(bounds.getHeight());
+        stage.setResizable(true);
+    }
+
+    private void checkInitialMaximization(Stage stage) {
+        if (stage == null) return;
+        javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
+        javafx.collections.ObservableList<javafx.stage.Screen> screens = javafx.stage.Screen.getScreensForRectangle(stage.getX(), stage.getY(), stage.getWidth(), stage.getHeight());
+        if (!screens.isEmpty()) {
+            bounds = screens.get(0).getVisualBounds();
+        }
+        
+        lastX = stage.getX();
+        lastY = stage.getY();
+        lastWidth = stage.getWidth();
+        lastHeight = stage.getHeight();
+        
+        if (Math.abs(stage.getWidth() - bounds.getWidth()) < 20 && Math.abs(stage.getHeight() - bounds.getHeight()) < 20) {
+            isMaximized = true;
+            if (iconWinMax != null) {
+                iconWinMax.setContent("M 4,6 L 12,6 L 12,14 L 4,14 Z M 6,2 L 14,2 L 14,10 L 13,10 L 13,3 L 6,3 L 6,2 Z");
+            }
+            if (lastWidth <= 100 || lastHeight <= 100 || lastWidth >= bounds.getWidth() - 10 || lastHeight >= bounds.getHeight() - 10) {
+                lastWidth = Math.min(1100, bounds.getWidth() - 40);
+                lastHeight = Math.min(700, bounds.getHeight() - 40);
+                lastX = bounds.getMinX() + (bounds.getWidth() - lastWidth) / 2;
+                lastY = bounds.getMinY() + (bounds.getHeight() - lastHeight) / 2;
+            }
+        } else {
+            isMaximized = false;
+            if (iconWinMax != null) {
+                iconWinMax.setContent("M 4,4 L 12,4 L 12,12 L 4,12 Z M 5,5 L 11,5 L 11,11 L 5,11 Z");
+            }
+        }
+    }
+
     @FXML
     private void closeApp(javafx.scene.input.MouseEvent event) {
         if (canCloseAllTabs()) {

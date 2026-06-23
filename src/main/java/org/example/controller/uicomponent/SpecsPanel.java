@@ -750,7 +750,7 @@ String telaLabel = (config.getTela() != null) ? config.getTela().getLabel() : "N
     }
 
     private static String resolveAutoSocksType(org.example.model.DetallePedido p) {
-        if (p.getTipoMedias() != null && !p.getTipoMedias().trim().isEmpty() && !p.getTipoMedias().equalsIgnoreCase("PROFESIONAL")) {
+        if (p.getTipoMedias() != null && !p.getTipoMedias().trim().isEmpty()) {
             return p.getTipoMedias().trim().toUpperCase();
         }
         String t = p.getTalla() != null ? p.getTalla().toUpperCase().trim() : "";

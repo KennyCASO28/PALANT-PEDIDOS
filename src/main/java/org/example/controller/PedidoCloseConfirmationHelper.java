@@ -71,13 +71,12 @@ final class PedidoCloseConfirmationHelper {
         alert.setContentText("Hay cambios pendientes de guardar.");
         applyAppGraphic(alert);
 
-        ButtonType saveButton = new ButtonType("Guardar");
-        ButtonType discardButton = new ButtonType("No Guardar");
+        ButtonType saveButton = new ButtonType("Guardar Cambios", ButtonBar.ButtonData.YES);
+        ButtonType discardButton = new ButtonType("No Guardar", ButtonBar.ButtonData.NO);
         ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
         alert.getButtonTypes().setAll(saveButton, discardButton, cancelButton);
 
         UIFactory.estilizarDialogo(alert);
-        styleProjectCloseButtons(alert, saveButton, discardButton, cancelButton);
 
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isEmpty()) {
@@ -100,13 +99,12 @@ final class PedidoCloseConfirmationHelper {
         alert.setContentText(contentText);
         applyAppGraphic(alert);
 
-        ButtonType saveButton = new ButtonType(saveLabel, ButtonBar.ButtonData.OK_DONE);
+        ButtonType saveButton = new ButtonType(saveLabel, ButtonBar.ButtonData.YES);
         ButtonType discardButton = new ButtonType(discardLabel, ButtonBar.ButtonData.NO);
         ButtonType cancelButton = new ButtonType("Cancelar", ButtonBar.ButtonData.CANCEL_CLOSE);
         alert.getButtonTypes().setAll(saveButton, discardButton, cancelButton);
 
         UIFactory.estilizarDialogo(alert);
-        alert.setOnShown(event -> styleButtons(alert, saveButton, discardButton, cancelButton));
 
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isEmpty()) {
@@ -128,55 +126,10 @@ final class PedidoCloseConfirmationHelper {
                 return;
             }
             ImageView logoView = new ImageView(logo);
-            logoView.setFitHeight(48);
-            logoView.setFitWidth(48);
+            logoView.setFitHeight(40);
+            logoView.setFitWidth(40);
             alert.setGraphic(logoView);
         } catch (Exception ignored) {
-        }
-    }
-
-    private static void styleButtons(
-            Alert alert,
-            ButtonType saveButton,
-            ButtonType discardButton,
-            ButtonType cancelButton) {
-        addStyleClass((Button) alert.getDialogPane().lookupButton(saveButton), "dialog-button-success");
-        addStyleClass((Button) alert.getDialogPane().lookupButton(discardButton), "dialog-button-danger");
-        addStyleClass((Button) alert.getDialogPane().lookupButton(cancelButton), "dialog-button-cancel");
-    }
-
-    private static void addStyleClass(Button button, String styleClass) {
-        if (button != null) {
-            button.getStyleClass().add(styleClass);
-        }
-    }
-
-    private static void styleProjectCloseButtons(
-            Alert alert,
-            ButtonType saveButton,
-            ButtonType discardButton,
-            ButtonType cancelButton) {
-        styleButton((Button) alert.getDialogPane().lookupButton(saveButton),
-                "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; "
-                        + "-fx-min-width: 150; -fx-padding: 8 15; -fx-cursor: hand;",
-                "Guardar Cambios");
-        styleButton((Button) alert.getDialogPane().lookupButton(discardButton),
-                "-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; "
-                        + "-fx-min-width: 150; -fx-padding: 8 15; -fx-cursor: hand;",
-                "No Guardar");
-        styleButton((Button) alert.getDialogPane().lookupButton(cancelButton),
-                "-fx-background-color: #7f8c8d; -fx-text-fill: white; -fx-font-weight: bold; "
-                        + "-fx-min-width: 150; -fx-padding: 8 15; -fx-cursor: hand;",
-                null);
-    }
-
-    private static void styleButton(Button button, String style, String text) {
-        if (button == null) {
-            return;
-        }
-        button.setStyle(style);
-        if (text != null) {
-            button.setText(text);
         }
     }
 

@@ -37,7 +37,8 @@ public class FichaTecnicaView {
             String prioridad, String shortType, String vendedor, List<Image> referencias,
             org.example.dto.DatosEnvioDTO shippingInfo, Image arqSketchHombre,
             Image arqSketchMujer,
-            ConfiguracionPrendaDTO arqueroConfig) {
+            ConfiguracionPrendaDTO arqueroConfig,
+            java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero) {
 
         try {
             // Wrapper for Centering
@@ -127,7 +128,7 @@ public class FichaTecnicaView {
 
             // Priority 1: Arquero Boceto
             if (hasArqueros) {
-                TechnicalSheetPaginationManager.RosterChunk arq = TechnicalSheetSketchService.createArqueroBocetoSection(jugadores, visualizer, arqSketchHombre, arqSketchMujer, arqueroConfig);
+                TechnicalSheetPaginationManager.RosterChunk arq = TechnicalSheetSketchService.createArqueroBocetoSection(jugadores, visualizer, arqSketchHombre, arqSketchMujer, arqueroConfig, disenosArquero);
                 if (arq != null) prioritizedChunks.add(new TechnicalSheetPaginationManager.Chunk(arq.node(), arq.height(), "arquero"));
             }
 

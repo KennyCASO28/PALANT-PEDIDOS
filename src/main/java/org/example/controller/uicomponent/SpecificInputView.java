@@ -48,15 +48,21 @@ public class SpecificInputView {
     }
 
     private VBox createContent() {
-        VBox root = new VBox(0);
-        root.setStyle("-fx-background-color: transparent;");
+        VBox rootWrapper = new VBox(0);
+        rootWrapper.setStyle("-fx-background-color: transparent;");
 
-        // --- TOP PANEL: CONFIGURATION & ACTIONS ---
-        VBox topPanel = new VBox(10);
-        topPanel.setPadding(new Insets(10, 15, 10, 15)); // Good padding
-        topPanel.setStyle("-fx-background-color: white;");
-        topPanel.setMinHeight(0); // Allow collapsing manually by user
+        // Main scroll pane for vertical scrolling
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);
 
+        VBox container = new VBox(15);
+        container.setPadding(new Insets(10, 15, 15, 15));
+        container.setStyle("-fx-background-color: white;");
+        scrollPane.setContent(container);
+
+        // --- 1. CONFIGURATION SECTION ---
         VBox configGreyBox = new VBox(8);
         configGreyBox.setPadding(new Insets(12));
         configGreyBox.setStyle(
@@ -82,6 +88,7 @@ public class SpecificInputView {
         configRow.getChildren().add(boxGender);
         configGreyBox.getChildren().addAll(lblTopTitle, configRow);
 
+        // --- 2. ACTIONS SECTION ---
         VBox actionsBox = new VBox(8);
         Label lblActionsTitle = new Label("2. Acciones");
         lblActionsTitle.setStyle("-fx-font-weight: bold; -fx-text-fill: #2c3e50; -fx-font-size: 13px;");
@@ -104,17 +111,10 @@ public class SpecificInputView {
         actionsRow.getChildren().addAll(btnAddRow, spacer, lblNote);
         actionsBox.getChildren().addAll(lblActionsTitle, actionsRow);
 
-        topPanel.getChildren().addAll(configGreyBox, actionsBox); // Removed Separator
-
-        // --- BOTTOM PANEL: PLAYER CARDS ---
-        VBox bottomPanel = new VBox(10);
-        bottomPanel.setPadding(new Insets(10, 15, 15, 15));
-        bottomPanel.setStyle("-fx-background-color: white;");
-        bottomPanel.setMinHeight(0);
-
+        // --- 3. DISTRIBUTION SECTION ---
         HBox distributionHeader = new HBox(15);
         distributionHeader.setAlignment(Pos.CENTER_LEFT);
-        VBox.setMargin(distributionHeader, new Insets(25, 0, 0, 0)); // Extra margin to avoid overlap
+        VBox.setMargin(distributionHeader, new Insets(15, 0, 0, 0)); // Extra margin to avoid overlap
         Label lblDistTitle = new Label("Distribución de Tallas (Específica)");
         lblDistTitle.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
         lblDistTitle.setMaxWidth(Double.MAX_VALUE);
@@ -134,41 +134,12 @@ public class SpecificInputView {
         rowsContainer = new FlowPane(15, 15);
         rowsContainer.setPadding(new Insets(15));
         rowsContainer.setStyle("-fx-background-color: #f0f2f5; -fx-background-radius: 8;");
-        ScrollPane scroll = new ScrollPane(rowsContainer);
-        scroll.setFitToWidth(true);
-        scroll.setStyle(
-                "-fx-background-color: #f0f2f5; -fx-background: #f0f2f5; -fx-border-color: #ddd; -fx-border-radius: 8;");
-        VBox.setVgrow(scroll, Priority.ALWAYS);
 
-        bottomPanel.getChildren().addAll(distributionHeader, scroll);
-
-        // --- VERTICAL SPLIT PANE ---
-        SplitPane splitPane = new SplitPane();
-        splitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
-        splitPane.getItems().addAll(topPanel, bottomPanel);
-        splitPane.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
-
-        // Dynamically set divider position when layout is actually calculated
-        topPanel.boundsInLocalProperty().addListener((obs, oldBounds, newBounds) -> {
-            if (newBounds.getHeight() > 0 && splitPane.getHeight() > 0) {
-                // Use natural preferred height to avoid SplitPane-stretching loops
-                double naturalHeight = topPanel.prefHeight(splitPane.getWidth());
-                // Add a 12px buffer below the button for a tight, clean look
-                double ratio = (naturalHeight + 12) / splitPane.getHeight();
-                splitPane.setDividerPositions(Math.min(ratio, 0.85)); // Guard against extreme shrinking
-            }
-        });
-
-        // "Calculated" behavior: prevent top panel from growing too much, but allow
-        // shrinking
-        SplitPane.setResizableWithParent(topPanel, false);
-
-        VBox.setVgrow(splitPane, Priority.ALWAYS);
-
-        root.getChildren().add(splitPane);
+        container.getChildren().addAll(configGreyBox, actionsBox, distributionHeader, rowsContainer);
+        rootWrapper.getChildren().add(scrollPane);
 
         addSizeRow();
-        return root;
+        return rootWrapper;
     }
 
     private void addSizeRow() {

@@ -154,14 +154,19 @@ public class ProjectSaveManager {
             controller.iniciarWizard();
         }
 
+        controller.isRestoringDesign = true;
         try {
             org.example.dto.save.ProjectState state = org.example.service.save.ProjectManager.loadProject(file);
 
             if (state != null) {
+                // Restore goalkeeper slots first to avoid overwrites during visualizer loading
+                controller.goalkeeperCoordinator.restoreGoalkeeperSlotsFromProject(state);
+
                 org.example.service.save.StateMapper.restoreState(controller.prendaVisualizer, state);
 
                 if (controller.prendaDelegate != null && state.getGarmentConfig() != null) {
                     controller.prendaDelegate.restoreFromState(state.getGarmentConfig());
+                    controller.updateActiveBulkSocksCategory();
                 }
 
                 controller.editandoDisenoArquero = false;
@@ -169,6 +174,9 @@ public class ProjectSaveManager {
                 controller.disenoCampoLayers = (state.getLayers() != null) ? state.getLayers() : new java.util.ArrayList<>();
                 controller.disenoArqueroConfig = state.getArqueroGarmentConfig();
                 controller.disenoArqueroLayers = (state.getArqueroLayers() != null) ? state.getArqueroLayers() : new java.util.ArrayList<>();
+                
+                controller.arqueroActivoDesignId = null;
+                controller.arqueroFichaDesignId = state.getSelectedGoalkeeperDesignId();
 
                 if (controller.comboModoDiseno != null) {
                     controller.switchingDesignMode = true;
@@ -198,6 +206,7 @@ public class ProjectSaveManager {
                         dp.setIncludeSocks(dpDto.isIncludeSocks());
                         dp.setGenero(dpDto.getGenero());
 
+                        dp.setArqueroDesignId(dpDto.getArqueroDesignId());
                         dp.setEsArquero(dpDto.isEsArquero());
                         dp.setArqueroOrdenMarcado(dpDto.getArqueroOrdenMarcado());
                         dp.setTipoMangaArquero(dpDto.getTipoMangaArquero());
@@ -207,6 +216,9 @@ public class ProjectSaveManager {
                         dp.setTipoManga(dpDto.getTipoManga());
                         dp.setTipoBottom(dpDto.getTipoBottom());
                         dp.setTallaShort(dpDto.getTallaShort());
+                        if (dpDto.getTipoMedias() != null) {
+                            dp.setTipoMedias(dpDto.getTipoMedias());
+                        }
 
                         controller.listaJugadores.add(dp);
                     }
@@ -241,11 +253,17 @@ public class ProjectSaveManager {
                 controller.fichaDirty = true;
                 controller.actualizarTituloVentana();
 
+                // Explicitly disable the restoration flag before synchronizing the goalkeeper list UI
+                controller.isRestoringDesign = false;
+                controller.goalkeeperCoordinator.updateOptionStatus();
+
                 return true;
             }
         } catch (Exception e) {
             e.printStackTrace();
             UIFactory.mostrarAlerta(javafx.scene.control.Alert.AlertType.ERROR, "Error", "Error al cargar el proyecto: " + e.getMessage());
+        } finally {
+            controller.isRestoringDesign = false;
         }
         return false;
     }

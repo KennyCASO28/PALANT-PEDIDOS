@@ -20,6 +20,9 @@ public class GarmentDesignSwapManager {
      * Traditionally used to inherit player design into the goalkeeper.
      */
     public void sincronizarAtributosCompartidos(PrendaState source, PrendaState target) {
+        if (visualizer.isArqueroDisenoPersonalizado()) {
+            return;
+        }
         boolean shouldReloadVisibleTarget = org.example.component.PrendaGoalkeeperDesignCoordinator.synchronizeSharedAttributes(
                 source,
                 target,
@@ -87,14 +90,11 @@ public class GarmentDesignSwapManager {
             if (nm.getShortNumber(visualizer.isEditandoArquero()) != null)
                 nm.getShortNumber(visualizer.isEditandoArquero()).setVisible(false);
 
-            // --- INDEPENDENT LAYERS ---
-            if (visualizer.getPowerClipManager() != null)
-                visualizer.getPowerClipManager().reset();
-            visualizer.getLayerManager().clearAll();
-
-            // --- INDEPENDENT HOTSPOTS (REFERENCES) ---
+            // --- INDEPENDENT LAYERS & HOTSPOTS ---
             PrendaState currentState = visualizer.getState();
             if (currentState != null) {
+                currentState.setUserLayers(StateMapper.extractUserLayers(visualizer));
+                
                 // Only save hotspots from UI to state during NORMAL design swap.
                 if (!visualizer.isSwappingDesign()) {
                     List<PrendaState.ReferenceHotspot> currentHotspots = new ArrayList<>();
@@ -106,6 +106,10 @@ public class GarmentDesignSwapManager {
                     currentState.setReferenceHotspots(currentHotspots);
                 }
             }
+            
+            if (visualizer.getPowerClipManager() != null)
+                visualizer.getPowerClipManager().reset();
+            visualizer.getLayerManager().clearAll();
             visualizer.getHotspotLayer().getChildren().clear();
 
             // NOW change the state/flag

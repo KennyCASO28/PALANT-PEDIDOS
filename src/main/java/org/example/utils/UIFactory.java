@@ -428,7 +428,8 @@ public class UIFactory {
 
         // Prevent Alert dialogs from stretching too wide on laptops
         if (dialog instanceof javafx.scene.control.Alert) {
-            dialogPane.setMaxWidth(450);
+            dialogPane.setMaxWidth(480);
+            dialogPane.setPrefWidth(480);
         }
 
         // Auto-Center dialog on active window
@@ -516,7 +517,7 @@ public class UIFactory {
                         btn.getStyleClass().add("dialog-button");
                     }
 
-                    // Force the color and kill the oval
+                    // Force the color and kill the oval, with clean compact sizing
                     btn.setStyle("-fx-background-color: " + finalColor + " !important; " +
                                  "-fx-text-fill: white !important; " +
                                  "-fx-font-weight: bold !important; " +
@@ -524,7 +525,11 @@ public class UIFactory {
                                  "-fx-focus-color: transparent !important; " +
                                  "-fx-faint-focus-color: transparent !important; " +
                                  "-fx-border-width: 0 !important; " +
-                                 "-fx-effect: null !important;");
+                                 "-fx-effect: null !important; " +
+                                 "-fx-min-width: 110px !important; " +
+                                 "-fx-padding: 8px 12px !important; " +
+                                 "-fx-cursor: hand !important; " +
+                                 "-fx-background-radius: 6px !important;");
                 }
             });
         });
@@ -696,21 +701,17 @@ public class UIFactory {
             Color c = (Color) btn.getUserData();
             if (c == null)
                 c = initialColor;
-            // Wider "Pill-shaped" rectangle to fill the button as requested
             javafx.scene.shape.Rectangle r = new javafx.scene.shape.Rectangle(65, 14, c);
             r.setArcWidth(12);
             r.setArcHeight(12);
             r.setStroke(Color.web("#cbd5e1", 0.5));
             r.setStrokeWidth(1);
-            
-            // Add a subtle inner shadow to the color pill (simulated with a group or just the stroke)
             btn.setGraphic(r);
         };
 
         btn.setUserData(initialColor);
         updateIcon.run();
 
-        // Custom Color Property for updates
         ObjectProperty<Color> colorProp = new SimpleObjectProperty<>(initialColor);
         btn.getProperties().put("colorProperty", colorProp);
         colorProp.addListener((obs, old, newVal) -> {
@@ -720,58 +721,56 @@ public class UIFactory {
             }
         });
 
-        CustomMenuItem item = new CustomMenuItem();
-        item.setHideOnClick(false);
+        btn.setOnShowing(e -> {
+            if (btn.getItems().isEmpty()) {
+                ColorPalettePopup popupContent = new ColorPalettePopup(
+                        (Color) btn.getUserData(),
+                        (c) -> {
+                            btn.setUserData(c);
+                            updateIcon.run();
+                            onColor.accept(c);
+                            btn.hide();
+                        },
+                        () -> {
+                            btn.hide();
+                            if (triggerEyedropper != null) {
+                                triggerEyedropper.accept(
+                                        color -> {
+                                            btn.setUserData(color);
+                                            updateIcon.run();
+                                            onColor.accept(color);
+                                        },
+                                        color -> {
+                                            if (color != null) onColor.accept(color);
+                                        });
+                            }
+                        },
+                        () -> {
+                            Color current = (Color) btn.getUserData();
+                            if (current == null)
+                                current = initialColor;
 
-        ColorPalettePopup popupContent = new ColorPalettePopup(
-                initialColor,
-                (c) -> {
-                    btn.setUserData(c);
-                    updateIcon.run();
-                    onColor.accept(c);
-                    btn.hide();
-                },
-                () -> {
-                    btn.hide();
-                    if (triggerEyedropper != null) {
-                        triggerEyedropper.accept(
-                                // onCommit
-                                color -> {
-                                    btn.setUserData(color);
-                                    updateIcon.run();
-                                    onColor.accept(color);
-                                },
-                                // onPreview
-                                color -> {
-                                    onColor.accept(color);
-                                });
-                    }
-                },
-                () -> {
-                    // Open Advanced Selector
-                    Color current = (Color) btn.getUserData();
-                    if (current == null)
-                        current = initialColor;
+                            btn.hide();
 
-                    btn.hide();
+                            showColorSelector(btn.getScene().getWindow(), current,
+                                    (chosen) -> {
+                                        btn.setUserData(chosen);
+                                        updateIcon.run();
+                                        onColor.accept(chosen);
+                                    },
+                                    (liveColor) -> {
+                                        btn.setUserData(liveColor);
+                                        updateIcon.run();
+                                        onColor.accept(liveColor);
+                                    });
+                        });
 
-                    showColorSelector(btn.getScene().getWindow(), current,
-                            // onResult (Commit)
-                            (chosen) -> {
-                                btn.setUserData(chosen);
-                                updateIcon.run();
-                                onColor.accept(chosen);
-                            },
-                            // onLiveUpdate (Real-time)
-                            (liveColor) -> {
-                                btn.setUserData(liveColor);
-                                updateIcon.run();
-                                onColor.accept(liveColor);
-                            });
-                });
-
-        item.setContent(popupContent);
-        btn.getItems().add(item);
+                CustomMenuItem item = new CustomMenuItem();
+                item.setHideOnClick(false);
+                item.setContent(popupContent);
+                btn.getItems().add(item);
+            }
+        });
 
         return btn;
     }

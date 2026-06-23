@@ -262,10 +262,10 @@ public class ReferenceManagerController {
                     Image currentImg = null;
                     if (data.getImageData() != null && data.getImageData().length > 0) {
                         try (java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(data.getImageData())) {
-                            currentImg = new Image(bais);
+                            currentImg = new Image(bais, 1000, 1000, true, true);
                         }
                     } else if (data.getImagePath() != null) {
-                        currentImg = new Image(data.getImagePath());
+                        currentImg = new Image(data.getImagePath(), 1000, 1000, true, true);
                     }
 
                     if (currentImg != null) {
@@ -324,7 +324,7 @@ public class ReferenceManagerController {
                             btnCrop.setManaged(true);
 
                             // AUTO-TRIGGER CROPPER
-                            Image loadedImg = new Image(path);
+                            Image loadedImg = new Image(path, 1000, 1000, true, true);
                             ImageCropperDialog cropper = new ImageCropperDialog(loadedImg);
                             cropper.initOwner(owner);
                             java.util.Optional<Image> result = cropper.showAndWait();

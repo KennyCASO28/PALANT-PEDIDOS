@@ -194,7 +194,7 @@ public class ConfiguracionPrendaDTO {
         private TipoCuello cuello = TipoCuello.V;
         private Map<String, Boolean> adicionales = new HashMap<>();
         private TipoCorte corteShort = TipoCorte.CUADRADO;
-        private TipoMedias tipoMedias = TipoMedias.PROFESIONAL; // Default
+        private TipoMedias tipoMedias = null; // Default
         private Map<String, String> colors = new HashMap<>();
         private Map<String, String> internalCodes = new HashMap<>();
 

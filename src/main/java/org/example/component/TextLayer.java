@@ -422,6 +422,8 @@ public class TextLayer extends Group implements GraphicLayer {
         // --- FINAL FIT: Ensure the text group fits within logical bounds ---
         textGroup.setScaleX(1.0);
         textGroup.setScaleY(1.0);
+        textGroup.setTranslateX(0);
+        textGroup.setTranslateY(0);
         Bounds b = textGroup.getBoundsInLocal();
         if (b.getWidth() > 0 && b.getHeight() > 0) {
             double fitX = logicalWidth / b.getWidth();
@@ -431,9 +433,10 @@ public class TextLayer extends Group implements GraphicLayer {
                 textGroup.setScaleX(fitX);
                 textGroup.setScaleY(fitY);
             }
-            // Center the group visually
-            textGroup.setTranslateX(-b.getCenterX() * textGroup.getScaleX());
-            textGroup.setTranslateY(-b.getCenterY() * textGroup.getScaleY());
+            Bounds parentBounds = textGroup.getBoundsInParent();
+            // Center the group visually based on its bounds in parent coordinate space
+            textGroup.setTranslateX(-parentBounds.getCenterX());
+            textGroup.setTranslateY(-parentBounds.getCenterY());
         }
 
         updateUI();
@@ -1181,21 +1184,49 @@ public class TextLayer extends Group implements GraphicLayer {
         if (parent == null)
             return;
 
+        // Snapshot the text before editing so we can restore it on cancel or empty-commit
+        final String textBefore = this.textContent;
+
         isBeingEdited = true;
         inlineEditor = new InlineTextEditor();
         inlineEditor.start(this, parent,
                 newText -> {
-                    // Commit: update the text and mark as not editing
-                    if (newText != null && !newText.equals(textContent)) {
-                        setTextContent(newText);
-                    }
                     isBeingEdited = false;
                     inlineEditor = null;
+
+                    // If the user cleared all text, treat it as a cancel — restore original
+                    if (newText == null || newText.trim().isEmpty()) {
+                        // Restore the original text without touching history
+                        this.textContent = textBefore;
+                        renderText();
+                        return;
+                    }
+
+                    // Only record to history when text actually changed
+                    if (!newText.equals(textBefore)) {
+                        // Update text content and push a single undo command for the full edit
+                        this.textContent = newText;
+                        renderText();
+                        if (visualizer != null && visualizer.getHistoryManager() != null) {
+                            final String capturedBefore = textBefore;
+                            final String capturedAfter = newText;
+                            visualizer.getHistoryManager().addCommand(
+                                new org.example.pattern.PropertyChangeCommand<>(
+                                    "Editar Texto",
+                                    capturedBefore,
+                                    capturedAfter,
+                                    val -> { this.textContent = val; renderText(); }));
+                        }
+                    }
                 },
                 () -> {
-                    // Cancel: just mark as not editing
+                    // Cancel: restore original text without any history change
                     isBeingEdited = false;
                     inlineEditor = null;
+                    if (!textBefore.equals(this.textContent)) {
+                        this.textContent = textBefore;
+                        renderText();
+                    }
                 });
     }
 

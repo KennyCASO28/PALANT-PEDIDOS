@@ -126,7 +126,8 @@ public class GarmentNumberManager {
                         (location.equalsIgnoreCase("espalda") ? st.getBackNumberColors() : st.getShortNumberColors())).hashCode();
         
         String nodeSig = st.getGenero() + "|" + (location.startsWith("short") ? st.getCorteShort() : st.getCorte()) 
-                + "|" + location + "|" + digit + "|v:" + visible + "|x:" + x + "|y:" + y + "|s:" + scale + "|c:" + colorHash;
+                + "|" + location + "|" + digit + "|v:" + visible + "|x:" + x + "|y:" + y + "|s:" + scale + "|c:" + colorHash
+                + "|gk:" + visualizer.isEditandoArquero();
 
         if (nodeSig.equals(lastNodeSignatures.get(nc))) {
             return; // ABORT: Zero visual change detected for this component.
@@ -144,7 +145,9 @@ public class GarmentNumberManager {
             nc.setPosition(x, y, scale);
         }
         
-        nc.setVisible(visible && hasNumberDigit(digit));
+        boolean isGkNode = (nc == arqueroChestNumber || nc == arqueroBackNumber || nc == arqueroShortNumber);
+        boolean isAllowedMode = (isGkNode == visualizer.isEditandoArquero());
+        nc.setVisible(isAllowedMode && visible && hasNumberDigit(digit));
         lastNodeSignatures.put(nc, nodeSig);
     }
 
@@ -210,6 +213,14 @@ public class GarmentNumberManager {
         NumberComposition activeChest = getChestNumber(isArquero);
         NumberComposition activeBack = getBackNumber(isArquero);
         NumberComposition activeShort = getShortNumber(isArquero);
+
+        NumberComposition inactiveChest = getChestNumber(!isArquero);
+        NumberComposition inactiveBack = getBackNumber(!isArquero);
+        NumberComposition inactiveShort = getShortNumber(!isArquero);
+
+        inactiveChest.setVisible(false);
+        inactiveBack.setVisible(false);
+        inactiveShort.setVisible(false);
 
         activeChest.setPosition(s.getChestNumberX(), s.getChestNumberY(), s.getChestNumberScale());
         loadNumberVector(activeChest, "pecho", s.getCurrentChestNumber(), s);

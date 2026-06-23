@@ -7,6 +7,7 @@ public class ShapeDTO extends LayerDTO {
     private String fillColor; // Hex or Gradient definition
     private String strokeColor; // Hex
     private double strokeWidth;
+    private String strokeType; // Inside, Outside, Centered/Shared
     private boolean isClosed; // For paths
     // Support for Custom Paths
     private String svgContent;
@@ -62,6 +63,14 @@ public class ShapeDTO extends LayerDTO {
 
     public void setStrokeWidth(double strokeWidth) {
         this.strokeWidth = strokeWidth;
+    }
+
+    public String getStrokeType() {
+        return strokeType;
+    }
+
+    public void setStrokeType(String strokeType) {
+        this.strokeType = strokeType;
     }
 
     public boolean isClosed() {
@@ -190,6 +199,7 @@ public class ShapeDTO extends LayerDTO {
         copy.setFillColor(this.fillColor);
         copy.setStrokeColor(this.strokeColor);
         copy.setStrokeWidth(this.strokeWidth);
+        copy.setStrokeType(this.strokeType);
         copy.setClosed(this.isClosed);
         copy.setSvgContent(this.svgContent);
         copy.setArcWidth(this.arcWidth);

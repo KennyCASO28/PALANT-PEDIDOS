@@ -141,6 +141,31 @@ public class SmartZoneContainer extends Group {
         }
     }
 
+    public void removeItemState(Node node) {
+        if (node instanceof ShapeLayer) {
+            ((ShapeLayer) node).setSystemLocked(false);
+            ((ShapeLayer) node).setIsBeingEdited(false);
+        } else if (node instanceof ImageLayer) {
+            ((ImageLayer) node).setSystemLocked(false);
+            ((ImageLayer) node).setIsBeingEdited(false);
+        } else if (node instanceof TextLayer) {
+            ((TextLayer) node).setSystemLocked(false);
+            ((TextLayer) node).setBeingEdited(false);
+        } else if (node instanceof Group) {
+            if (node instanceof GroupLayer) {
+                ((GroupLayer) node).setSystemLocked(false);
+                ((GroupLayer) node).setIsBeingEdited(false);
+            } else if (node instanceof GroupLayerV2) {
+                ((GroupLayerV2) node).setSystemLocked(false);
+                ((GroupLayerV2) node).setSelected(false);
+            } else {
+                for (Node child : ((Group) node).getChildren()) {
+                    removeItemState(child);
+                }
+            }
+        }
+    }
+
     public void updateItemState(Node node) {
         boolean locked = !isEditing;
 

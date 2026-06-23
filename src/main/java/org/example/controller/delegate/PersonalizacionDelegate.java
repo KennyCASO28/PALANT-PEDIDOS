@@ -23,6 +23,7 @@ import org.example.utils.UIFactory;
 
 import java.util.function.Consumer;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.example.model.PrendaState;
 import org.example.dto.save.ReferenceHotspotDTO;
 import org.example.service.save.StateMapper;
@@ -45,6 +46,7 @@ public class PersonalizacionDelegate {
     private final ShapeManagerController shapeController;
     private final ReferenceManagerController referenceController;
     private javafx.scene.layout.Pane cachedBottomBar = null;
+    private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
 
 
     public ShapeManagerController getShapeController() {
@@ -405,11 +407,11 @@ public class PersonalizacionDelegate {
         for (PrendaState.ReferenceHotspot hotspot : visualizer.getState().getReferenceHotspots()) {
             if (hotspot.getImageData() != null && hotspot.getImageData().length > 0) {
                 try (java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(hotspot.getImageData())) {
-                    images.add(new javafx.scene.image.Image(bais));
+                    images.add(new javafx.scene.image.Image(bais, 400, 400, true, true));
                 } catch (Exception e) {}
             } else if (hotspot.getImagePath() != null) {
                 try {
-                    images.add(new javafx.scene.image.Image(hotspot.getImagePath()));
+                    images.add(new javafx.scene.image.Image(hotspot.getImagePath(), 400, 400, true, true));
                 } catch (Exception e) {}
             }
         }
@@ -484,12 +486,15 @@ public class PersonalizacionDelegate {
     }
 
     public void refreshContent() {
-        if (visualizer != null) {
+        if (visualizer == null || !isRefreshing.compareAndSet(false, true)) return;
+        try {
             colorController.updateUI();
             brandingController.updateUI();
             numberController.updateUI();
 
             updateDynamicButtons();
+        } finally {
+            isRefreshing.set(false);
         }
     }
 

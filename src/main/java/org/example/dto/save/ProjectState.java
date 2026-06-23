@@ -19,6 +19,8 @@ public class ProjectState {
     // Arquero Design (optional)
     private PrendaStateDTO arqueroGarmentConfig;
     private List<LayerDTO> arqueroLayers = new ArrayList<>();
+    private List<GoalkeeperDesignDTO> goalkeeperDesigns = new ArrayList<>();
+    private String selectedGoalkeeperDesignId;
 
     private boolean arqueroPersonalizado;
     private List<LayerDTO> layers = new ArrayList<>();
@@ -84,6 +86,22 @@ public class ProjectState {
 
     public void setArqueroLayers(List<LayerDTO> arqueroLayers) {
         this.arqueroLayers = (arqueroLayers != null) ? arqueroLayers : new ArrayList<>();
+    }
+
+    public List<GoalkeeperDesignDTO> getGoalkeeperDesigns() {
+        return goalkeeperDesigns;
+    }
+
+    public void setGoalkeeperDesigns(List<GoalkeeperDesignDTO> goalkeeperDesigns) {
+        this.goalkeeperDesigns = goalkeeperDesigns != null ? goalkeeperDesigns : new ArrayList<>();
+    }
+
+    public String getSelectedGoalkeeperDesignId() {
+        return selectedGoalkeeperDesignId;
+    }
+
+    public void setSelectedGoalkeeperDesignId(String selectedGoalkeeperDesignId) {
+        this.selectedGoalkeeperDesignId = selectedGoalkeeperDesignId;
     }
 
     public List<LayerDTO> getLayers() {

@@ -70,13 +70,6 @@ public class PedidoTableManager {
         // 10b. TIPO MEDIAS
         table.getColumns().add(createComboColumn("Tipo Medias", "tipoMedias", 120, (row, val) -> {
             row.setTipoMedias(val);
-            if ("PROFESIONAL".equals(val)) {
-                // Bulk apply to all rows
-                for (DetallePedido p : data) {
-                    p.setTipoMedias("PROFESIONAL");
-                }
-                table.refresh();
-            }
         }, "PROFESIONAL", "ADULTO", "JUVENIL", "NIÑOS"));
 
         // 11. ARQUERO

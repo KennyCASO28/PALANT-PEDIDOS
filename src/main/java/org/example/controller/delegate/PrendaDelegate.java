@@ -54,6 +54,7 @@ public class PrendaDelegate {
     private TipoTela telaSeleccionada = null; // Default null to enforce selection
     private org.example.model.TipoEscudo tipoEscudo = org.example.model.TipoEscudo.SUBLIMADO;
     private boolean isArqueroMode = false;
+    private boolean isUpdatingUI = false;
 
     // Configurators
     private CamisetaConfigurator camisetaConfig;
@@ -348,6 +349,7 @@ public class PrendaDelegate {
         }
 
         grpGenero.selectedToggleProperty().addListener((o, v, n) -> {
+            if (isUpdatingUI) return;
             if (n != null) {
                 TipoGenero genero = (TipoGenero) n.getUserData();
                 generoSeleccionado = genero;
@@ -418,6 +420,7 @@ public class PrendaDelegate {
         }
 
         comboTela.setOnAction(e -> {
+            if (isUpdatingUI) return;
             TipoTela nuevaTela = comboTela.getValue();
             if (nuevaTela != null) {
                 telaSeleccionada = nuevaTela;
@@ -449,6 +452,7 @@ public class PrendaDelegate {
         });
 
         txtOtro.textProperty().addListener((obs, oldV, newV) -> {
+            if (isUpdatingUI) return;
             if (visualizer != null && telaSeleccionada == TipoTela.OTRO) {
                 visualizer.getState().setCustomTela(newV);
                 if (onConfigChanged != null) {
@@ -684,103 +688,108 @@ public class PrendaDelegate {
      * This ensures the configuration sidebar matches the loaded design.
      */
     public void restoreFromState(org.example.dto.save.PrendaStateDTO stateDTO) {
-        if (stateDTO == null) {
-            // Create a default state DTO if null to avoid throwing or exiting
-            stateDTO = new org.example.dto.save.PrendaStateDTO();
-            stateDTO.setCurrentGarmentType("CAMISETA");
-            stateDTO.setCurrentGenero(TipoGenero.HOMBRE);
-            stateDTO.setCurrentTela(TipoTela.WIN);
-        }
-
-        // 1. Identify Garment Type
-        String gTypeStr = stateDTO.getCurrentGarmentType();
-        if (gTypeStr == null) {
-            gTypeStr = "CAMISETA";
-        }
-
-        TipoPrenda prenda = null;
+        this.isUpdatingUI = true;
         try {
-            prenda = TipoPrenda.valueOf(gTypeStr.toUpperCase());
-        } catch (Exception e) {
-            // Fallback: try to find by label if valueOf fails
-            for (TipoPrenda tp : TipoPrenda.values()) {
-                if (tp.getLabel().equalsIgnoreCase(gTypeStr)) {
-                    prenda = tp;
-                    break;
+            if (stateDTO == null) {
+                // Create a default state DTO if null to avoid throwing or exiting
+                stateDTO = new org.example.dto.save.PrendaStateDTO();
+                stateDTO.setCurrentGarmentType("CAMISETA");
+                stateDTO.setCurrentGenero(TipoGenero.HOMBRE);
+                stateDTO.setCurrentTela(TipoTela.WIN);
+            }
+
+            // 1. Identify Garment Type
+            String gTypeStr = stateDTO.getCurrentGarmentType();
+            if (gTypeStr == null) {
+                gTypeStr = "CAMISETA";
+            }
+
+            TipoPrenda prenda = null;
+            try {
+                prenda = TipoPrenda.valueOf(gTypeStr.toUpperCase());
+            } catch (Exception e) {
+                // Fallback: try to find by label if valueOf fails
+                for (TipoPrenda tp : TipoPrenda.values()) {
+                    if (tp.getLabel().equalsIgnoreCase(gTypeStr)) {
+                        prenda = tp;
+                        break;
+                    }
                 }
             }
+
+            if (prenda == null) {
+                prenda = TipoPrenda.CAMISETA;
+            }
+
+            // 2. Set Basic State
+            this.tipoPrendaSeleccionada = prenda;
+            this.generoSeleccionado = stateDTO.getCurrentGenero() != null ? stateDTO.getCurrentGenero() : TipoGenero.HOMBRE;
+            this.telaSeleccionada = stateDTO.getCurrentTela() != null ? stateDTO.getCurrentTela() : TipoTela.WIN;
+
+            if (visualizer != null && this.telaSeleccionada != null) {
+                visualizer.setTela(this.telaSeleccionada);
+            }
+
+            // 3. Rebuild UI Hierarchy
+            // Let's call the configurator activator directly with a pseudo-DTO
+            // reconstructed from the save state
+            ConfiguracionPrendaDTO.Builder builder = new ConfiguracionPrendaDTO.Builder()
+                    .tipoPrenda(prenda)
+                    .genero(this.generoSeleccionado)
+                    .tela(this.telaSeleccionada)
+                    .customTela(stateDTO.getCustomTela() != null ? stateDTO.getCustomTela() : "")
+                    .conMalla(stateDTO.isHasMesh())
+                    .conPunoCamiseta(stateDTO.isHasCuffs())
+                    .conFranjaCamiseta(stateDTO.isHasShirtStripe())
+                    .conLineaCamiseta(stateDTO.isHasShirtLinea())
+                    .conAcolchado(stateDTO.isHasPadding())
+                    .conShort(stateDTO.isHasShorts())
+                    .conMedias(stateDTO.isHasSocks())
+                    .conLigaMedias(stateDTO.isHasSocksTop())
+                    // Short specific
+                    .conFranjaShort(stateDTO.isHasShortsStripe())
+                    .conLineaShort(stateDTO.isHasShortsLinea())
+                    .conPiqueteShort(stateDTO.isHasShortsPicket())
+                    .conBolsilloShort(stateDTO.isHasShortsPocket())
+                    .conPunoShort(stateDTO.isHasShortsCuff())
+                    .conPasadorShort(stateDTO.isHasShortsCord())
+                    .conForroShort(stateDTO.isHasShortsLining());
+
+            if (stateDTO.getCurrentCorte() != null)
+                builder.corte(stateDTO.getCurrentCorte());
+            if (stateDTO.getCurrentLargo() != null)
+                builder.largo(stateDTO.getCurrentLargo());
+            if (stateDTO.getCurrentCuello() != null)
+                builder.cuello(stateDTO.getCurrentCuello());
+            if (stateDTO.getCurrentCorteShort() != null)
+                builder.corteShort(stateDTO.getCurrentCorteShort());
+            if (stateDTO.getCurrentTipoMedias() != null)
+                builder.tipoMedias(stateDTO.getCurrentTipoMedias());
+
+            if (stateDTO.getShirtCrestTech() != null) {
+                builder.tipoEscudo(org.example.model.TipoEscudo.valueOfTech(stateDTO.getShirtCrestTech()));
+            } else {
+                builder.tipoEscudo(org.example.model.TipoEscudo.SUBLIMADO);
+            }
+
+            ConfiguracionPrendaDTO reconstructedConfig = builder.build();
+
+            // Refresh Sidebar
+            container.getChildren().clear();
+            container.getChildren().add(createHeader(prenda));
+
+            // We skip showing the gender selection screen and go straight to the
+            // configurator
+            // BUT we need to add the gender section and fabric section so they are visible
+            // and editable
+            agregarSeccionGenero(prenda);
+            agregarSeccionTela();
+
+            // Trigger activation
+            activarConfiguracion(prenda, this.generoSeleccionado, reconstructedConfig);
+        } finally {
+            this.isUpdatingUI = false;
         }
-
-        if (prenda == null) {
-            prenda = TipoPrenda.CAMISETA;
-        }
-
-        // 2. Set Basic State
-        this.tipoPrendaSeleccionada = prenda;
-        this.generoSeleccionado = stateDTO.getCurrentGenero() != null ? stateDTO.getCurrentGenero() : TipoGenero.HOMBRE;
-        this.telaSeleccionada = stateDTO.getCurrentTela() != null ? stateDTO.getCurrentTela() : TipoTela.WIN;
-
-        if (visualizer != null && this.telaSeleccionada != null) {
-            visualizer.setTela(this.telaSeleccionada);
-        }
-
-        // 3. Rebuild UI Hierarchy
-        // Let's call the configurator activator directly with a pseudo-DTO
-        // reconstructed from the save state
-        ConfiguracionPrendaDTO.Builder builder = new ConfiguracionPrendaDTO.Builder()
-                .tipoPrenda(prenda)
-                .genero(this.generoSeleccionado)
-                .tela(this.telaSeleccionada)
-                .customTela(stateDTO.getCustomTela() != null ? stateDTO.getCustomTela() : "")
-                .conMalla(stateDTO.isHasMesh())
-                .conPunoCamiseta(stateDTO.isHasCuffs())
-                .conFranjaCamiseta(stateDTO.isHasShirtStripe())
-                .conLineaCamiseta(stateDTO.isHasShirtLinea())
-                .conAcolchado(stateDTO.isHasPadding())
-                .conShort(stateDTO.isHasShorts())
-                .conMedias(stateDTO.isHasSocks())
-                .conLigaMedias(stateDTO.isHasSocksTop())
-                // Short specific
-                .conFranjaShort(stateDTO.isHasShortsStripe())
-                .conLineaShort(stateDTO.isHasShortsLinea())
-                .conPiqueteShort(stateDTO.isHasShortsPicket())
-                .conBolsilloShort(stateDTO.isHasShortsPocket())
-                .conPunoShort(stateDTO.isHasShortsCuff())
-                .conPasadorShort(stateDTO.isHasShortsCord())
-                .conForroShort(stateDTO.isHasShortsLining());
-
-        if (stateDTO.getCurrentCorte() != null)
-            builder.corte(stateDTO.getCurrentCorte());
-        if (stateDTO.getCurrentLargo() != null)
-            builder.largo(stateDTO.getCurrentLargo());
-        if (stateDTO.getCurrentCuello() != null)
-            builder.cuello(stateDTO.getCurrentCuello());
-        if (stateDTO.getCurrentCorteShort() != null)
-            builder.corteShort(stateDTO.getCurrentCorteShort());
-        if (stateDTO.getCurrentTipoMedias() != null)
-            builder.tipoMedias(stateDTO.getCurrentTipoMedias());
-
-        if (stateDTO.getShirtCrestTech() != null) {
-            builder.tipoEscudo(org.example.model.TipoEscudo.valueOfTech(stateDTO.getShirtCrestTech()));
-        } else {
-            builder.tipoEscudo(org.example.model.TipoEscudo.SUBLIMADO);
-        }
-
-        ConfiguracionPrendaDTO reconstructedConfig = builder.build();
-
-        // Refresh Sidebar
-        container.getChildren().clear();
-        container.getChildren().add(createHeader(prenda));
-
-        // We skip showing the gender selection screen and go straight to the
-        // configurator
-        // BUT we need to add the gender section and fabric section so they are visible
-        // and editable
-        agregarSeccionGenero(prenda);
-        agregarSeccionTela();
-
-        // Trigger activation
-        activarConfiguracion(prenda, this.generoSeleccionado, reconstructedConfig);
     }
 
     /**

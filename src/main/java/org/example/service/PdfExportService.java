@@ -52,7 +52,7 @@ public class PdfExportService {
         exportarFicha(data.getTargetFile(), data.getVisualizer(), data.getConfig(), data.getOrderCode(),
                 data.getClientName(), data.getSellerName(), data.getRoster(), data.getDeliveryDate(),
                 data.getPriority(), data.getShortType(), data.getReferenceImages(), data.getShippingInfo(),
-                data.getArqueroSnapshotHombre(), data.getArqueroSnapshotMujer(), data.getArqueroConfig(), data.getMainGarmentSnapshot(), data.getShields());
+                data.getArqueroSnapshotHombre(), data.getArqueroSnapshotMujer(), data.getArqueroConfig(), data.getMainGarmentSnapshot(), data.getShields(), data.getDisenosArquero());
     }
 
     public void exportarFicha(File file, PrendaVisualizer visualizer, ConfiguracionPrendaDTO config, String codigo,
@@ -60,7 +60,7 @@ public class PdfExportService {
             String prioridad,
             String shortType, List<javafx.scene.image.Image> referencias, org.example.dto.DatosEnvioDTO shippingInfo,
             javafx.scene.image.Image arqSnapshotHombre, javafx.scene.image.Image arqSnapshotMujer, ConfiguracionPrendaDTO arqueroConfig,
-            javafx.scene.image.Image mainSnapshot, List<ShieldEntry> shields) {
+            javafx.scene.image.Image mainSnapshot, List<ShieldEntry> shields, java.util.Map<String, org.example.dto.save.GoalkeeperDesignDTO> disenosArquero) {
         try {
             // 1. Build the view (Offscreen)
             // shields and mainSnapshot are now passed as arguments from PedidoController
@@ -88,7 +88,8 @@ public class PdfExportService {
                     shippingInfo,
                     arqSnapshotHombre,
                     arqSnapshotMujer,
-                    arqueroConfig);
+                    arqueroConfig,
+                    disenosArquero);
 
             // 2. Prepare for Snapshotting
             // Set explicit size in proporción A4 para layout exacto.
@@ -161,18 +162,67 @@ public class PdfExportService {
 
         // 2. Add high-res image to the PDF
         java.io.ByteArrayOutputStream byteStream = new java.io.ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(SwingFXUtils.fromFXImage(snapshot, null), "png", byteStream);
+        java.awt.image.BufferedImage bufferedImage = SwingFXUtils.fromFXImage(snapshot, null);
+        java.awt.image.BufferedImage rgbImage = new java.awt.image.BufferedImage(
+            bufferedImage.getWidth(),
+            bufferedImage.getHeight(),
+            java.awt.image.BufferedImage.TYPE_INT_RGB
+        );
+        java.awt.Graphics2D g = rgbImage.createGraphics();
+        try {
+            g.setColor(java.awt.Color.WHITE);
+            g.fillRect(0, 0, rgbImage.getWidth(), rgbImage.getHeight());
+            g.drawImage(bufferedImage, 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+
+        java.util.Iterator<javax.imageio.ImageWriter> writers = javax.imageio.ImageIO.getImageWritersByFormatName("jpg");
+        if (writers.hasNext()) {
+            javax.imageio.ImageWriter imgWriter = writers.next();
+            try (javax.imageio.stream.ImageOutputStream ios = javax.imageio.ImageIO.createImageOutputStream(byteStream)) {
+                imgWriter.setOutput(ios);
+                javax.imageio.ImageWriteParam param = imgWriter.getDefaultWriteParam();
+                if (param.canWriteCompressed()) {
+                    param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                    param.setCompressionType("JPEG");
+                    param.setCompressionQuality(0.98f);
+                }
+                imgWriter.write(null, new javax.imageio.IIOImage(rgbImage, null, null), param);
+            } finally {
+                imgWriter.dispose();
+            }
+        } else {
+            javax.imageio.ImageIO.write(rgbImage, "png", byteStream);
+        }
         com.lowagie.text.Image pdfImg = com.lowagie.text.Image.getInstance(byteStream.toByteArray());
-        
+
         // A4 precise dimensions: 595.27 x 841.89 points
         float a4W = 595.27f;
         float a4H = 841.89f;
-        
-        pdfImg.scaleToFit(a4W, a4H);
-        
-        // Final positioning of the image
-        float xImg = (float)(a4W - pdfImg.getScaledWidth()) / 2.0f;
-        float yImg = (float)(a4H - pdfImg.getScaledHeight()); 
+
+        // Calculate proportional scaling to fit within A4 while maintaining aspect ratio
+        float imgW = pdfImg.getWidth();
+        float imgH = pdfImg.getHeight();
+        System.out.println("DEBUG PDF: original imgW=" + imgW + " imgH=" + imgH);
+        float scaleX = a4W / imgW;
+        float scaleY = a4H / imgH;
+        float scale = Math.min(scaleX, scaleY) * 100.0f;
+        System.out.println("DEBUG PDF: scaleX=" + scaleX + " scaleY=" + scaleY + " scale%=" + scale);
+
+        // Calculate actual displayed dimensions after scaling
+        float scaledPercent = scale / 100.0f;
+        float finalW = imgW * scaledPercent;
+        float finalH = imgH * scaledPercent;
+        System.out.println("DEBUG PDF: Final PDF display size = " + finalW + "x" + finalH + " points");
+
+        pdfImg.scalePercent(scale);
+
+        // Center the image on the page
+        float scaledW = pdfImg.getScaledWidth();
+        float scaledH = pdfImg.getScaledHeight();
+        float xImg = (a4W - scaledW) / 2.0f;
+        float yImg = (a4H - scaledH) / 2.0f;
         pdfImg.setAbsolutePosition(xImg, yImg);
         cb.addImage(pdfImg);
 
@@ -183,19 +233,23 @@ public class PdfExportService {
 
         // Cleanup heavy snapshot memory as early as possible
         snapshot = null;
+        bufferedImage = null;
+        rgbImage = null;
         pdfImg = null;
         byteStream = null;
+        System.gc(); // Force release of native/heap memory before next page
 
         BaseFont bfn = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
         BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.WINANSI, BaseFont.EMBEDDED);
-
+ 
         overlayTaggedNodes(cb, bfn, bfBold, pageNode, actualScale, topAnchorY, xImg, a4H);
     }
-
+ 
     private WritableImage captureSnapshot(Region node) {
         javafx.scene.SnapshotParameters sp = new javafx.scene.SnapshotParameters();
         sp.setFill(javafx.scene.paint.Color.WHITE);
-        sp.setTransform(new javafx.scene.transform.Scale(2.5, 2.5)); // High-res capture
+        // Escala 2.5x para mantener alta calidad sin exceder la memoria de video (VRAM/D3D)
+        sp.setTransform(javafx.scene.transform.Transform.scale(2.5, 2.5));
         return node.snapshot(sp, null);
     }
 

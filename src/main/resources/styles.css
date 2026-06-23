@@ -106,7 +106,14 @@
     -fx-font-weight: bold;
     -fx-font-size: 13px;
     -fx-cursor: hand;
-    -fx-padding: 8 20;
+    -fx-padding: 8 16;
+    -fx-transition: all 0.2s ease-in-out;
+}
+
+.button:pressed {
+    -fx-scale-x: 0.97;
+    -fx-scale-y: 0.97;
+    -fx-opacity: 0.85;
 }
 
 .button:focused {
@@ -330,33 +337,33 @@
 }
 
 .main-workflow-tabs {
-    -fx-tab-min-height: 36;
-    -fx-tab-max-height: 36;
+    -fx-tab-min-height: 28;
+    -fx-tab-max-height: 28;
 }
 
 .main-workflow-tabs .tab-header-area {
-    -fx-padding: 4 14 0 14;
+    -fx-padding: 2 12 0 12;
 }
 
 .main-workflow-tabs .tab {
-    -fx-padding: 3 14 7 14;
+    -fx-padding: 2 12 4 12;
 }
 
 .main-workflow-tabs .tab .tab-label {
-    -fx-font-size: 13px;
+    -fx-font-size: 12px;
     -fx-font-weight: 800;
 }
 
 .main-workflow-tabs.compact-tabs .tab-header-area {
-    -fx-padding: 4 10 0 10;
+    -fx-padding: 2 8 0 8;
 }
 
 .main-workflow-tabs.compact-tabs .tab {
-    -fx-padding: 3 10 7 10;
+    -fx-padding: 2 8 4 8;
 }
 
 .main-workflow-tabs.compact-tabs .tab .tab-label {
-    -fx-font-size: 12px;
+    -fx-font-size: 11px;
 }
 
 /* --- Modern Accordion / Panes --- */
@@ -813,7 +820,7 @@
 }
 
 .placeholder-label {
-    -fx-font-size: 24px;
+    -fx-font-size: 16px;
     -fx-text-fill: #95a5a6;
     -fx-font-weight: bold;
 }
@@ -1722,13 +1729,35 @@
     -fx-faint-focus-color: transparent;
 }
 
-/* --- Dialog Buttons Final Fix --- */
+/* --- Dialogs & Dialog Buttons Final Fix --- */
+.dialog-pane {
+    -fx-background-color: #ffffff;
+    -fx-padding: 12px;
+}
+.dialog-pane > .content.label {
+    -fx-padding: 8px 0 0 0;
+    -fx-text-fill: #475569;
+    -fx-font-size: 13px;
+}
+.dialog-pane:header .header-panel {
+    -fx-background-color: #ffffff;
+    -fx-padding: 8px 0;
+}
+.dialog-pane:header .header-panel .label {
+    -fx-font-weight: bold;
+    -fx-font-size: 15px;
+    -fx-text-fill: #1e293b;
+}
+.dialog-pane .button-bar {
+    -fx-padding: 10px 0 0 0;
+}
+
 .dialog-button-success,
 .dialog-button-danger,
 .dialog-button-cancel {
-    -fx-min-width: 150px;
-    -fx-padding: 10 25;
-    -fx-background-radius: 8;
+    -fx-min-width: 110px;
+    -fx-padding: 8 12;
+    -fx-background-radius: 6;
     -fx-font-weight: bold;
     -fx-text-fill: white;
     -fx-cursor: hand;
@@ -2173,4 +2202,12 @@
     -fx-text-fill: #0B213E !important;
     -fx-font-weight: bold !important;
 }
+
+/* Remove default focus outline/glow on buttons and toggle-buttons */
+.button:focused,
+.toggle-button:focused {
+    -fx-focus-color: transparent !important;
+    -fx-faint-focus-color: transparent !important;
+}
+
 

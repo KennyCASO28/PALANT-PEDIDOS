@@ -20,6 +20,7 @@ public class VisualizerSnapshotService {
     private final PrendaEditModeManager editManager;
     private final PowerClipManager powerClipManager;
 
+    private final Pane sandbox = new Pane();
     private WritableImage cachedSnapshot;
 
     public VisualizerSnapshotService(PrendaVisualizer visualizer, PrendaOverlayManager overlayManager, 
@@ -28,6 +29,15 @@ public class VisualizerSnapshotService {
         this.overlayManager = overlayManager;
         this.editManager = editManager;
         this.powerClipManager = powerClipManager;
+
+        // Initialize sandbox once to prevent StyleManager memory leaks from dynamic stylesheets
+        this.sandbox.setPrefWidth(2400);
+        this.sandbox.setPrefHeight(1800);
+        try {
+            this.sandbox.getStylesheets().add(visualizer.getClass().getResource("/styles.css").toExternalForm());
+        } catch (Exception e) {
+            // Non-critical: styles might not load in all environments.
+        }
     }
 
     public void startSnapshotSession() {
@@ -86,6 +96,10 @@ public class VisualizerSnapshotService {
      * isolating state and resetting the viewport temporarily.
      */
     public WritableImage takeSafeSnapshot(boolean forArquero) {
+        return takeSafeSnapshot(forArquero, 2.0);
+    }
+
+    public WritableImage takeSafeSnapshot(boolean forArquero, double scale) {
         boolean wasArquero = visualizer.isEditandoArquero();
         boolean previousNotificationsSuspended = visualizer.isNotificationsSuspended();
         boolean previousPendingNotification = visualizer.isPendingNotification();
@@ -104,6 +118,9 @@ public class VisualizerSnapshotService {
         PrendaState savedCamisetaState = copyState(visualizer.getCamisetaState());
         PrendaState savedArqueroState = copyState(visualizer.getArqueroState());
 
+        if (visualizer.getCamisetaColorManager() != null) visualizer.getCamisetaColorManager().setLocked(true);
+        if (visualizer.getArqueroColorManager() != null) visualizer.getArqueroColorManager().setLocked(true);
+
         visualizer.beginAtomicSnapshotMode();
         try {
             return captureAtomicSnapshot(
@@ -112,11 +129,14 @@ public class VisualizerSnapshotService {
                     previousNotificationsSuspended,
                     previousPendingNotification,
                     savedCamisetaState,
-                    savedArqueroState);
+                    savedArqueroState,
+                    scale);
         } finally {
             if (hasViewport) {
                 visualizer.getViewportController().setViewportState(oldZoom, oldTX, oldTY);
             }
+            if (visualizer.getCamisetaColorManager() != null) visualizer.getCamisetaColorManager().setLocked(false);
+            if (visualizer.getArqueroColorManager() != null) visualizer.getArqueroColorManager().setLocked(false);
         }
     }
 
@@ -202,17 +222,8 @@ public class VisualizerSnapshotService {
             boolean previousNotificationsSuspended,
             boolean previousPendingNotification,
             PrendaState savedCamisetaState,
-            PrendaState savedArqueroState) {
-        Pane sandbox = new Pane();
-        sandbox.setPrefWidth(2400);
-        sandbox.setPrefHeight(1800);
-
-        try {
-            sandbox.getStylesheets().add(visualizer.getClass().getResource("/styles.css").toExternalForm());
-        } catch (Exception e) {
-            // Non-critical: styles might not load in all environments.
-        }
-
+            PrendaState savedArqueroState,
+            double scale) {
         Parent originalParent = visualizer.getContentGroup().getParent();
         int originalIndex = detachContentGroup(originalParent);
         sandbox.getChildren().add(visualizer.getContentGroup());
@@ -228,7 +239,8 @@ public class VisualizerSnapshotService {
             return PrendaSnapshotHelper.captureCenteredSnapshot(
                     sandbox,
                     visualizer.getContentGroup(),
-                    isMangaLarga);
+                    isMangaLarga,
+                    scale);
         } catch (Exception e) {
             e.printStackTrace();
             return new WritableImage(1, 1);

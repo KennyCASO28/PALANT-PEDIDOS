@@ -38,22 +38,33 @@ public class VisualizerRenderOrchestrator {
     public void ensureArqueroInitialized() {
         if (arqueroShirtRenderer == null) {
             arqueroShirtRenderer = new ArqueroRenderer();
-            arqueroShirtRenderer.addToGroup(contentGroup);
-            contentGroup.getChildren().add(arqueroShirtRenderer.getDetailGroup());
-            arqueroShirtRenderer.getDetailGroup().setMouseTransparent(true);
+            insertRendererProperly(arqueroShirtRenderer, shirtRenderer);
         }
         if (arqueroShortsRenderer == null) {
             arqueroShortsRenderer = new ShortsRenderer();
-            arqueroShortsRenderer.addToGroup(contentGroup);
-            contentGroup.getChildren().add(arqueroShortsRenderer.getDetailGroup());
-            arqueroShortsRenderer.getDetailGroup().setMouseTransparent(true);
+            insertRendererProperly(arqueroShortsRenderer, shortsRenderer);
         }
         if (arqueroSocksRenderer == null) {
             arqueroSocksRenderer = new SocksRenderer();
-            arqueroSocksRenderer.addToGroup(contentGroup);
-            contentGroup.getChildren().add(arqueroSocksRenderer.getDetailGroup());
-            arqueroSocksRenderer.getDetailGroup().setMouseTransparent(true);
+            insertRendererProperly(arqueroSocksRenderer, socksRenderer);
         }
+    }
+
+    private void insertRendererProperly(org.example.component.renderer.BaseGarmentRenderer newRenderer, org.example.component.renderer.BaseGarmentRenderer referenceRenderer) {
+        int index = contentGroup.getChildren().indexOf(referenceRenderer.getGroup());
+        if (index >= 0) {
+            contentGroup.getChildren().add(index, newRenderer.getGroup());
+        } else {
+            newRenderer.addToGroup(contentGroup);
+        }
+        
+        int detailIndex = contentGroup.getChildren().indexOf(referenceRenderer.getDetailGroup());
+        if (detailIndex >= 0) {
+            contentGroup.getChildren().add(detailIndex, newRenderer.getDetailGroup());
+        } else {
+            contentGroup.getChildren().add(newRenderer.getDetailGroup());
+        }
+        newRenderer.getDetailGroup().setMouseTransparent(true);
     }
 
     public BaseGarmentRenderer getActiveShirtRenderer(boolean editandoArquero) {
@@ -157,6 +168,18 @@ public class VisualizerRenderOrchestrator {
         shirtRenderer.getSleeves().setOpacity(opacity);
         shortsRenderer.getShorts().setOpacity(opacity);
         if (socksRenderer.getSocks() != null) socksRenderer.getSocks().setOpacity(opacity);
+
+        // También opacar renderers del arquero (que son los activos en modo arquero)
+        if (arqueroShirtRenderer != null) {
+            arqueroShirtRenderer.getBody().setOpacity(opacity);
+            arqueroShirtRenderer.getSleeves().setOpacity(opacity);
+        }
+        if (arqueroShortsRenderer != null) {
+            arqueroShortsRenderer.getShorts().setOpacity(opacity);
+        }
+        if (arqueroSocksRenderer != null && arqueroSocksRenderer.getSocks() != null) {
+            arqueroSocksRenderer.getSocks().setOpacity(opacity);
+        }
     }
 
     public Group getContentGroup() {

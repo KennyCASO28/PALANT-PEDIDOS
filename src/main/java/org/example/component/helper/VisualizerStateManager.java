@@ -94,6 +94,10 @@ public class VisualizerStateManager {
         this.stateListeners.add(listener);
     }
 
+    public Runnable getOnStateChanged() {
+        return onStateChangedCallback;
+    }
+
     public void setOnStateChanged(Runnable callback) {
         this.onStateChangedCallback = callback;
     }
@@ -129,7 +133,7 @@ public class VisualizerStateManager {
      * Synchronizes shared attributes from player to goalkeeper if it's not custom yet.
      */
     public void sincronizarAtributosCompartidos(PrendaState source, PrendaState target) {
-        if (source == null || target == null) return;
+        if (source == null || target == null || arqueroDisenoPersonalizado) return;
         
         // Only sync if target is "clean" or if we force it
         boolean targetHasCustomLayers = target.getUserLayers() != null && !target.getUserLayers().isEmpty();

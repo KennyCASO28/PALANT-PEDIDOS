@@ -12,6 +12,7 @@ public class DetallePedidoDTO {
     // Arquero
     private boolean esArquero;
     private int arqueroOrdenMarcado;
+    private String arqueroDesignId;
     private String tipoMangaArquero;
     private String colorArquero; // Hex
     private String tipoManga;
@@ -96,6 +97,14 @@ public class DetallePedidoDTO {
         this.arqueroOrdenMarcado = arqueroOrdenMarcado;
     }
 
+    public String getArqueroDesignId() {
+        return arqueroDesignId;
+    }
+
+    public void setArqueroDesignId(String arqueroDesignId) {
+        this.arqueroDesignId = arqueroDesignId;
+    }
+
     public String getTipoMangaArquero() {
         return tipoMangaArquero;
     }
@@ -134,6 +143,16 @@ public class DetallePedidoDTO {
 
     public void setTallaShort(String tallaShort) {
         this.tallaShort = tallaShort;
+    }
+
+    private String tipoMedias;
+
+    public String getTipoMedias() {
+        return tipoMedias;
+    }
+
+    public void setTipoMedias(String tipoMedias) {
+        this.tipoMedias = tipoMedias;
     }
 }
 

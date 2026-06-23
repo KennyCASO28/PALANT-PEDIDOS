@@ -77,7 +77,7 @@ public final class ShapeGeometryEngine {
         if (nodes == null || nodes.isEmpty()) return "";
         List<BezierNode> shearedNodes = new java.util.ArrayList<>();
         for (BezierNode n : nodes) {
-            BezierNode sn = new BezierNode(n.anchor, n.control1, n.control2);
+            BezierNode sn = n.copy();
             sn.anchor = shearPoint(sn.anchor, shX, shY, px, py);
             if (sn.control1 != null) sn.control1 = shearPoint(sn.control1, shX, shY, px, py);
             if (sn.control2 != null) sn.control2 = shearPoint(sn.control2, shX, shY, px, py);

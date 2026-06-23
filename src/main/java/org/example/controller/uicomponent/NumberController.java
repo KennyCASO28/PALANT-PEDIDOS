@@ -11,6 +11,7 @@ import org.example.utils.UIFactory;
 import org.example.pattern.PropertyChangeCommand;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NumberController {
 
@@ -18,6 +19,8 @@ public class NumberController {
     private final BiConsumer<Consumer<Color>, Consumer<Color>> eyedropperCallback;
     private final java.util.Map<Integer, MenuButton> pickerButtons = new java.util.HashMap<>();
     private VBox mainContainer;
+    private final AtomicBoolean isUpdating = new AtomicBoolean(false);
+    private boolean hasInitializedVectors = false;
 
     public NumberController(PrendaVisualizer visualizer,
             BiConsumer<Consumer<Color>, Consumer<Color>> eyedropperCallback) {
@@ -32,37 +35,75 @@ public class NumberController {
     }
 
     public void updateUI() {
-        if (mainContainer == null) return;
-        mainContainer.getChildren().clear();
+        if (mainContainer == null || !isUpdating.compareAndSet(false, true)) return;
+        try {
+            pickerButtons.values().forEach(btn -> btn.getItems().clear());
+            pickerButtons.clear();
+            mainContainer.getChildren().clear();
 
-        VBox content = new VBox(10);
-        content.setPadding(new Insets(5, 10, 5, 10));
-        content.getStyleClass().add("number-content-box");
-        content.setFillWidth(true);
+            VBox content = new VBox(20); // More spacing between sections
+            content.setPadding(new Insets(10, 10, 15, 10));
+            content.getStyleClass().add("number-content-box");
+            content.setFillWidth(true);
 
-        mainContainer.getChildren().add(content);
-        VBox.setVgrow(content, Priority.ALWAYS);
+            mainContainer.getChildren().add(content);
+            VBox.setVgrow(content, Priority.ALWAYS);
 
-        Label lblNumbers = new Label("Numeración (Vectores):");
-        lblNumbers.getStyleClass().add("number-section-header");
-        content.getChildren().add(lblNumbers);
-
-        if (visualizer.hasShirt()) {
-            addNumberConfigSection(content, "Pecho", visualizer.getChestNumber());
-            addNumberConfigSection(content, "Espalda", visualizer.getBackNumber());
-        }
-
-        if (visualizer.hasShorts()) {
-            org.example.model.TipoCorte cut = visualizer.getCurrentCorteShort();
-            if (cut != org.example.model.TipoCorte.LICRA && cut != org.example.model.TipoCorte.PANTALONETA) {
-                addNumberConfigSection(content, "Short", visualizer.getShortNumber());
+            Label lblNumbers = new Label("Numeración (Vectores):");
+            lblNumbers.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
+            
+            // --- GLOBAL DIGIT SELECTOR ---
+            HBox globalDigitBox = new HBox(10);
+            globalDigitBox.setAlignment(Pos.CENTER_LEFT);
+            Label lblDigit = new Label("Dígito Global:");
+            lblDigit.setStyle("-fx-font-weight: bold; -fx-text-fill: #475569;");
+            
+            ComboBox<String> cmbNumber = new ComboBox<>();
+            cmbNumber.getItems().addAll("9", "1");
+            
+            String initialValue = visualizer.getCurrentChestNumberStr();
+            if (initialValue == null || initialValue.isEmpty()) {
+                initialValue = "9";
             }
-        }
+            cmbNumber.setValue(initialValue);
+            
+            if (!hasInitializedVectors) {
+                visualizer.setGlobalNumberDigit(initialValue); // INITIALIZE VECTOR STATE ONLY ONCE
+                hasInitializedVectors = true;
+            }
+            
+            UIFactory.fixComboBoxReadability(cmbNumber);
+            cmbNumber.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(cmbNumber, Priority.ALWAYS);
+
+            cmbNumber.setOnAction(e -> {
+                String newVal = cmbNumber.getValue();
+                visualizer.setGlobalNumberDigit(newVal);
+            });
+            globalDigitBox.getChildren().addAll(lblDigit, cmbNumber);
+            
+            VBox headerBox = new VBox(10, lblNumbers, globalDigitBox);
+            headerBox.setPadding(new Insets(0, 0, 5, 0));
+            content.getChildren().add(headerBox);
+
+            if (visualizer.hasShirt()) {
+                addNumberConfigSection(content, "Pecho", visualizer.getChestNumber());
+                addNumberConfigSection(content, "Espalda", visualizer.getBackNumber());
+            }
+
+            if (visualizer.hasShorts()) {
+                org.example.model.TipoCorte cut = visualizer.getCurrentCorteShort();
+                if (cut != org.example.model.TipoCorte.LICRA && cut != org.example.model.TipoCorte.PANTALONETA) {
+                    addNumberConfigSection(content, "Short", visualizer.getShortNumber());
+                }
+            }
+        } finally { isUpdating.set(false); }
     }
 
     private void addNumberConfigSection(VBox parent, String label, NumberComposition composition) {
-        VBox sectionBox = new VBox(10);
-        sectionBox.getStyleClass().add("number-section-box");
+        VBox sectionBox = new VBox(15);
+        // CARD STYLING
+        sectionBox.setStyle("-fx-background-color: #f8fafc; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-radius: 8; -fx-padding: 15;");
         sectionBox.setMaxWidth(Double.MAX_VALUE);
 
         HBox hbActive = UIFactory.crearFilaOpcion("Número " + label, composition.isVisible(), visualizer.getGenero(),
@@ -83,96 +124,73 @@ public class NumberController {
         hbActive.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(hbActive, Priority.ALWAYS);
         CheckBox chkActive = (CheckBox) hbActive.getChildren().get(0);
+        chkActive.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b;"); // Emphasize header
 
-        VBox configBox = new VBox(10);
-        configBox.setPadding(new Insets(5, 0, 0, 10));
+        VBox configBox = new VBox(15);
         configBox.setMaxWidth(Double.MAX_VALUE);
         configBox.visibleProperty().bind(chkActive.selectedProperty());
         configBox.managedProperty().bind(chkActive.selectedProperty());
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setAlignment(Pos.CENTER_LEFT);
-        grid.setMaxWidth(Double.MAX_VALUE);
-        
-        ColumnConstraints c1 = new ColumnConstraints();
-        c1.setHgrow(Priority.NEVER);
-        ColumnConstraints c2 = new ColumnConstraints();
-        c2.setHgrow(Priority.ALWAYS);
-        grid.getColumnConstraints().addAll(c1, c2);
-
-        Label lblDigit = new Label("Dígito:");
-        lblDigit.getStyleClass().add("number-label-digit");
-
-        ComboBox<String> cmbNumber = new ComboBox<>();
-        cmbNumber.getItems().addAll("9", "1");
-
-        String initialValue = "9";
-        if (label.equalsIgnoreCase("Pecho")) initialValue = visualizer.getCurrentChestNumberStr();
-        else if (label.equalsIgnoreCase("Espalda")) initialValue = visualizer.getCurrentBackNumberStr();
-        else initialValue = visualizer.getCurrentShortNumberStr();
-
-        cmbNumber.setValue(initialValue != null ? initialValue : "9");
-        cmbNumber.setMaxWidth(Double.MAX_VALUE);
-        UIFactory.fixComboBoxReadability(cmbNumber);
-
-        cmbNumber.setOnAction(e -> {
-            String newVal = cmbNumber.getValue();
-            visualizer.setGlobalNumberDigit(newVal);
-            updateUI();
-        });
-
-        VBox digitField = new VBox(4, lblDigit, cmbNumber);
-        digitField.setAlignment(Pos.CENTER_LEFT);
-        digitField.setMaxWidth(Double.MAX_VALUE);
-        configBox.getChildren().add(digitField);
-        sectionBox.getChildren().addAll(hbActive, configBox);
         addColorsToSection(configBox, composition, label);
+
+        sectionBox.getChildren().addAll(hbActive, configBox);
         parent.getChildren().add(sectionBox);
     }
 
     private void addColorsToSection(VBox configBox, NumberComposition composition, String label) {
         boolean isSelected = composition.getLayerColor(4) != null && !composition.getLayerColor(4).equals(Color.TRANSPARENT);
-        CheckBox chkIncludeBrand = UIFactory.crearToggleSwitch(isSelected);
-        chkIncludeBrand.setText("Incluir Marca");
-        chkIncludeBrand.getStyleClass().add("number-check-brand");
-        chkIncludeBrand.setOnAction(e -> {
-            boolean active = chkIncludeBrand.isSelected();
-            composition.setLayerColor(4, active ? Color.WHITE : Color.TRANSPARENT);
-        });
-        configBox.getChildren().add(chkIncludeBrand);
-
-        // Manual Alignment Controls removed as requested
+        CheckBox chkIncludeBrand = new CheckBox("Incluir Marca");
+        chkIncludeBrand.setSelected(isSelected);
+        chkIncludeBrand.setStyle("-fx-text-fill: #475569; -fx-font-size: 12px; -fx-font-weight: bold;");
 
         GridPane colorGrid = new GridPane();
-        colorGrid.setHgap(8);
-        colorGrid.setVgap(10);
+        colorGrid.setHgap(15);
+        colorGrid.setVgap(15);
         colorGrid.setMaxWidth(Double.MAX_VALUE);
         
         ColumnConstraints col1 = new ColumnConstraints(); col1.setPercentWidth(50); col1.setFillWidth(true); col1.setHgrow(Priority.ALWAYS);
         ColumnConstraints col2 = new ColumnConstraints(); col2.setPercentWidth(50); col2.setFillWidth(true); col2.setHgrow(Priority.ALWAYS);
         colorGrid.getColumnConstraints().addAll(col1, col2);
 
-        addColorControl(colorGrid, 0, 0, "Base", composition, 0, Color.BLACK, label);
-        addColorControl(colorGrid, 0, 1, "Combinación", composition, 1, Color.web("#333333"), label);
-        addColorControl(colorGrid, 1, 0, "Contorno", composition, 2, Color.WHITE, label);
-        addColorControl(colorGrid, 1, 1, "Marca", composition, 4, Color.WHITE, label);
+        VBox cellBase = createColorControlCell("Base", composition, 0, Color.BLACK, label);
+        VBox cellComb = createColorControlCell("Combinación", composition, 1, Color.web("#333333"), label);
+        VBox cellCont = createColorControlCell("Contorno", composition, 2, Color.WHITE, label);
+        VBox cellMarca = createColorControlCell("Color de Marca", composition, 4, Color.WHITE, label);
+
+        // Replace the "Color de Marca" label (index 0) with the CheckBox to align perfectly!
+        cellMarca.getChildren().set(0, chkIncludeBrand);
+        
+        // Hide the color MenuButton (index 1) when toggle is off
+        javafx.scene.Node marcaColorBtn = cellMarca.getChildren().get(1);
+        marcaColorBtn.visibleProperty().bind(chkIncludeBrand.selectedProperty());
+        marcaColorBtn.managedProperty().bind(chkIncludeBrand.selectedProperty());
+
+        chkIncludeBrand.setOnAction(e -> {
+            boolean active = chkIncludeBrand.isSelected();
+            composition.setLayerColor(4, active ? Color.WHITE : Color.TRANSPARENT);
+            // Updating immediately to show the change in preview
+            visualizer.setPreviewColor("number_marca_4", active ? Color.WHITE : Color.TRANSPARENT);
+        });
+
+        colorGrid.add(cellBase, 0, 0);
+        colorGrid.add(cellComb, 1, 0);
+        colorGrid.add(cellCont, 0, 1);
+        colorGrid.add(cellMarca, 1, 1);
+
+        GridPane.setHgrow(cellBase, Priority.ALWAYS);
+        GridPane.setHgrow(cellComb, Priority.ALWAYS);
+        GridPane.setHgrow(cellCont, Priority.ALWAYS);
+        GridPane.setHgrow(cellMarca, Priority.ALWAYS);
 
         configBox.getChildren().add(colorGrid);
     }
 
-    private void addColorControl(GridPane grid, int row, int col, String label, NumberComposition comp, int layerIndex,
-            Color defaultColor, String sectionLabel) {
-        VBox cell = new VBox(2);
+    private VBox createColorControlCell(String label, NumberComposition comp, int layerIndex, Color defaultColor, String sectionLabel) {
+        VBox cell = new VBox(5);
         cell.setMaxWidth(Double.MAX_VALUE);
         Label lbl = new Label(label);
-        lbl.getStyleClass().add("number-color-label");
+        lbl.setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
         lbl.setWrapText(true);
-
-        HBox controls = new HBox(5);
-        controls.setAlignment(Pos.CENTER_LEFT);
-        controls.setMaxWidth(Double.MAX_VALUE);
 
         Color initial = comp.getLayerColor(layerIndex);
         if (initial == null) {
@@ -181,10 +199,9 @@ public class NumberController {
         }
 
         final String partName = "number_" + label.toLowerCase() + "_" + layerIndex;
-        // Key for identifying this picker globally within this section
         final String pickerKey = sectionLabel + "_" + layerIndex;
 
-        MenuButton pickerBtn = UIFactory.createColorMenuButton(initial, label + " Color",
+        MenuButton pickerBtn = UIFactory.createColorMenuButton(initial, label,
                 newColor -> {
                     if (newColor != null) {
                         applyNumberColor(comp, layerIndex, newColor, label, pickerKey, true);
@@ -212,13 +229,9 @@ public class NumberController {
 
         pickerButtons.put(comp.hashCode() + layerIndex, pickerBtn);
         pickerBtn.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(pickerBtn, Priority.ALWAYS);
 
-        controls.getChildren().add(pickerBtn);
-
-        cell.getChildren().addAll(lbl, controls);
-        grid.add(cell, col, row);
-        GridPane.setHgrow(cell, Priority.ALWAYS);
+        cell.getChildren().addAll(lbl, pickerBtn);
+        return cell;
     }
 
     private void handleSmartPreview(NumberComposition comp, int changedIndex, Color newColor, String sectionLabel) {
