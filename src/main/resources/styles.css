@@ -2210,4 +2210,133 @@
     -fx-faint-focus-color: transparent !important;
 }
 
+/* --- Custom Dialogs & Alerts Styling (Flat & Square) --- */
+.custom-dialog-pane {
+    -fx-background-color: #ffffff !important;
+    -fx-border-width: 0px !important;
+    -fx-border-radius: 0px !important;
+    -fx-background-radius: 0px !important;
+}
+
+.custom-dialog-pane > .header-panel {
+    -fx-padding: 16px 20px !important;
+    -fx-border-width: 0 0 1px 0 !important;
+    -fx-border-radius: 0px !important;
+    -fx-background-radius: 0px !important;
+}
+
+.custom-dialog-pane > .header-panel > .label {
+    -fx-font-size: 15px !important;
+    -fx-font-weight: bold !important;
+}
+
+/* Specific Alerts Headers */
+.dialog-warning > .header-panel {
+    -fx-background-color: #fffbeb !important; /* Light amber */
+    -fx-border-color: transparent transparent #fef3c7 transparent !important;
+}
+.dialog-warning > .header-panel > .label {
+    -fx-text-fill: #b45309 !important;
+}
+
+.dialog-error > .header-panel {
+    -fx-background-color: #fef2f2 !important; /* Light red */
+    -fx-border-color: transparent transparent #fee2e2 transparent !important;
+}
+.dialog-error > .header-panel > .label {
+    -fx-text-fill: #b91c1c !important;
+}
+
+.dialog-confirmation > .header-panel {
+    -fx-background-color: #f0fdf4 !important; /* Light green/teal */
+    -fx-border-color: transparent transparent #dcfce7 transparent !important;
+}
+.dialog-confirmation > .header-panel > .label {
+    -fx-text-fill: #15803d !important;
+}
+
+.dialog-save > .header-panel {
+    -fx-background-color: #eff6ff !important; /* Light indigo/blue */
+    -fx-border-color: transparent transparent #dbeafe transparent !important;
+}
+.dialog-save > .header-panel > .label {
+    -fx-text-fill: #1d4ed8 !important;
+}
+
+.dialog-information > .header-panel {
+    -fx-background-color: #f8fafc !important; /* Light grey/slate */
+    -fx-border-color: transparent transparent #e2e8f0 transparent !important;
+}
+.dialog-information > .header-panel > .label {
+    -fx-text-fill: #334155 !important;
+}
+
+/* Content Area */
+.custom-dialog-pane > .content-panel {
+    -fx-padding: 20px !important;
+    -fx-background-color: #ffffff !important;
+    -fx-border-radius: 0px !important;
+    -fx-background-radius: 0px !important;
+}
+
+.custom-dialog-pane > .content {
+    -fx-font-size: 13.5px !important;
+    -fx-line-spacing: 5px !important;
+    -fx-font-family: "Segoe UI" !important;
+    -fx-padding: 16px 20px !important;
+    -fx-background-radius: 6px !important;
+    -fx-border-radius: 6px !important;
+    -fx-border-width: 1px !important;
+}
+
+/* Color-coded alert boxes for the content text card */
+.dialog-warning > .content {
+    -fx-background-color: #fffbeb !important;
+    -fx-border-color: #fef3c7 !important;
+    -fx-text-fill: #92400e !important;
+}
+
+.dialog-error > .content {
+    -fx-background-color: #fef2f2 !important;
+    -fx-border-color: #fee2e2 !important;
+    -fx-text-fill: #991b1b !important;
+}
+
+.dialog-confirmation > .content {
+    -fx-background-color: #f0fdf4 !important;
+    -fx-border-color: #dcfce7 !important;
+    -fx-text-fill: #166534 !important;
+}
+
+.dialog-save > .content {
+    -fx-background-color: #eff6ff !important;
+    -fx-border-color: #dbeafe !important;
+    -fx-text-fill: #1e40af !important;
+}
+
+.dialog-information > .content {
+    -fx-background-color: #f8fafc !important;
+    -fx-border-color: #e2e8f0 !important;
+    -fx-text-fill: #334155 !important;
+}
+
+/* Graphic/Icon Container */
+.custom-dialog-pane > .graphic-container {
+    -fx-padding: 20px 0px 20px 20px !important;
+    -fx-background-color: #ffffff !important;
+    -fx-border-radius: 0px !important;
+    -fx-background-radius: 0px !important;
+}
+
+/* Button Bar Area */
+.custom-dialog-pane > .button-bar {
+    -fx-background-color: #f8fafc !important;
+    -fx-padding: 16px 20px !important;
+    -fx-border-color: #e2e8f0 transparent transparent transparent !important;
+    -fx-border-width: 1px 0 0 0 !important;
+    -fx-border-radius: 0px !important;
+    -fx-background-radius: 0px !important;
+}
+
+
 

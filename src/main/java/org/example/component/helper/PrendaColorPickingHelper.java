@@ -87,11 +87,15 @@ public final class PrendaColorPickingHelper {
             case "CUELLO" -> "collar";
             case "PUNO", "PU\u00d1O" -> "cuff";
             case "MALLA" -> "mesh";
+            case "FRANJA_CAMISETA" -> "shirtStripe";
+            case "LINEA_CAMISETA" -> "shirtLinea";
             case "SHORTS", "SHORT_FRONT", "SHORT_BACK" -> "shorts";
             case "FRANJA_SHORTS" -> "shortsStripe";
+            case "LINEA_SHORTS" -> "shortsLinea";
             case "PIQUETE_SHORTS" -> "shortsPicket";
             case "PUNO_SHORTS", "PU\u00d1O_SHORTS" -> "shortsCuff";
             case "MEDIAS" -> "socks";
+            case "MEDIAS_BORDE" -> "socksTop";
             case "DETALLE_MEDIAS" -> "socksDetail";
             default -> null;
         };

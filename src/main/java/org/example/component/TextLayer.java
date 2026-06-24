@@ -21,6 +21,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
 import javafx.scene.transform.Shear;
+import javafx.scene.transform.Transform;
 import javafx.scene.effect.DropShadow;
 import org.example.model.TextShape;
 import org.example.model.TrajectoryPath;
@@ -41,6 +42,7 @@ import java.util.function.Supplier;
 public class TextLayer extends Group implements GraphicLayer {
 
     private final Group textGroup = new Group();
+    private final Group strokeGroup = new Group();
 
     public Group getTextGroup() {
         return textGroup;
@@ -188,7 +190,7 @@ public class TextLayer extends Group implements GraphicLayer {
         handlesGroup.setVisible(false);
         trajectoryEditingGroup.setPickOnBounds(false);
 
-        this.getChildren().addAll(textGroup, border, handlesGroup, trajectoryEditingGroup);
+        this.getChildren().addAll(strokeGroup, textGroup, border, handlesGroup, trajectoryEditingGroup);
 
         // Ensure Group picking is reliable
         this.setPickOnBounds(false);
@@ -390,14 +392,17 @@ public class TextLayer extends Group implements GraphicLayer {
             return;
         isUpdating = true;
         textGroup.getChildren().clear();
+        strokeGroup.getChildren().clear();
         if (textContent == null || textContent.isEmpty()) {
             isUpdating = false;
             return;
         }
 
-        // Build immutable render context
+        // Build immutable render context - PASS TRANSPARENT STROKE to the strategy
+        // so that the text nodes themselves are rendered clean and fill-only,
+        // preventing double/distorted borders on screen.
         RenderContext ctx = new RenderContext(
-                textContent, font, textColor, strokeColor, strokeWidth,
+                textContent, font, textColor, Color.TRANSPARENT, 0,
                 isBold, isItalic, trajectory, logicalWidth, logicalHeight, spacing,
                 textAlignment, fontSize, dropShadowColor, 0, 0, dropShadowEnabled ? 10 : 0, false, textColor,
                 textColor);
@@ -413,21 +418,18 @@ public class TextLayer extends Group implements GraphicLayer {
         // Delegate rendering to the strategy
         strategy.render(this, textGroup, ctx);
 
-        if (dropShadowEnabled) {
-            textGroup.setEffect(new javafx.scene.effect.DropShadow(10, dropShadowColor));
-        } else {
-            textGroup.setEffect(null);
-        }
-
         // --- FINAL FIT: Ensure the text group fits within logical bounds ---
         textGroup.setScaleX(1.0);
         textGroup.setScaleY(1.0);
         textGroup.setTranslateX(0);
         textGroup.setTranslateY(0);
+        
+        double fitX = 1.0;
+        double fitY = 1.0;
         Bounds b = textGroup.getBoundsInLocal();
         if (b.getWidth() > 0 && b.getHeight() > 0) {
-            double fitX = logicalWidth / b.getWidth();
-            double fitY = logicalHeight / b.getHeight();
+            fitX = logicalWidth / b.getWidth();
+            fitY = logicalHeight / b.getHeight();
             // Only apply final stretch if it's straight text to avoid deforming curves
             if (trajectory.getType() == TrajectoryPath.Type.STRAIGHT) {
                 textGroup.setScaleX(fitX);
@@ -439,10 +441,96 @@ public class TextLayer extends Group implements GraphicLayer {
             textGroup.setTranslateY(-parentBounds.getCenterY());
         }
 
+        // Draw the stroke in strokeGroup behind textGroup (ignoring parent scale distortion)
+        if (strokeWidth > 0 && strokeColor != null && strokeColor != Color.TRANSPARENT) {
+            Scale scale = new Scale(
+                trajectory.getType() == TrajectoryPath.Type.STRAIGHT ? fitX : 1.0,
+                trajectory.getType() == TrajectoryPath.Type.STRAIGHT ? fitY : 1.0,
+                b.getCenterX(),
+                b.getCenterY()
+            );
+            
+            for (Node child : textGroup.getChildren()) {
+                if (child instanceof Text textNode) {
+                    Path fillPath = getPristinePath(textNode);
+                    if (fillPath != null) {
+                        Transform localToParent = textNode.getLocalToParentTransform();
+                        Transform combined = scale.createConcatenation(localToParent);
+                        
+                        Path strokePath = org.example.component.helper.VectorBooleanHelper.transformPath(fillPath, combined);
+                        strokePath.setFill(Color.TRANSPARENT);
+                        strokePath.setStroke(strokeColor);
+                        strokePath.setStrokeWidth(strokeWidth);
+                        strokePath.setStrokeType(StrokeType.OUTSIDE);
+                        strokePath.setStrokeLineJoin(StrokeLineJoin.ROUND);
+                        strokePath.setStrokeLineCap(StrokeLineCap.ROUND);
+                        
+                        strokeGroup.getChildren().add(strokePath);
+                    }
+                } else if (child instanceof Group subGrp) {
+                    for (Node subChild : subGrp.getChildren()) {
+                        if (subChild instanceof Text textNode) {
+                            Path fillPath = getPristinePath(textNode);
+                            if (fillPath != null) {
+                                Transform subGrpTransform = subGrp.getLocalToParentTransform();
+                                Transform textTransform = textNode.getLocalToParentTransform();
+                                Transform localToParent = subGrpTransform.createConcatenation(textTransform);
+                                Transform combined = scale.createConcatenation(localToParent);
+                                
+                                Path strokePath = org.example.component.helper.VectorBooleanHelper.transformPath(fillPath, combined);
+                                strokePath.setFill(Color.TRANSPARENT);
+                                strokePath.setStroke(strokeColor);
+                                strokePath.setStrokeWidth(strokeWidth);
+                                strokePath.setStrokeType(StrokeType.OUTSIDE);
+                                strokePath.setStrokeLineJoin(StrokeLineJoin.ROUND);
+                                strokePath.setStrokeLineCap(StrokeLineCap.ROUND);
+                                
+                                strokeGroup.getChildren().add(strokePath);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Align strokeGroup exactly with textGroup position
+            strokeGroup.setTranslateX(textGroup.getTranslateX());
+            strokeGroup.setTranslateY(textGroup.getTranslateY());
+        }
+
+        if (dropShadowEnabled) {
+            textGroup.setEffect(new javafx.scene.effect.DropShadow(10, dropShadowColor));
+        } else {
+            textGroup.setEffect(null);
+        }
+
         updateUI();
         if (isInitialized)
             notifyVisualChange();
         isUpdating = false;
+    }
+
+    private Path getPristinePath(Text source) {
+        Text clone = new Text(source.getText());
+        clone.setFont(source.getFont());
+        clone.setX(source.getX());
+        clone.setY(source.getY());
+        clone.setTextOrigin(source.getTextOrigin());
+        clone.setBoundsType(source.getBoundsType());
+        clone.setFontSmoothingType(source.getFontSmoothingType());
+        clone.setTextAlignment(source.getTextAlignment());
+        clone.setLineSpacing(source.getLineSpacing());
+        clone.setWrappingWidth(source.getWrappingWidth());
+        
+        clone.setStrokeWidth(0);
+        clone.setStroke(javafx.scene.paint.Color.TRANSPARENT);
+        
+        return toPath(clone);
+    }
+
+    private Path toPath(Shape shape) {
+        if (shape == null) return null;
+        Shape pathShape = Shape.union(shape, new Path());
+        return (pathShape instanceof Path) ? (Path) pathShape : null;
     }
 
     private Group createCharStack(char c, double sx, double sy) {

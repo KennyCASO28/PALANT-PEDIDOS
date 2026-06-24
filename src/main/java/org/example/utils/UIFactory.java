@@ -423,15 +423,74 @@ public class UIFactory {
 
     public static void estilizarDialogo(javafx.scene.control.Dialog<?> dialog) {
         javafx.scene.control.DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.setStyle(
-                "-fx-background-color: #ffffff; -fx-font-family: 'Segoe UI'; -fx-font-size: 13px;");
+        dialogPane.setStyle("-fx-font-family: 'Segoe UI'; -fx-font-size: 13px;");
+        dialogPane.getStyleClass().add("custom-dialog-pane");
+
+        boolean isSaveRelated = false;
+        if (dialog.getTitle() != null) {
+            String titleLower = dialog.getTitle().toLowerCase();
+            if (titleLower.contains("guardar") || titleLower.contains("cambios") || titleLower.contains("salvar")) {
+                isSaveRelated = true;
+            }
+        }
 
         if (dialog instanceof javafx.scene.control.Alert) {
-            dialogPane.setMaxWidth(480);
-            dialogPane.setPrefWidth(480);
+            javafx.scene.control.Alert alert = (javafx.scene.control.Alert) dialog;
+            if (alert.getHeaderText() == null || alert.getHeaderText().trim().isEmpty()) {
+                switch (alert.getAlertType()) {
+                    case WARNING -> alert.setHeaderText("Advertencia");
+                    case CONFIRMATION -> {
+                        if (isSaveRelated) {
+                            alert.setHeaderText("Guardar Cambios");
+                        } else {
+                            alert.setHeaderText("Confirmación");
+                        }
+                    }
+                    case ERROR -> alert.setHeaderText("Error");
+                    case INFORMATION -> alert.setHeaderText("Información");
+                    default -> alert.setHeaderText("Mensaje");
+                }
+            }
+        }
+
+        if (dialog.getHeaderText() != null) {
+            String headerLower = dialog.getHeaderText().toLowerCase();
+            if (headerLower.contains("guardar") || headerLower.contains("cambios") || headerLower.contains("salvar")) {
+                isSaveRelated = true;
+            }
+        }
+
+        if (dialog instanceof javafx.scene.control.Alert) {
+            javafx.scene.control.Alert alert = (javafx.scene.control.Alert) dialog;
+            int width = 480;
+            if (alert.getAlertType() == javafx.scene.control.Alert.AlertType.CONFIRMATION || isSaveRelated) {
+                width = 540; // Expand width to prevent button text truncation when multiple options are present
+            }
+            dialogPane.setMaxWidth(width);
+            dialogPane.setPrefWidth(width);
+            if (alert.getAlertType() != null) {
+                switch (alert.getAlertType()) {
+                    case WARNING -> dialogPane.getStyleClass().add("dialog-warning");
+                    case CONFIRMATION -> {
+                        if (isSaveRelated) {
+                            dialogPane.getStyleClass().add("dialog-save");
+                        } else {
+                            dialogPane.getStyleClass().add("dialog-confirmation");
+                        }
+                    }
+                    case ERROR -> dialogPane.getStyleClass().add("dialog-error");
+                    case INFORMATION -> dialogPane.getStyleClass().add("dialog-information");
+                    default -> {}
+                }
+            }
         } else {
             dialogPane.setMaxWidth(500);
             dialogPane.setPrefWidth(500);
+            if (isSaveRelated) {
+                dialogPane.getStyleClass().add("dialog-save");
+            } else {
+                dialogPane.getStyleClass().add("dialog-confirmation");
+            }
         }
 
         // Auto-Center dialog on active window
@@ -528,8 +587,8 @@ public class UIFactory {
                                  "-fx-faint-focus-color: transparent !important; " +
                                  "-fx-border-width: 0 !important; " +
                                  "-fx-effect: null !important; " +
-                                 "-fx-min-width: 110px !important; " +
-                                 "-fx-padding: 8px 12px !important; " +
+                                 "-fx-min-width: 135px !important; " +
+                                 "-fx-padding: 8px 16px !important; " +
                                  "-fx-cursor: hand !important; " +
                                  "-fx-background-radius: 6px !important;");
                 }

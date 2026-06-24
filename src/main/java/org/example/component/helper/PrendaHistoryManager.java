@@ -34,10 +34,20 @@ public class PrendaHistoryManager {
     // Optional listener to update UI
     private Consumer<Boolean> onHistoryChanged;
 
-    // VISUALIZER REFERENCE for Context-Aware Undo
+    // Visualizer reference for context-aware undo
     private org.example.component.PrendaVisualizer visualizer;
 
+    private boolean recording = true;
+
     public PrendaHistoryManager() {
+    }
+
+    public void setRecording(boolean recording) {
+        this.recording = recording;
+    }
+
+    public boolean isRecording() {
+        return recording;
     }
 
     public void setVisualizer(org.example.component.PrendaVisualizer visualizer) {
@@ -130,7 +140,7 @@ public class PrendaHistoryManager {
     // --- Core Add Command ---
 
     public void addCommand(ICommand cmd) {
-        if (cmd == null) return;
+        if (cmd == null || !recording) return;
 
         // If inside a transaction, buffer the command
         if (inTransaction) {

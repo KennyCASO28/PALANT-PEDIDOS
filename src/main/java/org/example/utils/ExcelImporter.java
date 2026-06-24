@@ -48,10 +48,21 @@ public class ExcelImporter {
                 Row row = rowIterator.next();
 
                 // Usamos los índices detectados de la cabecera
-                String nombre = getCellValue(row.getCell(colNombre));
-                String talla = getCellValue(row.getCell(colTalla));
-                String numero = getCellValue(row.getCell(colNumero));
-                String genero = getCellValue(row.getCell(colGenero));
+                String nombre = getCellValue(row.getCell(colNombre)).trim();
+                String talla = getCellValue(row.getCell(colTalla)).trim();
+                String numero = getCellValue(row.getCell(colNumero)).trim();
+                String generoRaw = getCellValue(row.getCell(colGenero)).trim();
+
+                // Normalizar género a HOMBRE o MUJER
+                String genero = "HOMBRE";
+                if (!generoRaw.isEmpty()) {
+                    String gClean = generoRaw.toUpperCase();
+                    if (gClean.equals("MUJER") || gClean.equals("FEMENINO") || gClean.equals("FEM") || gClean.equals("F") || gClean.contains("FEM")) {
+                        genero = "MUJER";
+                    } else if (gClean.equals("HOMBRE") || gClean.equals("MASCULINO") || gClean.equals("MAS") || gClean.equals("M") || gClean.equals("H") || gClean.contains("MAS")) {
+                        genero = "HOMBRE";
+                    }
+                }
 
                 if (!nombre.isEmpty()) {
                     DetallePedido p = new DetallePedido(nombre, numero, talla, genero);

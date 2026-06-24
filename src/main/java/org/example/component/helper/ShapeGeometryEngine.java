@@ -68,6 +68,7 @@ public final class ShapeGeometryEngine {
             } else {
                 if (svgPathData != null) svg.setContent(svgPathData);
             }
+            svg.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
             svg.setScaleX(1); 
             svg.setScaleY(1);
         }

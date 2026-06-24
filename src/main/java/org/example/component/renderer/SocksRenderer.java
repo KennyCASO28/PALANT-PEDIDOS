@@ -178,5 +178,11 @@ public class SocksRenderer extends BaseGarmentRenderer {
     public void setShirtLinea(boolean hasLinea) {
         // SocksRenderer does not handle shirt lines
     }
+
+    @Override
+    public SVGPath getSocksTop() { return socksTop; }
+
+    @Override
+    public SVGPath getSocksDetail() { return socksDetail; }
 }
 

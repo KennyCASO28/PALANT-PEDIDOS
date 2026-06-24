@@ -64,49 +64,73 @@ public class TechnicalSheetSketchService {
         HBox sketchBox = new HBox(15);
         sketchBox.setPrefHeight(sketchHeight);
 
-        StackPane leftPane = new StackPane();
-        leftPane.setMinSize(arqSketchMujer != null ? 260.0 : 530.0, sketchHeight - 20);
-        leftPane.setPrefSize(arqSketchMujer != null ? 260.0 : 530.0, sketchHeight - 20);
-        leftPane.setMaxSize(arqSketchMujer != null ? 260.0 : 530.0, sketchHeight - 20);
+        if (arqSketchHombre != null && arqSketchMujer != null) {
+            StackPane leftPane = new StackPane();
+            leftPane.setMinSize(260.0, sketchHeight - 20);
+            leftPane.setPrefSize(260.0, sketchHeight - 20);
+            leftPane.setMaxSize(260.0, sketchHeight - 20);
 
-        StackPane rightPane = new StackPane();
-        rightPane.setMinSize(arqSketchHombre != null ? 260.0 : 530.0, sketchHeight - 20);
-        rightPane.setPrefSize(arqSketchHombre != null ? 260.0 : 530.0, sketchHeight - 20);
-        rightPane.setMaxSize(arqSketchHombre != null ? 260.0 : 530.0, sketchHeight - 20);
+            ImageView ivH = new ImageView(arqSketchHombre);
+            ivH.setPreserveRatio(true);
+            ivH.setFitWidth(260.0);
+            ivH.setFitHeight(sketchHeight - 20);
+            ivH.setSmooth(true);
+            ivH.setCache(false);
+            StackPane.setAlignment(ivH, Pos.CENTER);
+            leftPane.getChildren().add(ivH);
+            sketchBox.getChildren().add(leftPane);
 
-        if (arqSketchHombre != null) {
-            ImageView iv = new ImageView(arqSketchHombre);
-            double maxW = arqSketchMujer != null ? 260.0 : 530.0;
-            double maxH = sketchHeight - 20;
-            iv.setPreserveRatio(true);
-            iv.setFitWidth(maxW);
-            iv.setFitHeight(maxH); // Asegurar que no exceda el alto permitido
-            iv.setSmooth(true);
-            iv.setCache(false);
-            StackPane.setAlignment(iv, Pos.CENTER);
-            leftPane.getChildren().add(iv);
-        }
-        if (arqSketchMujer != null) {
-            ImageView iv = new ImageView(arqSketchMujer);
-            double maxW = arqSketchHombre != null ? 260.0 : 530.0;
-            double maxH = sketchHeight - 20;
-            iv.setPreserveRatio(true);
-            iv.setFitWidth(maxW);
-            iv.setFitHeight(maxH); // Asegurar que no exceda el alto permitido
-            iv.setSmooth(true);
-            iv.setCache(false);
-            StackPane.setAlignment(iv, Pos.CENTER);
-            rightPane.getChildren().add(iv);
-        }
+            StackPane rightPane = new StackPane();
+            rightPane.setMinSize(260.0, sketchHeight - 20);
+            rightPane.setPrefSize(260.0, sketchHeight - 20);
+            rightPane.setMaxSize(260.0, sketchHeight - 20);
 
-        sketchBox.getChildren().add(leftPane);
-        if (arqSketchMujer != null) {
+            ImageView ivM = new ImageView(arqSketchMujer);
+            ivM.setPreserveRatio(true);
+            ivM.setFitWidth(260.0);
+            ivM.setFitHeight(sketchHeight - 20);
+            ivM.setSmooth(true);
+            ivM.setCache(false);
+            StackPane.setAlignment(ivM, Pos.CENTER);
+            rightPane.getChildren().add(ivM);
+            sketchBox.getChildren().add(rightPane);
+        } else if (arqSketchHombre != null) {
+            StackPane leftPane = new StackPane();
+            leftPane.setMinSize(530.0, sketchHeight - 20);
+            leftPane.setPrefSize(530.0, sketchHeight - 20);
+            leftPane.setMaxSize(530.0, sketchHeight - 20);
+
+            ImageView ivH = new ImageView(arqSketchHombre);
+            ivH.setPreserveRatio(true);
+            ivH.setFitWidth(530.0);
+            ivH.setFitHeight(sketchHeight - 20);
+            ivH.setSmooth(true);
+            ivH.setCache(false);
+            StackPane.setAlignment(ivH, Pos.CENTER);
+            leftPane.getChildren().add(ivH);
+            sketchBox.getChildren().add(leftPane);
+        } else if (arqSketchMujer != null) {
+            StackPane rightPane = new StackPane();
+            rightPane.setMinSize(530.0, sketchHeight - 20);
+            rightPane.setPrefSize(530.0, sketchHeight - 20);
+            rightPane.setMaxSize(530.0, sketchHeight - 20);
+
+            ImageView ivM = new ImageView(arqSketchMujer);
+            ivM.setPreserveRatio(true);
+            ivM.setFitWidth(530.0);
+            ivM.setFitHeight(sketchHeight - 20);
+            ivM.setSmooth(true);
+            ivM.setCache(false);
+            StackPane.setAlignment(ivM, Pos.CENTER);
+            rightPane.getChildren().add(ivM);
             sketchBox.getChildren().add(rightPane);
         }
 
         VBox extrasBox = new VBox(8);
         extrasBox.setPadding(new Insets(5));
         extrasBox.setAlignment(Pos.TOP_CENTER);
+        extrasBox.setMinWidth(170);
+        extrasBox.setPrefWidth(170);
         Label lblSpecs = new Label("ESPECIFICACIONES:");
         lblSpecs.getStyleClass().add("ficha-specs-label");
         extrasBox.getChildren().add(lblSpecs);

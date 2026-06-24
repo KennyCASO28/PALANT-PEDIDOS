@@ -567,6 +567,9 @@ public class UserLayerManager {
             }
         }
 
+        // Sort toGroup by their original index in parentGroup to preserve layer hierarchy
+        toGroup.sort(java.util.Comparator.comparingInt(parentGroup.getChildren()::indexOf));
+
         isGrouping = true; // Lock
         // PERF: Suspend updates to prevent UI freeze during batch remove/add
         suspendNotifications();

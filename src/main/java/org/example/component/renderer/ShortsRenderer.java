@@ -184,4 +184,16 @@ public class ShortsRenderer extends BaseGarmentRenderer {
     public void setShirtLinea(boolean hasLinea) {
         // ShortsRenderer does not handle shirt lines
     }
+
+    @Override
+    public SVGPath getShortsStripe() { return shortsStripe; }
+
+    @Override
+    public SVGPath getShortsLinea() { return shortsLinea; }
+
+    @Override
+    public SVGPath getShortsPicket() { return shortsPicket; }
+
+    @Override
+    public SVGPath getShortsCuff() { return shortsCuff; }
 }

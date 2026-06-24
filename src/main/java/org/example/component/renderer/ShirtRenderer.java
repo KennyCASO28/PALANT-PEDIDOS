@@ -465,4 +465,19 @@ public class ShirtRenderer extends BaseGarmentRenderer {
         double brightness = c.getBrightness();
         return brightness < 0.05;
     }
+
+    @Override
+    public SVGPath getCollar() { return collar; }
+
+    @Override
+    public SVGPath getCuffs() { return cuffs; }
+
+    @Override
+    public SVGPath getMesh() { return mesh; }
+
+    @Override
+    public SVGPath getShirtStripe() { return shirtStripe; }
+
+    @Override
+    public SVGPath getShirtLinea() { return shirtLinea; }
 }

@@ -23,7 +23,131 @@ public class GarmentZoneService {
      * @return El nombre de la zona ("PECHO", "ESPALDA", "MANGA_DELANTERA", etc.) o null si no hay coincidencia.
      */
     public String detectZone(double sceneX, double sceneY) {
-        // Shirt Logic
+        // 1. Shirt Detail Logic (cuffs, collar, mesh, stripes, lines)
+        if (visualizer.hasShirt()) {
+            org.example.component.renderer.GarmentRenderer r = visualizer.getActiveShirtRenderer();
+            
+            // Check Collar
+            javafx.scene.shape.SVGPath collar = r.getCollar();
+            if (collar != null && collar.isVisible()) {
+                Point2D localCollar = collar.sceneToLocal(sceneX, sceneY);
+                if (collar.getBoundsInLocal().contains(localCollar) && collar.contains(localCollar)) {
+                    return "CUELLO";
+                }
+            }
+
+            // Check Cuffs
+            javafx.scene.shape.SVGPath cuffs = r.getCuffs();
+            if (cuffs != null && cuffs.isVisible()) {
+                Point2D localCuffs = cuffs.sceneToLocal(sceneX, sceneY);
+                if (cuffs.getBoundsInLocal().contains(localCuffs) && cuffs.contains(localCuffs)) {
+                    return "PUNO";
+                }
+            }
+
+            // Check Mesh
+            javafx.scene.shape.SVGPath mesh = r.getMesh();
+            if (mesh != null && mesh.isVisible()) {
+                Point2D localMesh = mesh.sceneToLocal(sceneX, sceneY);
+                if (mesh.getBoundsInLocal().contains(localMesh) && mesh.contains(localMesh)) {
+                    return "MALLA";
+                }
+            }
+
+            // Check Shirt Stripe
+            javafx.scene.shape.SVGPath shirtStripe = r.getShirtStripe();
+            if (shirtStripe != null && shirtStripe.isVisible()) {
+                Point2D localStripe = shirtStripe.sceneToLocal(sceneX, sceneY);
+                if (shirtStripe.getBoundsInLocal().contains(localStripe) && shirtStripe.contains(localStripe)) {
+                    return "FRANJA_CAMISETA";
+                }
+            }
+
+            // Check Shirt Line
+            javafx.scene.shape.SVGPath shirtLinea = r.getShirtLinea();
+            if (shirtLinea != null && shirtLinea.isVisible()) {
+                Point2D localLinea = shirtLinea.sceneToLocal(sceneX, sceneY);
+                if (shirtLinea.getBoundsInLocal().contains(localLinea) && shirtLinea.contains(localLinea)) {
+                    return "LINEA_CAMISETA";
+                }
+            }
+        }
+
+        // 2. Shorts Detail Logic (stripes, lines, pickets, cuffs)
+        if (visualizer.hasShorts()) {
+            org.example.component.renderer.GarmentRenderer r = visualizer.getActiveShortsRenderer();
+
+            // Check Shorts Stripe
+            javafx.scene.shape.SVGPath shortsStripe = r.getShortsStripe();
+            if (shortsStripe != null && shortsStripe.isVisible()) {
+                Point2D localStripe = shortsStripe.sceneToLocal(sceneX, sceneY);
+                if (shortsStripe.getBoundsInLocal().contains(localStripe) && shortsStripe.contains(localStripe)) {
+                    return "FRANJA_SHORTS";
+                }
+            }
+
+            // Check Shorts Line
+            javafx.scene.shape.SVGPath shortsLinea = r.getShortsLinea();
+            if (shortsLinea != null && shortsLinea.isVisible()) {
+                Point2D localLinea = shortsLinea.sceneToLocal(sceneX, sceneY);
+                if (shortsLinea.getBoundsInLocal().contains(localLinea) && shortsLinea.contains(localLinea)) {
+                    return "LINEA_SHORTS";
+                }
+            }
+
+            // Check Shorts Picket
+            javafx.scene.shape.SVGPath shortsPicket = r.getShortsPicket();
+            if (shortsPicket != null && shortsPicket.isVisible()) {
+                Point2D localPicket = shortsPicket.sceneToLocal(sceneX, sceneY);
+                if (shortsPicket.getBoundsInLocal().contains(localPicket) && shortsPicket.contains(localPicket)) {
+                    return "PIQUETE_SHORTS";
+                }
+            }
+
+            // Check Shorts Cuff
+            javafx.scene.shape.SVGPath shortsCuff = r.getShortsCuff();
+            if (shortsCuff != null && shortsCuff.isVisible()) {
+                Point2D localCuff = shortsCuff.sceneToLocal(sceneX, sceneY);
+                if (shortsCuff.getBoundsInLocal().contains(localCuff) && shortsCuff.contains(localCuff)) {
+                    return "PUNO_SHORTS";
+                }
+            }
+        }
+
+        // 3. Socks Logic (borde/top, detalles, base)
+        if (visualizer.hasSocks()) {
+            org.example.component.renderer.GarmentRenderer r = visualizer.getActiveSocksRenderer();
+            if (r != null) {
+                // Check Socks Top
+                javafx.scene.shape.SVGPath socksTop = r.getSocksTop();
+                if (socksTop != null && socksTop.isVisible()) {
+                    Point2D localTop = socksTop.sceneToLocal(sceneX, sceneY);
+                    if (socksTop.getBoundsInLocal().contains(localTop) && socksTop.contains(localTop)) {
+                        return "MEDIAS_BORDE";
+                    }
+                }
+
+                // Check Socks Detail
+                javafx.scene.shape.SVGPath socksDetail = r.getSocksDetail();
+                if (socksDetail != null && socksDetail.isVisible()) {
+                    Point2D localDetail = socksDetail.sceneToLocal(sceneX, sceneY);
+                    if (socksDetail.getBoundsInLocal().contains(localDetail) && socksDetail.contains(localDetail)) {
+                        return "DETALLE_MEDIAS";
+                    }
+                }
+
+                // Check Socks Body
+                javafx.scene.shape.SVGPath socksBody = r.getBody();
+                if (socksBody != null && socksBody.isVisible()) {
+                    Point2D localBody = socksBody.sceneToLocal(sceneX, sceneY);
+                    if (socksBody.getBoundsInLocal().contains(localBody) && socksBody.contains(localBody)) {
+                        return "MEDIAS";
+                    }
+                }
+            }
+        }
+
+        // 4. Base Shirt Logic (body, sleeves)
         if (visualizer.hasShirt()) {
             javafx.scene.shape.SVGPath body = visualizer.getActiveShirtRenderer().getBody();
             Point2D localBody = body.sceneToLocal(sceneX, sceneY);
@@ -82,7 +206,7 @@ public class GarmentZoneService {
             }
         }
 
-        // Shorts Logic
+        // 5. Base Shorts Logic
         if (visualizer.hasShorts()) {
             javafx.scene.shape.SVGPath shorts = visualizer.getActiveShortsRenderer().getShorts();
             Point2D localShorts = shorts.sceneToLocal(sceneX, sceneY);

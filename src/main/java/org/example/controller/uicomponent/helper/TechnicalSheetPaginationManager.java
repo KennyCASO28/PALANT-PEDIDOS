@@ -195,8 +195,8 @@ public class TechnicalSheetPaginationManager {
             List<DetallePedido> rem = new ArrayList<>(sub.items);
             boolean p1 = true;
             while (!rem.isEmpty()) {
-                int lim = (first && hasArq) ? 12 : 40, space = lim - usage;
-                if (space <= 0) { result.addAll(flushPage(buffer)); buffer.clear(); usage = 0; first = false; space = 40; }
+                int lim = (first && hasArq) ? 24 : 80, space = lim - usage;
+                if (space <= 0) { result.addAll(flushPage(buffer)); buffer.clear(); usage = 0; first = false; space = 80; }
                 int take = Math.min(rem.size(), space);
                 buffer.add(new SubListInfo(new ArrayList<>(rem.subList(0, take)), sub.title + (p1 ? "" : " (CONTINUACION)")));
                 usage += take; p1 = false; rem = rem.subList(take, rem.size());
@@ -235,9 +235,10 @@ public class TechnicalSheetPaginationManager {
         }
         if (!det.isEmpty()) {
             int i = 0; while (i < det.size()) {
-                int take = Math.min(det.size() - i, (i == 0 && limitFirst) ? 12 : 40);
+                int take = Math.min(det.size() - i, (i == 0 && limitFirst) ? 24 : 80);
+                int half = (take + 1) / 2;
                 VBox box = buildContainer(title, i == 0 ? "" : " (CONT)", width); box.getChildren().add(createMergedRoster(det.subList(i, i + take), width));
-                chunks.add(new RosterChunk(box, 32 + (take * 30) + 40)); i += take;
+                chunks.add(new RosterChunk(box, 32 + (half * 30) + 40)); i += take;
             }
         }
         return chunks;
@@ -280,21 +281,68 @@ public class TechnicalSheetPaginationManager {
         return g;
     }
 
-    private static GridPane createMergedRoster(List<DetallePedido> list, double w) {
-        GridPane g = new GridPane(); g.setMinWidth(w-2);
-        addCell(g, "TALLA", 0, 0, "ficha-table-header-dark", Pos.CENTER, 80); 
-        addCell(g, "NOMBRE", 1, 0, "ficha-table-header-dark", Pos.CENTER, w - 160); 
-        addCell(g, "NUMERO", 2, 0, "ficha-table-header-dark", Pos.CENTER, 80);
+    private static Pane createMergedRoster(List<DetallePedido> list, double w) {
+        HBox hbox = new HBox(12);
+        hbox.setMinWidth(w - 2);
+        hbox.setAlignment(Pos.TOP_CENTER);
+        
+        int n = list.size();
+        int half = (n + 1) / 2;
+        List<DetallePedido> leftList = list.subList(0, half);
+        List<DetallePedido> rightList = list.subList(half, n);
+        
+        double tableWidth = (w - 32) / 2.0;
+        
+        GridPane leftGrid = createSingleRosterTable(leftList, tableWidth);
+        hbox.getChildren().add(leftGrid);
+        
+        if (!rightList.isEmpty()) {
+            GridPane rightGrid = createSingleRosterTable(rightList, tableWidth);
+            hbox.getChildren().add(rightGrid);
+        } else {
+            Region spacer = new Region();
+            spacer.setMinWidth(tableWidth);
+            spacer.setMaxWidth(tableWidth);
+            spacer.setPrefWidth(tableWidth);
+            hbox.getChildren().add(spacer);
+        }
+        
+        return hbox;
+    }
+
+    private static GridPane createSingleRosterTable(List<DetallePedido> list, double w) {
+        GridPane g = new GridPane(); 
+        g.setMinWidth(w);
+        g.setMaxWidth(w);
+        g.setPrefWidth(w);
+        
+        ColumnConstraints c0 = new ColumnConstraints(45);
+        ColumnConstraints c1 = new ColumnConstraints(w - 90);
+        ColumnConstraints c2 = new ColumnConstraints(45);
+        g.getColumnConstraints().addAll(c0, c1, c2);
+
+        addCell(g, "TALLA", 0, 0, "ficha-table-header-dark", Pos.CENTER, 45); 
+        addCell(g, "NOMBRE", 1, 0, "ficha-table-header-dark", Pos.CENTER, w - 90); 
+        addCell(g, "Nº", 2, 0, "ficha-table-header-dark", Pos.CENTER, 45);
         int r = 1; Map<String, List<DetallePedido>> m = new LinkedHashMap<>();
         list.forEach(p -> m.computeIfAbsent(TechnicalSheetDataService.getSizeDisplay(p), k -> new ArrayList<>()).add(p));
         for (Map.Entry<String, List<DetallePedido>> e : m.entrySet()) {
             StackPane s = new StackPane(new Label(e.getKey())); 
             s.getStyleClass().add("ficha-row-side");
+            s.setMinWidth(45);
+            s.setMaxWidth(45);
+            s.setPrefWidth(45);
             g.add(s, 0, r); GridPane.setRowSpan(s, e.getValue().size());
+            if (!s.getChildren().isEmpty() && s.getChildren().get(0) instanceof Label lbl) {
+                lbl.setMinWidth(45);
+                lbl.setMaxWidth(45);
+                lbl.setPrefWidth(45);
+                lbl.setAlignment(Pos.CENTER);
+            }
             for (DetallePedido p : e.getValue()) {
                 String bgClass = (r % 2 == 0) ? "ficha-row-even" : "ficha-row-odd";
-                addCell(g, p.getNombre(), 1, r, bgClass, Pos.CENTER_LEFT, w - 160);
-                addCell(g, p.getNumero(), 2, r, bgClass, Pos.CENTER, 80);
+                addCell(g, p.getNombre(), 1, r, bgClass, Pos.CENTER_LEFT, w - 90);
+                addCell(g, p.getNumero(), 2, r, bgClass, Pos.CENTER, 45);
                 r++;
             }
         }
@@ -305,9 +353,14 @@ public class TechnicalSheetPaginationManager {
         Label l = new Label(t == null ? "" : t); 
         l.setAlignment(a); 
         l.setMinWidth(w); 
+        l.setMaxWidth(w);
+        l.setPrefWidth(w);
         l.getStyleClass().add("ficha-table-cell");
         StackPane p = new StackPane(l); 
         p.getStyleClass().add(bgClass);
+        p.setMinWidth(w);
+        p.setMaxWidth(w);
+        p.setPrefWidth(w);
         p.setAlignment(a); g.add(p, c, r);
     }
 

@@ -155,6 +155,9 @@ public class ProjectSaveManager {
         }
 
         controller.isRestoringDesign = true;
+        if (controller.prendaVisualizer.getHistoryManager() != null) {
+            controller.prendaVisualizer.getHistoryManager().setRecording(false);
+        }
         try {
             org.example.dto.save.ProjectState state = org.example.service.save.ProjectManager.loadProject(file);
 
@@ -264,6 +267,10 @@ public class ProjectSaveManager {
             UIFactory.mostrarAlerta(javafx.scene.control.Alert.AlertType.ERROR, "Error", "Error al cargar el proyecto: " + e.getMessage());
         } finally {
             controller.isRestoringDesign = false;
+            if (controller.prendaVisualizer.getHistoryManager() != null) {
+                controller.prendaVisualizer.getHistoryManager().setRecording(true);
+                controller.prendaVisualizer.getHistoryManager().clearHistory();
+            }
         }
         return false;
     }

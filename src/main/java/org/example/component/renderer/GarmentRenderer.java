@@ -31,4 +31,18 @@ public interface GarmentRenderer {
     default javafx.scene.shape.SVGPath getSleeves() { return null; }
     default javafx.scene.shape.SVGPath getBrandBase() { return null; }
     default javafx.scene.shape.SVGPath getBrandDetail() { return null; }
+
+    default javafx.scene.shape.SVGPath getCollar() { return null; }
+    default javafx.scene.shape.SVGPath getCuffs() { return null; }
+    default javafx.scene.shape.SVGPath getMesh() { return null; }
+    default javafx.scene.shape.SVGPath getShirtStripe() { return null; }
+    default javafx.scene.shape.SVGPath getShirtLinea() { return null; }
+
+    default javafx.scene.shape.SVGPath getShortsStripe() { return null; }
+    default javafx.scene.shape.SVGPath getShortsLinea() { return null; }
+    default javafx.scene.shape.SVGPath getShortsPicket() { return null; }
+    default javafx.scene.shape.SVGPath getShortsCuff() { return null; }
+
+    default javafx.scene.shape.SVGPath getSocksTop() { return null; }
+    default javafx.scene.shape.SVGPath getSocksDetail() { return null; }
 }
