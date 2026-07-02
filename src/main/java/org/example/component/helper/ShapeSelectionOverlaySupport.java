@@ -178,6 +178,7 @@ public final class ShapeSelectionOverlaySupport {
         }
 
         applyAntiScale(nodes, state.scaleTransform().getX(), state.scaleTransform().getY(), state.viewportScale());
+        applyAntiShear(nodes, state.shearTransform());
 
         updatePivotTransforms(
                 state.rotateTransform(),

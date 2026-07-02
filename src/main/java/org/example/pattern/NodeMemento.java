@@ -43,6 +43,7 @@ public class NodeMemento {
     private TrajectoryPath trajectoryPath = null;
     private java.util.List<org.example.model.BezierNode> bezierNodes = null;
     private String svgPathData = null;
+    private java.util.List<NodeMemento> childMementos = null;
 
     public NodeMemento(Node node) {
         this.node = node;
@@ -107,11 +108,19 @@ public class NodeMemento {
             this.isx = gl.getInternalScaleX();
             this.isy = gl.getInternalScaleY();
             this.irot = gl.getInternalRotation();
+            this.childMementos = new java.util.ArrayList<>();
+            for (Node child : gl.getUserLayers()) {
+                this.childMementos.add(new NodeMemento(child));
+            }
         } else if (node instanceof GroupLayerV2) {
             GroupLayerV2 gl20 = (GroupLayerV2) node;
             this.isx = gl20.getInternalScaleX();
             this.isy = gl20.getInternalScaleY();
             this.irot = gl20.getInternalRotation();
+            this.childMementos = new java.util.ArrayList<>();
+            for (Node child : gl20.getUserLayers()) {
+                this.childMementos.add(new NodeMemento(child));
+            }
         } else if (node instanceof TextLayer) {
             TextLayer tl = (TextLayer) node;
             this.isx = tl.getInternalScaleX();
@@ -282,11 +291,39 @@ public class NodeMemento {
             gl.setInternalScaleX(isx);
             gl.setInternalScaleY(isy);
             gl.setInternalRotation(irot);
+            if (this.childMementos != null) {
+                for (NodeMemento cm : this.childMementos) {
+                    cm.restore();
+                }
+            }
         } else if (node instanceof GroupLayerV2) {
             GroupLayerV2 glv2 = (GroupLayerV2) node;
             glv2.setInternalScaleX(isx);
             glv2.setInternalScaleY(isy);
             glv2.setInternalRotation(irot);
+            if (this.childMementos != null) {
+                // CRITICAL FIX: We must use addChild() (not raw cm.restore()) to keep
+                // userLayers in sync with contentGroup.getChildren(). If we just call
+                // cm.restore(), the child is added to contentGroup.getChildren() directly
+                // but userLayers stays empty — so getUserLayers() (used by ungroup) returns
+                // nothing, causing a "group disappears on second ungroup" bug.
+                //
+                // Clear existing children first to avoid duplicates from repeated restores.
+                java.util.List<Node> existingChildren = new java.util.ArrayList<>(glv2.getUserLayers());
+                for (Node existing : existingChildren) {
+                    glv2.removeChild(existing);
+                }
+                for (NodeMemento cm : this.childMementos) {
+                    Node childNode = cm.node;
+                    // Remove from any current parent to avoid JavaFX "already has parent" error
+                    if (childNode.getParent() instanceof Group) {
+                        ((Group) childNode.getParent()).getChildren().remove(childNode);
+                    }
+                    glv2.addChild(childNode);
+                    // Now restore transforms (position/scale/rotation) without re-parenting
+                    cm.restoreTransformsOnly();
+                }
+            }
         } else if (node instanceof TextLayer) {
             TextLayer tl = (TextLayer) node;
             tl.setInternalScaleX(isx);

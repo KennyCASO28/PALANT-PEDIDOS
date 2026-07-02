@@ -466,4 +466,63 @@ public final class ShapePathSupport {
             return bounds;
         }
     }
+
+    public static List<BezierNode> parseSvgPath(String pathData) {
+        if (pathData == null || pathData.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            List<BezierNode> nodes = new ArrayList<>();
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile("[MLCZSmlczs]|[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");
+            java.util.regex.Matcher m = p.matcher(pathData);
+            List<String> tokens = new ArrayList<>();
+            while (m.find()) {
+                tokens.add(m.group());
+            }
+
+            int i = 0;
+            BezierNode current = null;
+            while (i < tokens.size()) {
+                String token = tokens.get(i);
+                if (token.equalsIgnoreCase("M")) {
+                    double x = Double.parseDouble(tokens.get(i + 1));
+                    double y = Double.parseDouble(tokens.get(i + 2));
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    nodes.add(current);
+                    i += 3;
+                } else if (token.equalsIgnoreCase("C")) {
+                    double cx1 = Double.parseDouble(tokens.get(i + 1));
+                    double cy1 = Double.parseDouble(tokens.get(i + 2));
+                    double cx2 = Double.parseDouble(tokens.get(i + 3));
+                    double cy2 = Double.parseDouble(tokens.get(i + 4));
+                    double x = Double.parseDouble(tokens.get(i + 5));
+                    double y = Double.parseDouble(tokens.get(i + 6));
+
+                    if (current != null) {
+                        current.control2 = new Point2D(cx1, cy1);
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(cx2, cy2), new Point2D(x, y));
+                    nodes.add(current);
+                    i += 7;
+                } else if (token.equalsIgnoreCase("L")) {
+                    double x = Double.parseDouble(tokens.get(i + 1));
+                    double y = Double.parseDouble(tokens.get(i + 2));
+                    if (current != null) {
+                        current.control2 = current.anchor;
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    nodes.add(current);
+                    i += 3;
+                } else if (token.equalsIgnoreCase("Z")) {
+                    i++;
+                } else {
+                    i++;
+                }
+            }
+            return nodes;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }

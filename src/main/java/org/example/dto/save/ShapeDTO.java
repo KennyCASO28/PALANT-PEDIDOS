@@ -11,6 +11,7 @@ public class ShapeDTO extends LayerDTO {
     private boolean isClosed; // For paths
     // Support for Custom Paths
     private String svgContent;
+    private java.util.List<BezierNodeDTO> bezierNodes;
 
     // Rounded Corners Support
     private double arcWidth;
@@ -87,6 +88,14 @@ public class ShapeDTO extends LayerDTO {
 
     public void setSvgContent(String svgContent) {
         this.svgContent = svgContent;
+    }
+
+    public java.util.List<BezierNodeDTO> getBezierNodes() {
+        return bezierNodes;
+    }
+
+    public void setBezierNodes(java.util.List<BezierNodeDTO> bezierNodes) {
+        this.bezierNodes = bezierNodes;
     }
 
     public boolean isGradientTransparency() {
@@ -202,6 +211,9 @@ public class ShapeDTO extends LayerDTO {
         copy.setStrokeType(this.strokeType);
         copy.setClosed(this.isClosed);
         copy.setSvgContent(this.svgContent);
+        if (this.bezierNodes != null) {
+            copy.setBezierNodes(new java.util.ArrayList<>(this.bezierNodes));
+        }
         copy.setArcWidth(this.arcWidth);
         copy.setArcHeight(this.arcHeight);
         copy.setContourSteps(this.contourSteps);

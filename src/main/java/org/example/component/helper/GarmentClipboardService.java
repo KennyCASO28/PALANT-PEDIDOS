@@ -221,24 +221,31 @@ public class GarmentClipboardService {
         double origScaleY = node.getScaleY();
         double origOpacity = node.getOpacity();
 
-        ScaleTransition st = new ScaleTransition(Duration.millis(120), node);
-        st.setFromX(origScaleX);
-        st.setFromY(origScaleY);
-        st.setToX(origScaleX * 1.06);
-        st.setToY(origScaleY * 1.06);
-        st.setAutoReverse(true);
-        st.setCycleCount(2);
+        ParallelTransition pt = new ParallelTransition();
+        
+        if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
+            ScaleTransition st = new ScaleTransition(Duration.millis(120), node);
+            st.setFromX(origScaleX);
+            st.setFromY(origScaleY);
+            st.setToX(origScaleX * 1.06);
+            st.setToY(origScaleY * 1.06);
+            st.setAutoReverse(true);
+            st.setCycleCount(2);
+            pt.getChildren().add(st);
+        }
 
         FadeTransition ft = new FadeTransition(Duration.millis(120), node);
         ft.setFromValue(origOpacity);
         ft.setToValue(Math.max(0.4, origOpacity - 0.3));
         ft.setAutoReverse(true);
         ft.setCycleCount(2);
+        pt.getChildren().add(ft);
 
-        ParallelTransition pt = new ParallelTransition(st, ft);
         pt.setOnFinished(e -> {
-            node.setScaleX(origScaleX);
-            node.setScaleY(origScaleY);
+            if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
+                node.setScaleX(origScaleX);
+                node.setScaleY(origScaleY);
+            }
             node.setOpacity(origOpacity);
         });
         pt.play();
@@ -251,36 +258,44 @@ public class GarmentClipboardService {
         double origScaleY = node.getScaleY();
         double origOpacity = node.getOpacity();
 
-        // Start state: small and transparent
-        node.setScaleX(origScaleX * 0.4);
-        node.setScaleY(origScaleY * 0.4);
+        ParallelTransition pt = new ParallelTransition();
+
+        if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
+            // Start state: small and transparent
+            node.setScaleX(origScaleX * 0.4);
+            node.setScaleY(origScaleY * 0.4);
+
+            ScaleTransition st1 = new ScaleTransition(Duration.millis(140), node);
+            st1.setFromX(origScaleX * 0.4);
+            st1.setFromY(origScaleY * 0.4);
+            st1.setToX(origScaleX * 1.15);
+            st1.setToY(origScaleY * 1.15);
+            st1.setInterpolator(Interpolator.EASE_OUT);
+
+            ScaleTransition st2 = new ScaleTransition(Duration.millis(90), node);
+            st2.setFromX(origScaleX * 1.15);
+            st2.setFromY(origScaleY * 1.15);
+            st2.setToX(origScaleX);
+            st2.setToY(origScaleY);
+            st2.setInterpolator(Interpolator.EASE_IN);
+
+            SequentialTransition scaleSeq = new SequentialTransition(st1, st2);
+            pt.getChildren().add(scaleSeq);
+        }
+
         node.setOpacity(0.0);
-
-        ScaleTransition st1 = new ScaleTransition(Duration.millis(140), node);
-        st1.setFromX(origScaleX * 0.4);
-        st1.setFromY(origScaleY * 0.4);
-        st1.setToX(origScaleX * 1.15);
-        st1.setToY(origScaleY * 1.15);
-        st1.setInterpolator(Interpolator.EASE_OUT);
-
-        ScaleTransition st2 = new ScaleTransition(Duration.millis(90), node);
-        st2.setFromX(origScaleX * 1.15);
-        st2.setFromY(origScaleY * 1.15);
-        st2.setToX(origScaleX);
-        st2.setToY(origScaleY);
-        st2.setInterpolator(Interpolator.EASE_IN);
-
-        SequentialTransition scaleSeq = new SequentialTransition(st1, st2);
 
         FadeTransition ft = new FadeTransition(Duration.millis(140), node);
         ft.setFromValue(0.0);
         ft.setToValue(origOpacity);
         ft.setInterpolator(Interpolator.EASE_OUT);
+        pt.getChildren().add(ft);
 
-        ParallelTransition pt = new ParallelTransition(scaleSeq, ft);
         pt.setOnFinished(e -> {
-            node.setScaleX(origScaleX);
-            node.setScaleY(origScaleY);
+            if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
+                node.setScaleX(origScaleX);
+                node.setScaleY(origScaleY);
+            }
             node.setOpacity(origOpacity);
         });
         pt.play();

@@ -88,8 +88,8 @@ public class GroupLayerV2 extends Group {
         contentGroup.setDepthTest(DepthTest.DISABLE);
         contentGroup.setCache(false);
 
-        // IMPORTANTE: Transformaciones para permitir rotación y sesgo
-        contentGroup.getTransforms().addAll(rotateTransform, shearTransform);
+        // IMPORTANTE: Transformaciones para permitir escala/espejo, rotación y sesgo
+        contentGroup.getTransforms().addAll(scaleTransform, rotateTransform, shearTransform);
 
         // 3. Selection Overlay
         selectionOverlay = new Group();
@@ -145,10 +145,9 @@ public class GroupLayerV2 extends Group {
         overlayShearTransform.xProperty().bind(shearTransform.xProperty());
         overlayShearTransform.yProperty().bind(shearTransform.yProperty());
 
-        // CRITICAL: We DO NOT add overlayScaleTransform to
-        // selectionOverlay.getTransforms().
-        // This ensures handles stay circular regardless of logical scale.
-        selectionOverlay.getTransforms().addAll(overlayRotateTransform, overlayShearTransform);
+        // CRITICAL: We add overlayScaleTransform to selectionOverlay.getTransforms().
+        // Since we only scale it for mirroring (1.0 or -1.0), the handles stay circular.
+        selectionOverlay.getTransforms().addAll(overlayScaleTransform, overlayRotateTransform, overlayShearTransform);
 
         getChildren().addAll(selectionHitArea, contentGroup, selectionOverlay);
 
@@ -356,26 +355,40 @@ public class GroupLayerV2 extends Group {
         if (Math.abs(sx - 1.0) < 0.0001 && Math.abs(sy - 1.0) < 0.0001)
             return;
 
-        for (Node n : userLayers) {
-            // 1. Scale child geometry recursively
-            if (n instanceof ShapeLayer) {
-                ((ShapeLayer) n).multiplyScale(sx, sy);
-            } else if (n instanceof ImageLayer) {
-                ((ImageLayer) n).multiplyScale(sx, sy);
-            } else if (n instanceof GroupLayerV2) {
-                ((GroupLayerV2) n).multiplyScale(sx, sy);
-            } else if (n instanceof GroupLayer) {
-                ((GroupLayer) n).multiplyScale(sx, sy);
-            } else if (n instanceof TextLayer) {
-                ((TextLayer) n).multiplyScale(sx, sy);
-            } else {
-                n.setScaleX(n.getScaleX() * sx);
-                n.setScaleY(n.getScaleY() * sy);
-            }
+        // 1. Handle mirror (negative scale) via group scaleTransform (container-level)
+        double signX = Math.signum(sx);
+        double signY = Math.signum(sy);
+        if (signX < 0) {
+            scaleTransform.setX(scaleTransform.getX() * -1.0);
+        }
+        if (signY < 0) {
+            scaleTransform.setY(scaleTransform.getY() * -1.0);
+        }
 
-            // 2. Align child post-scale relative to group (0,0)
-            n.setTranslateX(n.getTranslateX() * sx);
-            n.setTranslateY(n.getTranslateY() * sy);
+        // 2. Handle actual sizing (positive scale) geometrically to preserve child stroke widths
+        double absSx = Math.abs(sx);
+        double absSy = Math.abs(sy);
+        if (Math.abs(absSx - 1.0) > 0.0001 || Math.abs(absSy - 1.0) > 0.0001) {
+            for (Node n : userLayers) {
+                if (n instanceof ShapeLayer) {
+                    ((ShapeLayer) n).multiplyScale(absSx, absSy);
+                } else if (n instanceof ImageLayer) {
+                    ((ImageLayer) n).multiplyScale(absSx, absSy);
+                } else if (n instanceof GroupLayerV2) {
+                    ((GroupLayerV2) n).multiplyScale(absSx, absSy);
+                } else if (n instanceof GroupLayer) {
+                    ((GroupLayer) n).multiplyScale(absSx, absSy);
+                } else if (n instanceof TextLayer) {
+                    ((TextLayer) n).multiplyScale(absSx, absSy);
+                } else {
+                    n.setScaleX(n.getScaleX() * absSx);
+                    n.setScaleY(n.getScaleY() * absSy);
+                }
+
+                // Align child post-scale relative to group (0,0)
+                n.setTranslateX(n.getTranslateX() * absSx);
+                n.setTranslateY(n.getTranslateY() * absSy);
+            }
         }
 
         invalidateBounds();
@@ -561,11 +574,15 @@ public class GroupLayerV2 extends Group {
                 || Math.abs(rotateTransform.getPivotY() - pivotY) > 0.001) {
             rotateTransform.setPivotX(pivotX);
             rotateTransform.setPivotY(pivotY);
+            scaleTransform.setPivotX(pivotX);
+            scaleTransform.setPivotY(pivotY);
             shearTransform.setPivotX(pivotX);
             shearTransform.setPivotY(pivotY);
 
             overlayRotateTransform.setPivotX(pivotX);
             overlayRotateTransform.setPivotY(pivotY);
+            overlayScaleTransform.setPivotX(pivotX);
+            overlayScaleTransform.setPivotY(pivotY);
             overlayShearTransform.setPivotX(pivotX);
             overlayShearTransform.setPivotY(pivotY);
         }
@@ -573,16 +590,13 @@ public class GroupLayerV2 extends Group {
         pivotHandle.setVisible(showRotate);
         positionNode(pivotHandle, pivotX - 8, pivotY - 8);
 
-        // --- OPTIMIZATION: If we are only rotating, handles are already moved by
-        // overlayRotateTransform ---
-        // This prevents the 'vibration' caused by repositioning 16 nodes per frame.
+        applyAntiShearToHandles();
         if (isRotationMode && !boundsDirty) {
-            // Anti-shear still needs to be updated if shear is active, but usually it's
-            // stable
             return;
         }
+    }
 
-        // --- ANTI-SHEAR (MANDATORY TO AVOID STRETCHING) ---
+    private void applyAntiShearToHandles() {
         org.example.utils.GeometryUtility.applyAntiShear(topLeft, shearTransform, 8, 8);
         org.example.utils.GeometryUtility.applyAntiShear(topRight, shearTransform, 8, 8);
         org.example.utils.GeometryUtility.applyAntiShear(bottomLeft, shearTransform, 8, 8);
@@ -1171,6 +1185,78 @@ public class GroupLayerV2 extends Group {
 
     public void setVisualizer(PrendaVisualizer v) {
         this.visualizer = v;
+    }
+
+    public void flipHorizontal() {
+        org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+        
+        javafx.geometry.Bounds b = calculateBounds();
+        javafx.geometry.Bounds bLocal = contentGroup.localToParent(b);
+        double centerXLocal = bLocal.getMinX() + bLocal.getWidth() / 2.0;
+        double centerYLocal = bLocal.getMinY() + bLocal.getHeight() / 2.0;
+        javafx.geometry.Point2D centerSceneBefore = localToScene(centerXLocal, centerYLocal);
+
+        setInternalRotation(-getInternalRotation());
+        double oldShearX = shearTransform.getX();
+        setInternalShear(-oldShearX, shearTransform.getY());
+        
+        multiplyScale(-1, 1);
+        
+        javafx.geometry.Bounds bAfter = calculateBounds();
+        javafx.geometry.Bounds bAfterLocal = contentGroup.localToParent(bAfter);
+        double centerXAfterLocal = bAfterLocal.getMinX() + bAfterLocal.getWidth() / 2.0;
+        double centerYAfterLocal = bAfterLocal.getMinY() + bAfterLocal.getHeight() / 2.0;
+        javafx.geometry.Point2D centerSceneAfter = localToScene(centerXAfterLocal, centerYAfterLocal);
+        
+        if (getParent() != null) {
+            javafx.geometry.Point2D pBefore = getParent().sceneToLocal(centerSceneBefore);
+            javafx.geometry.Point2D pAfter = getParent().sceneToLocal(centerSceneAfter);
+            if (pBefore != null && pAfter != null) {
+                setTranslateX(getTranslateX() + (pBefore.getX() - pAfter.getX()));
+                setTranslateY(getTranslateY() + (pBefore.getY() - pAfter.getY()));
+            }
+        }
+
+        org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
+        if (visualizer != null && visualizer.getHistoryManager() != null) {
+            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
+        }
+    }
+
+    public void flipVertical() {
+        org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+        
+        javafx.geometry.Bounds b = calculateBounds();
+        javafx.geometry.Bounds bLocal = contentGroup.localToParent(b);
+        double centerXLocal = bLocal.getMinX() + bLocal.getWidth() / 2.0;
+        double centerYLocal = bLocal.getMinY() + bLocal.getHeight() / 2.0;
+        javafx.geometry.Point2D centerSceneBefore = localToScene(centerXLocal, centerYLocal);
+
+        setInternalRotation(-getInternalRotation());
+        double oldShearY = shearTransform.getY();
+        setInternalShear(shearTransform.getX(), -oldShearY);
+        
+        multiplyScale(1, -1);
+        
+        javafx.geometry.Bounds bAfter = calculateBounds();
+        javafx.geometry.Bounds bAfterLocal = contentGroup.localToParent(bAfter);
+        double centerXAfterLocal = bAfterLocal.getMinX() + bAfterLocal.getWidth() / 2.0;
+        double centerYAfterLocal = bAfterLocal.getMinY() + bAfterLocal.getHeight() / 2.0;
+        javafx.geometry.Point2D centerSceneAfter = localToScene(centerXAfterLocal, centerYAfterLocal);
+        
+        if (getParent() != null) {
+            javafx.geometry.Point2D pBefore = getParent().sceneToLocal(centerSceneBefore);
+            javafx.geometry.Point2D pAfter = getParent().sceneToLocal(centerSceneAfter);
+            if (pBefore != null && pAfter != null) {
+                setTranslateX(getTranslateX() + (pBefore.getX() - pAfter.getX()));
+                setTranslateY(getTranslateY() + (pBefore.getY() - pAfter.getY()));
+            }
+        }
+
+        org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
+        if (visualizer != null && visualizer.getHistoryManager() != null) {
+            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
+        }
     }
 
 }

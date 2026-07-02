@@ -101,6 +101,12 @@ public class ShapeLayerOrchestrator {
         clone.getState().arcWidth = layer.getState().arcWidth;
         clone.getState().arcHeight = layer.getState().arcHeight;
         clone.getState().svgPathData = layer.getState().svgPathData;
+        if (layer.getState().bezierNodes != null) {
+            clone.getState().bezierNodes = ShapePathSupport.copyNodes(layer.getState().bezierNodes);
+        }
+        if (layer.getState().originalBezierNodes != null) {
+            clone.getState().originalBezierNodes = ShapePathSupport.copyNodes(layer.getState().originalBezierNodes);
+        }
 
         clone.setVisualizer(layer.getVisualizer());
         clone.renderShape();
@@ -120,6 +126,15 @@ public class ShapeLayerOrchestrator {
      * Normalizes bezier node positions and fixes the position accordingly.
      */
     public void recalculateGeometricBounds() {
+        if (layer.getState().bezierNodes == null || layer.getState().bezierNodes.isEmpty()) {
+            if (layer.getState().type == ShapeType.CUSTOM_PATH && layer.getState().svgPathData != null) {
+                List<BezierNode> parsed = ShapePathSupport.parseSvgPath(layer.getState().svgPathData);
+                if (parsed != null && !parsed.isEmpty()) {
+                    layer.getState().bezierNodes = parsed;
+                }
+            }
+        }
+
         if (layer.getState().bezierNodes == null || layer.getState().bezierNodes.isEmpty()) {
             layer.getState().visualMinX = 0;
             layer.getState().visualMinY = 0;

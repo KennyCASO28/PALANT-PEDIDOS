@@ -263,8 +263,8 @@ public class ShapeInteractionHandler {
 
             double sX = ctx[7]; // use starting scale
             double sY = ctx[8];
-            unrotDx /= (sX != 0 ? Math.abs(sX) : 1);
-            unrotDy /= (sY != 0 ? Math.abs(sY) : 1);
+            unrotDx /= (sX != 0 ? sX : 1);
+            unrotDy /= (sY != 0 ? sY : 1);
 
             double proposedW = ctx[0] + unrotDx * dW;
             double proposedH = ctx[1] + unrotDy * dH;

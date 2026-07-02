@@ -241,8 +241,8 @@ public class ImageInteractionHandler {
             // 4. Adjust by current scale to avoid "aggressive" resizing
             double sX = ctx[10];
             double sY = ctx[11];
-            dxL /= (sX != 0 ? Math.abs(sX) : 1);
-            dyL /= (sY != 0 ? Math.abs(sY) : 1);
+            dxL /= (sX != 0 ? sX : 1);
+            dyL /= (sY != 0 ? sY : 1);
 
             if (state.isCropMode) {
                 // In Crop Mode, use internal state deltas

@@ -58,8 +58,13 @@ public class GroupCommand implements ICommand {
                     groupAfterState.restore();
                 if (groupNode != null)
                     manager.trackRestoredLayer(groupNode);
-                for (NodeMemento m : childrenAfterState)
-                    m.restore();
+                // CRITICAL FIX: groupAfterState.restore() for a GroupLayerV2 already restores
+                // children via its built-in childMementos. Only restore children separately for
+                // V1 GroupLayer to avoid double-insertion which causes nodes to disappear.
+                if (!(groupNode instanceof org.example.component.GroupLayerV2)) {
+                    for (NodeMemento m : childrenAfterState)
+                        m.restore();
+                }
                 manager.selectNode(groupNode);
             } else {
                 for (NodeMemento m : childrenAfterState)
@@ -93,14 +98,29 @@ public class GroupCommand implements ICommand {
                     manager.addToSelection(c);
             } else {
                 // Undo Ungroup = Restore Group completely
+                //
+                // CRITICAL FIX: NodeMemento.restore() for a GroupLayerV2 already restores
+                // all children into the group's contentGroup via its stored childMementos.
+                // Calling childrenBeforeState.restore() AGAIN would double-insert the children,
+                // causing them to disappear (JavaFX rejects duplicate parent inserts or loses
+                // z-index) — especially visible when ungrouping a doubly-nested group.
+                //
+                // Strategy:
+                //   - groupBeforeState.restore() handles everything for GroupLayerV2 (group
+                //     placement + children via NodeMemento's built-in childMementos mechanism).
+                //   - For GroupLayer (V1) or legacy Groups, children's parent is the contentGroup
+                //     directly, so we must also call childrenBeforeState.restore() to re-parent.
                 if (groupBeforeState != null)
                     groupBeforeState.restore();
                 if (groupNode != null) {
                     groupNode.setVisible(true);
                     manager.trackRestoredLayer(groupNode);
                 }
-                for (NodeMemento m : childrenBeforeState)
-                    m.restore();
+                // Only separately restore children for V1 GroupLayer; V2 handles them internally
+                if (!(groupNode instanceof org.example.component.GroupLayerV2)) {
+                    for (NodeMemento m : childrenBeforeState)
+                        m.restore();
+                }
                 manager.selectNode(groupNode);
             }
         } finally {

@@ -67,8 +67,18 @@ public class ShapeLayerState {
         copy.strokeLineJoin = this.strokeLineJoin;
         copy.strokeType = this.strokeType;
         copy.svgPathData = this.svgPathData;
-        if (this.bezierNodes != null) copy.bezierNodes = new ArrayList<>(this.bezierNodes);
-        if (this.originalBezierNodes != null) copy.originalBezierNodes = new ArrayList<>(this.originalBezierNodes);
+        if (this.bezierNodes != null) {
+            copy.bezierNodes = new ArrayList<>();
+            for (BezierNode n : this.bezierNodes) {
+                copy.bezierNodes.add(n.copy());
+            }
+        }
+        if (this.originalBezierNodes != null) {
+            copy.originalBezierNodes = new ArrayList<>();
+            for (BezierNode n : this.originalBezierNodes) {
+                copy.originalBezierNodes.add(n.copy());
+            }
+        }
         if (this.customPoints != null) copy.customPoints = new ArrayList<>(this.customPoints);
         copy.contourSteps = this.contourSteps;
         copy.contourDistance = this.contourDistance;

@@ -764,6 +764,10 @@ public class UserLayerManager {
             return ((TextLayer) n).getStableCenter();
         if (n instanceof GroupLayer)
             return ((GroupLayer) n).getStableCenter();
+        if (n instanceof GroupLayerV2) {
+            javafx.geometry.Bounds cb = ((GroupLayerV2) n).calculateBounds();
+            return new javafx.geometry.Point2D((cb.getMinX() + cb.getMaxX()) / 2.0, (cb.getMinY() + cb.getMaxY()) / 2.0);
+        }
 
         javafx.geometry.Bounds b = n.getBoundsInLocal();
         return new javafx.geometry.Point2D((b.getMinX() + b.getMaxX()) / 2.0, (b.getMinY() + b.getMaxY()) / 2.0);
@@ -814,8 +818,16 @@ public class UserLayerManager {
             int i = 0;
             for (Node c : children) {
                 // Determine Rotation (Cumulative)
+                // CRITICAL FIX: GroupLayerV2 stores rotation in its internal rotateTransform
+                // (applied to contentGroup), NOT in node.getRotate() or node.getTransforms().
+                // Reading getRotate() on a GroupLayerV2 always returns 0 — use getInternalRotation().
                 double extraAngle = 0;
-                if (!groupNode.getTransforms().isEmpty()) {
+                if (groupNode instanceof org.example.component.GroupLayerV2) {
+                    extraAngle = ((org.example.component.GroupLayerV2) groupNode).getInternalRotation();
+                } else if (groupNode instanceof org.example.component.GroupLayer) {
+                    extraAngle = ((org.example.component.GroupLayer) groupNode).getInternalRotation();
+                } else {
+                    // Legacy Group: read from node rotate + any Rotate transforms
                     extraAngle = groupNode.getRotate();
                     for (javafx.scene.transform.Transform t : groupNode.getTransforms()) {
                         if (t instanceof javafx.scene.transform.Rotate)
@@ -844,6 +856,8 @@ public class UserLayerManager {
                     ((org.example.component.ImageLayer) c).addRotation(extraAngle);
                 } else if (c instanceof org.example.component.GroupLayer) {
                     ((org.example.component.GroupLayer) c).addRotation(extraAngle);
+                } else if (c instanceof org.example.component.GroupLayerV2) {
+                    ((org.example.component.GroupLayerV2) c).addRotation(extraAngle);
                 } else if (c instanceof org.example.component.TextLayer) {
                     ((org.example.component.TextLayer) c).addRotation(extraAngle);
                 } else {

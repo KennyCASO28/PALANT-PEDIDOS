@@ -391,6 +391,26 @@ public class StateMapper {
 
             if (sl.getType() == ShapeType.CUSTOM_PATH) {
                 sDto.setSvgContent(sl.getShapeContent());
+                if (sl.getBezierNodes() != null) {
+                    java.util.List<org.example.dto.save.BezierNodeDTO> bnDtos = new java.util.ArrayList<>();
+                    for (org.example.model.BezierNode bn : sl.getBezierNodes()) {
+                        org.example.dto.save.BezierNodeDTO bnDto = new org.example.dto.save.BezierNodeDTO();
+                        bnDto.setAnchorX(bn.anchor.getX());
+                        bnDto.setAnchorY(bn.anchor.getY());
+                        if (bn.control1 != null) {
+                            bnDto.setHasControl1(true);
+                            bnDto.setControl1X(bn.control1.getX());
+                            bnDto.setControl1Y(bn.control1.getY());
+                        }
+                        if (bn.control2 != null) {
+                            bnDto.setHasControl2(true);
+                            bnDto.setControl2X(bn.control2.getX());
+                            bnDto.setControl2Y(bn.control2.getY());
+                        }
+                        bnDtos.add(bnDto);
+                    }
+                    sDto.setBezierNodes(bnDtos);
+                }
             }
 
             sDto.setArcWidth(sl.getArcWidth());
@@ -756,7 +776,21 @@ public class StateMapper {
             sl.setVisualizer(visualizer);
             sl.setIsClosed(s.isClosed());
             if (s.getActiveZone() != null) sl.setActiveZone(s.getActiveZone());
-            if (s.getShapeType() == ShapeType.CUSTOM_PATH && s.getSvgContent() != null) sl.setSvgPathData(s.getSvgContent());
+            if (s.getShapeType() == ShapeType.CUSTOM_PATH) {
+                if (s.getSvgContent() != null) sl.setSvgPathData(s.getSvgContent());
+                if (s.getBezierNodes() != null && !s.getBezierNodes().isEmpty()) {
+                    java.util.List<org.example.model.BezierNode> restoredNodes = new java.util.ArrayList<>();
+                    for (org.example.dto.save.BezierNodeDTO bnDto : s.getBezierNodes()) {
+                        org.example.model.BezierNode bn = new org.example.model.BezierNode(
+                            new javafx.geometry.Point2D(bnDto.getAnchorX(), bnDto.getAnchorY()),
+                            bnDto.isHasControl1() ? new javafx.geometry.Point2D(bnDto.getControl1X(), bnDto.getControl1Y()) : null,
+                            bnDto.isHasControl2() ? new javafx.geometry.Point2D(bnDto.getControl2X(), bnDto.getControl2Y()) : null
+                        );
+                        restoredNodes.add(bn);
+                    }
+                    sl.setBezierNodes(restoredNodes);
+                }
+            }
             sl.setArcWidth(s.getArcWidth());
             sl.setArcHeight(s.getArcHeight());
             if (s.isGradientTransparency()) {
@@ -818,8 +852,17 @@ public class StateMapper {
             if (dto.getRotation() != 0) gl.setInternalRotation(dto.getRotation());
             if (g.getChildren() != null) {
                 for (LayerDTO childDto : g.getChildren()) {
-                    Node childNode = createNodeFromDTO(childDto, visualizer);
-                    if (childNode != null) gl.addChild(childNode);
+                    try {
+                        Node childNode = createNodeFromDTO(childDto, visualizer);
+                        if (childNode != null) {
+                            childNode.setTranslateX(childDto.getX());
+                            childNode.setTranslateY(childDto.getY());
+                            gl.addChild(childNode);
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Error restoring group child node: " + ex.getMessage());
+                        ex.printStackTrace();
+                    }
                 }
                 gl.recalculateBounds();
             }

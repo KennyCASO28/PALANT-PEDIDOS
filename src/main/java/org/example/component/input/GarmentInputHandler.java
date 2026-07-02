@@ -1254,6 +1254,22 @@ public class GarmentInputHandler {
                     ungroupItem.setOnAction(ev -> layerManager.ungroup(sel));
                     bgMenu.getItems().add(ungroupItem);
                 }
+                if (sel instanceof org.example.component.GroupLayerV2) {
+                    org.example.component.GroupLayerV2 gv2 = (org.example.component.GroupLayerV2) sel;
+                    javafx.scene.control.Menu transMenu = new javafx.scene.control.Menu("Transformar");
+                    transMenu.setGraphic(UIFactory.crearIcono("mdi2f-format-rotate-90", 16, "#555"));
+                    
+                    MenuItem flipH = new MenuItem("Espejo Horizontal");
+                    flipH.setGraphic(UIFactory.crearIcono("mdi2f-flip-horizontal", 16, "#e67e22"));
+                    flipH.setOnAction(ev -> gv2.flipHorizontal());
+                    
+                    MenuItem flipV = new MenuItem("Espejo Vertical");
+                    flipV.setGraphic(UIFactory.crearIcono("mdi2f-flip-vertical", 16, "#9b59b6"));
+                    flipV.setOnAction(ev -> gv2.flipVertical());
+                    
+                    transMenu.getItems().addAll(flipH, flipV);
+                    bgMenu.getItems().add(transMenu);
+                }
             }
 
             // ALIGNMENT

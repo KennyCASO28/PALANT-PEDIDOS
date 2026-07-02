@@ -778,6 +778,7 @@ public class PrendaVisualizer extends StackPane {
     }
 
     public void syncZoneBuckets() {
+        updateSleeveLogic();
         for (String zone : List.of("PECHO", "ESPALDA", "MANGA_DELANTERA", "MANGA_TRASERA", "SHORT_FRONT", "SHORT_BACK")) {
             powerClipManager.refreshZoneClip(zone);
         }

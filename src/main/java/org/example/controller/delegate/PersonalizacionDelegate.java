@@ -47,6 +47,7 @@ public class PersonalizacionDelegate {
     private final ReferenceManagerController referenceController;
     private javafx.scene.layout.Pane cachedBottomBar = null;
     private final AtomicBoolean isRefreshing = new AtomicBoolean(false);
+    private org.example.controller.uicomponent.DocumentColorPalette colorPalette;
 
 
     public ShapeManagerController getShapeController() {
@@ -71,6 +72,7 @@ public class PersonalizacionDelegate {
         this.logoController = new LogoManagerController(visualizer);
         this.shapeController = new ShapeManagerController(visualizer);
         this.referenceController = new ReferenceManagerController(visualizer);
+        this.colorPalette = new org.example.controller.uicomponent.DocumentColorPalette(visualizer, this.shapeController);
 
         // --- UI SYNC ---
         visualizer.addUIUpdateListener(colorController::updateUI);
@@ -506,7 +508,12 @@ public class PersonalizacionDelegate {
     }
 
     private void createLogosSection() {
-        container.getChildren().add(logoController.getContainer());
+        // ── Document Color Palette ──
+        javafx.scene.layout.VBox paletteWrapper = new javafx.scene.layout.VBox(4);
+        paletteWrapper.setPadding(new Insets(8, 8, 0, 8));
+        paletteWrapper.getChildren().add(colorPalette.getNode());
+
+        container.getChildren().addAll(paletteWrapper, logoController.getContainer());
     }
 
     public void hideFloatingToolbar() {
