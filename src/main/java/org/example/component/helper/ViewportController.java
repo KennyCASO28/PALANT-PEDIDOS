@@ -146,14 +146,16 @@ public class ViewportController {
     }
 
     private javafx.animation.PauseTransition zoomCacheTimer;
+    private boolean isZoomPending = false;
 
     public ViewportController(Region container, Group contentGroup) {
         this.container = container;
         this.contentGroup = contentGroup;
         this.contentGroup.setCache(false);
-        this.zoomCacheTimer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(50));
+        this.zoomCacheTimer = new javafx.animation.PauseTransition(javafx.util.Duration.millis(16));
         this.zoomCacheTimer.setOnFinished(e -> {
-            // Logic disabled
+            isZoomPending = false;
+            autoScale();
         });
         setupHandlers();
     }
@@ -175,7 +177,11 @@ public class ViewportController {
                 if (zoomFactor > MAX_ZOOM)
                     zoomFactor = MAX_ZOOM;
 
-                autoScale();
+                // Debounce zoom updates to prevent UI freeze during rapid scrolling
+                if (!isZoomPending) {
+                    isZoomPending = true;
+                    zoomCacheTimer.playFromStart();
+                }
             }
         });
 

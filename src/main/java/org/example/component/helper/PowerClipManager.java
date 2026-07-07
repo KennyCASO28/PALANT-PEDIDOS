@@ -123,6 +123,10 @@ public class PowerClipManager {
                 ((ImageLayer) layer).setSystemLocked(false);
             else if (layer instanceof org.example.component.TextLayer)
                 ((org.example.component.TextLayer) layer).setSystemLocked(false);
+            else if (layer instanceof org.example.component.GroupLayer)
+                ((org.example.component.GroupLayer) layer).setSystemLocked(false);
+            else if (layer instanceof org.example.component.GroupLayerV2)
+                ((org.example.component.GroupLayerV2) layer).setSystemLocked(false);
 
             // Also ensure it's not mouse transparent (extra safety)
             layer.setMouseTransparent(false);
@@ -147,6 +151,10 @@ public class PowerClipManager {
                 ((ImageLayer) layer).setSystemLocked(false);
             else if (layer instanceof org.example.component.TextLayer)
                 ((org.example.component.TextLayer) layer).setSystemLocked(false);
+            else if (layer instanceof org.example.component.GroupLayer)
+                ((org.example.component.GroupLayer) layer).setSystemLocked(false);
+            else if (layer instanceof org.example.component.GroupLayerV2)
+                ((org.example.component.GroupLayerV2) layer).setSystemLocked(false);
 
             layer.setMouseTransparent(false);
         }

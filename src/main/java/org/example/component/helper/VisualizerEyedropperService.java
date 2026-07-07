@@ -17,7 +17,10 @@ public class VisualizerEyedropperService {
     private final PrendaVisualizer visualizer;
     private javafx.event.EventHandler<MouseEvent> eyedropperMouseHandler;
     private javafx.event.EventHandler<javafx.scene.input.KeyEvent> eyedropperEscHandler;
+    private javafx.event.EventHandler<MouseEvent> eyedropperExitHandler;
+    private javafx.event.EventHandler<MouseEvent> eyedropperEnterHandler;
     private java.util.function.Consumer<Color> currentOnPreview;
+    private java.util.function.Consumer<Color> currentOnPicked;
 
     private boolean wasOverlayVisibleBeforeEyedropper = false;
     private boolean eyedropperUseDataPick = false;
@@ -44,6 +47,7 @@ public class VisualizerEyedropperService {
 
     public void startEyedropperSession(boolean useDataPick, java.util.function.Consumer<Color> onPicked,
             java.util.function.Consumer<Color> onPreview) {
+        this.currentOnPicked = onPicked;
         this.eyedropperUseDataPick = useDataPick;
         this.currentOnPreview = onPreview;
 
@@ -108,6 +112,21 @@ public class VisualizerEyedropperService {
 
         visualizer.addEventFilter(MouseEvent.MOUSE_PRESSED, eyedropperMouseHandler);
         visualizer.addEventFilter(MouseEvent.MOUSE_MOVED, eyedropperMouseHandler);
+
+        eyedropperExitHandler = e -> {
+            if (loupeGroup != null) loupeGroup.setVisible(false);
+            visualizer.setCursor(Cursor.DEFAULT);
+        };
+
+        eyedropperEnterHandler = e -> {
+            if (isEyedropperActive()) {
+                if (loupeGroup != null) loupeGroup.setVisible(true);
+                visualizer.setCursor(Cursor.NONE);
+            }
+        };
+
+        visualizer.addEventFilter(MouseEvent.MOUSE_EXITED, eyedropperExitHandler);
+        visualizer.addEventFilter(MouseEvent.MOUSE_ENTERED, eyedropperEnterHandler);
         
         if (visualizer.getScene() != null) {
             visualizer.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, eyedropperEscHandler);
@@ -121,16 +140,34 @@ public class VisualizerEyedropperService {
         return eyedropperMouseHandler != null;
     }
 
+    public void pickColorDirectly(Color color) {
+        if (currentOnPicked != null) {
+            currentOnPicked.accept(color);
+        }
+        cleanupEyedropper();
+    }
+
     private void cleanupEyedropper() {
         if (currentOnPreview != null) {
             currentOnPreview.accept(null);
         }
         currentOnPreview = null;
+        currentOnPicked = null;
 
         if (eyedropperMouseHandler != null) {
             visualizer.removeEventFilter(MouseEvent.MOUSE_PRESSED, eyedropperMouseHandler);
             visualizer.removeEventFilter(MouseEvent.MOUSE_MOVED, eyedropperMouseHandler);
             eyedropperMouseHandler = null;
+        }
+
+        if (eyedropperExitHandler != null) {
+            visualizer.removeEventFilter(MouseEvent.MOUSE_EXITED, eyedropperExitHandler);
+            eyedropperExitHandler = null;
+        }
+
+        if (eyedropperEnterHandler != null) {
+            visualizer.removeEventFilter(MouseEvent.MOUSE_ENTERED, eyedropperEnterHandler);
+            eyedropperEnterHandler = null;
         }
         
         if (eyedropperEscHandler != null) {

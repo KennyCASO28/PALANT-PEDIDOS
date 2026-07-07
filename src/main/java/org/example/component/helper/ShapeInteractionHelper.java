@@ -57,6 +57,14 @@ public class ShapeInteractionHelper {
         return creationService.isCreatingShape();
     }
 
+    public boolean isCreatingBezier() {
+        return creationService.isCreatingBezier();
+    }
+
+    public boolean undoLastBezierPoint() {
+        return creationService.undoLastBezierPoint();
+    }
+
     // --- Delegation: Bezier Editing ---
 
     public boolean isNodeEditing() {
@@ -127,6 +135,10 @@ public class ShapeInteractionHelper {
 
     public boolean isEyedropperActive() {
         return eyedropperService.isEyedropperActive();
+    }
+
+    public void pickColorDirectly(javafx.scene.paint.Color color) {
+        eyedropperService.pickColorDirectly(color);
     }
 
     // --- PowerClip Target Picker ---

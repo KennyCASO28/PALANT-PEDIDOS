@@ -42,6 +42,11 @@ public class GarmentDesignSwapManager {
      */
     public void cargarEstadoDesdeCero(PrendaState state) {
         visualizer.setNotificationsSuspended(true);
+        boolean wasRecording = true;
+        if (visualizer.getHistoryManager() != null) {
+            wasRecording = visualizer.getHistoryManager().isRecording();
+            visualizer.getHistoryManager().setRecording(false);
+        }
         try {
             visualizer.setStateDirectly(state);
 
@@ -67,19 +72,34 @@ public class GarmentDesignSwapManager {
             visualizer.notifyStateChanged();
         } finally {
             visualizer.setNotificationsSuspended(false);
+            if (visualizer.getHistoryManager() != null) {
+                visualizer.getHistoryManager().setRecording(wasRecording);
+            }
         }
     }
 
     public void setActiveDesign(boolean isArquero) {
+        boolean wasSwapping = visualizer.isSwappingDesign();
+
         // Always flush current UI state before checking early return to ensure
         // latest work is captured before design swap or snapshot return
-        visualizer.flushUIStateToDataModel();
+        if (!wasSwapping) {
+            visualizer.flushUIStateToDataModel();
+        }
 
         if (visualizer.isEditandoArquero() == isArquero)
             return;
 
-        visualizer.setSwappingDesign(true);
+        if (!wasSwapping) {
+            visualizer.setSwappingDesign(true);
+        }
         visualizer.setNotificationsSuspended(true);
+        boolean wasRecording = true;
+        if (visualizer.getHistoryManager() != null) {
+            wasRecording = visualizer.getHistoryManager().isRecording();
+            visualizer.getHistoryManager().setRecording(false);
+            visualizer.getHistoryManager().clearHistory();
+        }
         try {
             // Hide previous designs' numbers
             GarmentNumberManager nm = visualizer.getNumberManager();
@@ -92,19 +112,17 @@ public class GarmentDesignSwapManager {
 
             // --- INDEPENDENT LAYERS & HOTSPOTS ---
             PrendaState currentState = visualizer.getState();
-            if (currentState != null) {
+            if (currentState != null && !wasSwapping) {
                 currentState.setUserLayers(StateMapper.extractUserLayers(visualizer));
                 
                 // Only save hotspots from UI to state during NORMAL design swap.
-                if (!visualizer.isSwappingDesign()) {
-                    List<PrendaState.ReferenceHotspot> currentHotspots = new ArrayList<>();
-                    for (javafx.scene.Node n : visualizer.getHotspotLayer().getChildren()) {
-                        if (n instanceof HotspotLayer) {
-                            currentHotspots.add(((HotspotLayer) n).getData());
-                        }
+                List<PrendaState.ReferenceHotspot> currentHotspots = new ArrayList<>();
+                for (javafx.scene.Node n : visualizer.getHotspotLayer().getChildren()) {
+                    if (n instanceof HotspotLayer) {
+                        currentHotspots.add(((HotspotLayer) n).getData());
                     }
-                    currentState.setReferenceHotspots(currentHotspots);
                 }
+                currentState.setReferenceHotspots(currentHotspots);
             }
             
             if (visualizer.getPowerClipManager() != null)
@@ -153,7 +171,12 @@ public class GarmentDesignSwapManager {
             
             visualizer.notifyStateChanged();
         } finally {
-            visualizer.setSwappingDesign(false);
+            if (visualizer.getHistoryManager() != null) {
+                visualizer.getHistoryManager().setRecording(wasRecording);
+            }
+            if (!wasSwapping) {
+                visualizer.setSwappingDesign(false);
+            }
             visualizer.setNotificationsSuspended(false);
         }
     }

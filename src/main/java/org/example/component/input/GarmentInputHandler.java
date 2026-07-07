@@ -124,6 +124,14 @@ public class GarmentInputHandler {
                         return; // Ignore fast auto-repeats to prevent disappearing objects
                     }
                     lastUndoTime[0] = now;
+
+                    // If the user is drawing a Bezier path, Ctrl+Z removes the last point
+                    if (!isShiftDown && visualizer.getShapeHelper() != null
+                            && visualizer.getShapeHelper().isCreatingBezier()) {
+                        visualizer.getShapeHelper().undoLastBezierPoint();
+                        e.consume();
+                        return;
+                    }
                     
                     if (visualizer.getHistoryManager() != null) {
                         if (isShiftDown) visualizer.getHistoryManager().redo();
@@ -519,6 +527,14 @@ public class GarmentInputHandler {
                         layerNode = temp;
                         zoneOnLayer = ((ImageLayer) temp).getActiveZone();
                         break;
+                    } else if (temp instanceof org.example.component.GroupLayerV2) {
+                        layerNode = temp;
+                        zoneOnLayer = ((org.example.component.GroupLayerV2) temp).getActiveZone();
+                        break;
+                    } else if (temp instanceof org.example.component.GroupLayer) {
+                        layerNode = temp;
+                        zoneOnLayer = ((org.example.component.GroupLayer) temp).getActiveZone();
+                        break;
                     }
                     temp = temp.getParent();
                 }
@@ -699,10 +715,11 @@ public class GarmentInputHandler {
                     // PRIORITIZE GROUP SELECTION
                     if ("USER_GROUP".equals(temp.getId())) {
                         layerNode = temp;
-                        // zoneOnLayer? Groups likely don't have activeZone property directly unless
-                        // wrapper.
-                        // We assume null or we might need to check children?
-                        // For now, Group acts as floating object usually.
+                        if (temp instanceof org.example.component.GroupLayerV2) {
+                            zoneOnLayer = ((org.example.component.GroupLayerV2) temp).getActiveZone();
+                        } else if (temp instanceof org.example.component.GroupLayer) {
+                            zoneOnLayer = ((org.example.component.GroupLayer) temp).getActiveZone();
+                        }
                         break;
                     }
 
@@ -818,6 +835,10 @@ public class GarmentInputHandler {
             createImageContextMenu((ImageLayer) layer, e);
         } else if (layer instanceof TextLayer) {
             createTextContextMenu((TextLayer) layer, e);
+        } else if (layer instanceof org.example.component.GroupLayerV2) {
+            handleGlobalContextMenu(e, ((org.example.component.GroupLayerV2) layer).getActiveZone());
+        } else if (layer instanceof org.example.component.GroupLayer) {
+            handleGlobalContextMenu(e, ((org.example.component.GroupLayer) layer).getActiveZone());
         }
     }
 
@@ -1214,7 +1235,9 @@ public class GarmentInputHandler {
             boolean anyClipped = layerManager.getSelectedNodes().stream()
                     .anyMatch(n -> (n instanceof ImageLayer && ((ImageLayer) n).getActiveZone() != null) ||
                             (n instanceof ShapeLayer && ((ShapeLayer) n).getActiveZone() != null) ||
-                            (n instanceof TextLayer && ((TextLayer) n).getActiveZone() != null));
+                            (n instanceof TextLayer && ((TextLayer) n).getActiveZone() != null) ||
+                            (n instanceof org.example.component.GroupLayer && ((org.example.component.GroupLayer) n).getActiveZone() != null) ||
+                            (n instanceof org.example.component.GroupLayerV2 && ((org.example.component.GroupLayerV2) n).getActiveZone() != null));
 
             if (!isEditingMode && !anyClipped) {
                 java.util.List<String> available = visualizer.getAvailableZones();

@@ -117,6 +117,8 @@ public class NodeMemento {
             this.isx = gl20.getInternalScaleX();
             this.isy = gl20.getInternalScaleY();
             this.irot = gl20.getInternalRotation();
+            this.shx = gl20.getInternalShearX();
+            this.shy = gl20.getInternalShearY();
             this.childMementos = new java.util.ArrayList<>();
             for (Node child : gl20.getUserLayers()) {
                 this.childMementos.add(new NodeMemento(child));
@@ -210,6 +212,11 @@ public class NodeMemento {
         if (parent == null) {
             if (currentParent instanceof Group) {
                 ((Group) currentParent).getChildren().remove(node);
+                if (currentParent.getParent() instanceof org.example.component.GroupLayerV2) {
+                    ((org.example.component.GroupLayerV2) currentParent.getParent()).removeChild(node);
+                } else if (currentParent instanceof org.example.component.GroupLayerV2) {
+                    ((org.example.component.GroupLayerV2) currentParent).removeChild(node);
+                }
             }
             return;
         }
@@ -221,6 +228,11 @@ public class NodeMemento {
         Group targetParent = (Group) parent;
         if (currentParent instanceof Group && currentParent != targetParent) {
             ((Group) currentParent).getChildren().remove(node);
+            if (currentParent.getParent() instanceof org.example.component.GroupLayerV2) {
+                ((org.example.component.GroupLayerV2) currentParent.getParent()).removeChild(node);
+            } else if (currentParent instanceof org.example.component.GroupLayerV2) {
+                ((org.example.component.GroupLayerV2) currentParent).removeChild(node);
+            }
         }
 
         if (targetParent.getChildren().contains(node)) {
@@ -228,7 +240,26 @@ public class NodeMemento {
         }
 
         int boundedIndex = Math.max(0, Math.min(index, targetParent.getChildren().size()));
-        targetParent.getChildren().add(boundedIndex, node);
+
+        if (targetParent.getParent() instanceof org.example.component.GroupLayerV2) {
+            org.example.component.GroupLayerV2 glv2 = (org.example.component.GroupLayerV2) targetParent.getParent();
+            glv2.addChild(node);
+            if (targetParent.getChildren().contains(node)) {
+                targetParent.getChildren().remove(node);
+            }
+            targetParent.getChildren().add(boundedIndex, node);
+            glv2.syncUserLayersOrder();
+        } else if (targetParent instanceof org.example.component.GroupLayerV2) {
+            org.example.component.GroupLayerV2 glv2 = (org.example.component.GroupLayerV2) targetParent;
+            glv2.addChild(node);
+            if (targetParent.getChildren().contains(node)) {
+                targetParent.getChildren().remove(node);
+            }
+            targetParent.getChildren().add(boundedIndex, node);
+            glv2.syncUserLayersOrder();
+        } else {
+            targetParent.getChildren().add(boundedIndex, node);
+        }
     }
 
     private void applyTransforms() {
@@ -301,6 +332,7 @@ public class NodeMemento {
             glv2.setInternalScaleX(isx);
             glv2.setInternalScaleY(isy);
             glv2.setInternalRotation(irot);
+            glv2.setInternalShear(shx, shy);
             if (this.childMementos != null) {
                 // CRITICAL FIX: We must use addChild() (not raw cm.restore()) to keep
                 // userLayers in sync with contentGroup.getChildren(). If we just call
@@ -323,6 +355,8 @@ public class NodeMemento {
                     // Now restore transforms (position/scale/rotation) without re-parenting
                     cm.restoreTransformsOnly();
                 }
+                glv2.recalculateBounds();
+
             }
         } else if (node instanceof TextLayer) {
             TextLayer tl = (TextLayer) node;

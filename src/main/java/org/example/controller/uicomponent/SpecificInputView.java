@@ -216,8 +216,14 @@ public class SpecificInputView {
         fpNumbers.setPrefWrapLength(140);
         card.getChildren().add(fpNumbers);
 
-        // Wiring listeners
-        txtQty.textProperty().addListener((obs, ov, nv) -> updateNumberFields(fpNumbers, nv));
+        // Wiring listeners — only apply changes when the user FINISHES editing
+        // (loses focus or presses Enter), NOT on every keystroke.
+        txtQty.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) { // lost focus → commit
+                updateNumberFields(fpNumbers, txtQty.getText());
+            }
+        });
+        txtQty.setOnAction(e -> updateNumberFields(fpNumbers, txtQty.getText())); // Enter key
 
         // Initial init
         updateNumberFields(fpNumbers, "1");
@@ -252,23 +258,61 @@ public class SpecificInputView {
     }
 
     private void updateNumberFields(FlowPane container, String qtyStr) {
-        container.getChildren().clear();
-        if (qtyStr == null || qtyStr.trim().isEmpty())
+        if (qtyStr == null || qtyStr.trim().isEmpty()) {
+            // User cleared the quantity field entirely — DON'T touch existing fields.
+            // An empty qty means "I haven't decided yet" or "these slots intentionally have no number".
             return;
-        try {
-            int qty = Integer.parseInt(qtyStr.trim());
-            if (qty > 100)
-                qty = 100;
-            for (int i = 0; i < qty; i++) {
-                TextField tf = new TextField();
-                tf.setPromptText("#");
-                tf.setPrefWidth(35);
-                tf.setAlignment(Pos.CENTER);
-                tf.setStyle("-fx-font-size: 10px; -fx-background-color: #fff8e1; -fx-border-color: #ffe0b2;");
-                container.getChildren().add(tf);
-            }
-        } catch (Exception e) {
         }
+
+        int targetQty;
+        try {
+            targetQty = Integer.parseInt(qtyStr.trim());
+            if (targetQty > 100) targetQty = 100;
+            if (targetQty < 0) targetQty = 0;
+        } catch (Exception e) {
+            return; // Non-numeric input — don't destroy existing data
+        }
+
+        int currentCount = container.getChildren().size();
+
+        if (targetQty == currentCount) {
+            return; // Nothing to do
+        }
+
+        if (targetQty > currentCount) {
+            // INCREASE: append new empty fields at the end
+            for (int i = currentCount; i < targetQty; i++) {
+                container.getChildren().add(createNumberField());
+            }
+        } else {
+            // DECREASE: remove empty fields first, then remove from the end if still needed
+            int toRemove = currentCount - targetQty;
+
+            // Pass 1: remove empty fields from the end
+            for (int i = container.getChildren().size() - 1; i >= 0 && toRemove > 0; i--) {
+                Node child = container.getChildren().get(i);
+                if (child instanceof TextField && ((TextField) child).getText().trim().isEmpty()) {
+                    container.getChildren().remove(i);
+                    toRemove--;
+                }
+            }
+
+            // Pass 2: if we still need to remove more (all remaining are filled),
+            // remove from the end — the user explicitly reduced below the filled count
+            while (container.getChildren().size() > targetQty) {
+                container.getChildren().remove(container.getChildren().size() - 1);
+            }
+        }
+    }
+
+    /** Creates a styled number input field for a single player slot. */
+    private TextField createNumberField() {
+        TextField tf = new TextField();
+        tf.setPromptText("#");
+        tf.setPrefWidth(35);
+        tf.setAlignment(Pos.CENTER);
+        tf.setStyle("-fx-font-size: 10px; -fx-background-color: #fff8e1; -fx-border-color: #ffe0b2;");
+        return tf;
     }
 
     private void showConfigDialog(Node card) {
@@ -278,6 +322,7 @@ public class SpecificInputView {
         String curManga = currentConfig[0];
         String curTallaShort = currentConfig[1];
         String curTipoBottom = (currentConfig.length > 2) ? currentConfig[2] : "DEFAULT";
+        String curPrendas = (currentConfig.length > 3) ? currentConfig[3] : "AMBOS";
 
         Dialog<String[]> dialog = new Dialog<>();
         dialog.setTitle("Configurar Bloque");
@@ -358,6 +403,11 @@ public class SpecificInputView {
         cbTipoBottom.setValue(curTipoBottom.equals("DEFAULT") ? "USAR DEFECTO" : curTipoBottom);
         cbTipoBottom.setPrefWidth(200);
 
+        ComboBox<String> cbPrendas = new ComboBox<>();
+        cbPrendas.getItems().addAll("AMBOS", "SOLO_SUPERIOR", "SOLO_INFERIOR");
+        cbPrendas.setValue(curPrendas);
+        cbPrendas.setPrefWidth(200);
+
         if (disableBottom) {
             cbShort.setDisable(true);
             cbShort.setValue("NO APLICA");
@@ -366,16 +416,22 @@ public class SpecificInputView {
             cbTipoBottom.setDisable(true);
             cbTipoBottom.setValue("NO APLICA");
             cbTipoBottom.setStyle("-fx-opacity: 0.7; -fx-background-color: #eee;");
+            
+            cbPrendas.setDisable(true);
+            cbPrendas.setValue("SOLO_SUPERIOR");
+            cbPrendas.setStyle("-fx-opacity: 0.7; -fx-background-color: #eee;");
         }
 
         int row = 0;
+        g.add(new Label("Prendas Incluidas:"), 0, row);
+        g.add(cbPrendas, 1, row++);
         g.add(new Label("Tipo Manga:"), 0, row);
         g.add(cbManga, 1, row++);
 
         // Always show bottom fields, but disabled if needed
-        g.add(new Label("Talla Inf.:"), 0, row);
+        g.add(new Label("Talla Inferior:"), 0, row);
         g.add(cbShort, 1, row++);
-        g.add(new Label("Tipo Inf.:"), 0, row);
+        g.add(new Label("Tipo Inferior:"), 0, row);
         g.add(cbTipoBottom, 1, row++);
 
         dialog.getDialogPane().setContent(g);
@@ -383,7 +439,7 @@ public class SpecificInputView {
             if (db == applyType) {
                 String sVal = cbShort.getValue().equals("IGUAL A CAMISETA") ? "SAME" : cbShort.getValue();
                 String tVal = cbTipoBottom.getValue().equals("USAR DEFECTO") ? "DEFAULT" : cbTipoBottom.getValue();
-                return new String[] { cbManga.getValue(), sVal, tVal };
+                return new String[] { cbManga.getValue(), sVal, tVal, cbPrendas.getValue() };
             }
             return null;
         });
@@ -441,10 +497,11 @@ public class SpecificInputView {
                 String manga = (data.config != null) ? data.config[0] : "DEFAULT";
                 String tShort = (data.config != null) ? data.config[1] : "SAME";
                 String tipoBottom = (data.config != null && data.config.length > 2) ? data.config[2] : "DEFAULT";
+                String prendas = (data.config != null && data.config.length > 3) ? data.config[3] : "AMBOS";
 
                 for (String num : data.numbers) {
                     DetallePedido newItem = createItemImpl("JUGADOR", num, data.size, genero.name(),
-                            manga, tShort, tipoBottom);
+                            manga, tShort, tipoBottom, prendas);
                     generated.add(newItem);
                 }
             }
@@ -470,7 +527,7 @@ public class SpecificInputView {
 
     // Duplicated helper to avoid dependency hell for now
     private DetallePedido createItemImpl(String nombre, String numero, String talla, String genero,
-            String overrideManga, String overrideShort, String overrideTipoBottom) {
+            String overrideManga, String overrideShort, String overrideTipoBottom, String overridePrendas) {
         DetallePedido nuevo = new DetallePedido(nombre, numero, talla, genero);
 
         ConfiguracionPrendaDTO cfg = configSupplier != null ? configSupplier.get() : null;
@@ -479,6 +536,15 @@ public class SpecificInputView {
             boolean top = (tipo != org.example.model.TipoPrenda.SHORT);
             boolean bottom = (tipo == org.example.model.TipoPrenda.SHORT) || cfg.llevaShort();
             boolean socks = cfg.llevaMedias();
+
+            if (overridePrendas != null && !overridePrendas.equals("AMBOS")) {
+                if (overridePrendas.equals("SOLO_SUPERIOR")) {
+                    bottom = false;
+                    socks = false;
+                } else if (overridePrendas.equals("SOLO_INFERIOR")) {
+                    top = false;
+                }
+            }
 
             nuevo.setIncludeTop(top);
             nuevo.setIncludeBottom(bottom);

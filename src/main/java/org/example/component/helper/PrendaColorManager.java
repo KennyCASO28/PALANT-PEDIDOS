@@ -287,21 +287,14 @@ public class PrendaColorManager {
     }
 
     /**
-     * Clears the JavaFX node cache to force a fresh render on the GPU.
-     * Prevents 'ghost colors' from previous design modes.
+     * Clears any stale rendering state.
+     * Note: setCache(false/true) cycling was removed as it caused D3D NPE errors
+     * in JavaFX's Prism rendering pipeline.
      */
     public void clearCache() {
-        if (shirtRenderer != null && shirtRenderer.getGroup() != null) {
-            shirtRenderer.getGroup().setCache(false);
-            shirtRenderer.getGroup().setCache(true); // Cycle to clear stale buffers
-        }
-        if (shortsRenderer != null && shortsRenderer.getGroup() != null) {
-            shortsRenderer.getGroup().setCache(false);
-            shortsRenderer.getGroup().setCache(true);
-        }
-        if (socksRenderer != null && socksRenderer.getGroup() != null) {
-            socksRenderer.getGroup().setCache(false);
-            socksRenderer.getGroup().setCache(true);
-        }
+        // No-op: The cycling of setCache(false/true) previously here caused
+        // NullPointerException in D3DTextureResource.getResource() when
+        // JavaFX's Prism rendering pipeline tried to create D3D textures.
+        // Cache is already disabled by default in the renderers.
     }
 }

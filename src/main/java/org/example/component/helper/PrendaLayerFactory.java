@@ -128,13 +128,8 @@ public class PrendaLayerFactory {
         } else {
             if (visualizer.getPowerClipManager().isEditing()) {
                 String zone = visualizer.getPowerClipManager().getCurrentEditingZone();
-                org.example.component.helper.SmartZoneContainer container = visualizer.getPowerClipManager()
-                        .getContainer(zone);
-                if (container != null) {
-                    layerManager.addLayerToContainer(node, container.getContentGroup(), true);
-                } else {
-                    layerManager.addLayer(node);
-                }
+                visualizer.getPowerClipManager().addToContainer(node, zone, true);
+                // recordAddInHistory might require GraphicLayer, but let's just let it be handled if possible or skip history here if not supported.
             } else {
                 layerManager.addLayer(node);
             }

@@ -127,11 +127,23 @@ public class UserLayerManager {
         }
         // Safe reparenting
         if (layer.getParent() != null && layer.getParent() instanceof Group) {
-            ((Group) layer.getParent()).getChildren().remove(layer);
+            Group oldParent = (Group) layer.getParent();
+            oldParent.getChildren().remove(layer);
+            if (oldParent.getParent() instanceof org.example.component.GroupLayerV2) {
+                ((org.example.component.GroupLayerV2) oldParent.getParent()).syncUserLayersOrder();
+            } else if (oldParent instanceof org.example.component.GroupLayerV2) {
+                ((org.example.component.GroupLayerV2) oldParent).syncUserLayersOrder();
+            }
         }
 
-        if (!container.getChildren().contains(layer)) {
-            container.getChildren().add(layer);
+        if (container instanceof org.example.component.GroupLayerV2) {
+            ((org.example.component.GroupLayerV2) container).addChild(layer);
+        } else if (container.getParent() instanceof org.example.component.GroupLayerV2) {
+            ((org.example.component.GroupLayerV2) container.getParent()).addChild(layer);
+        } else {
+            if (!container.getChildren().contains(layer)) {
+                container.getChildren().add(layer);
+            }
         }
 
         // Notify Listeners
@@ -146,6 +158,15 @@ public class UserLayerManager {
 
     public void removeLayer(Node layer) {
         allLayers.remove(layer);
+        if (layer.getParent() != null) {
+            javafx.scene.Parent parent = layer.getParent();
+            javafx.scene.Parent grandParent = parent.getParent();
+            if (grandParent instanceof org.example.component.GroupLayerV2) {
+                ((org.example.component.GroupLayerV2) grandParent).removeChild(layer);
+            } else if (parent instanceof org.example.component.GroupLayerV2) {
+                ((org.example.component.GroupLayerV2) parent).removeChild(layer);
+            }
+        }
         if (layer.getParent() instanceof Group) {
             ((Group) layer.getParent()).getChildren().remove(layer);
         }
@@ -600,6 +621,22 @@ public class UserLayerManager {
                 org.example.component.GroupLayerV2 newGroup = new org.example.component.GroupLayerV2();
                 System.out.println("✅ USANDO GROUPLAYER V2 - Nueva arquitectura");
 
+                // Infer activeZone from the items being grouped
+                String groupZone = null;
+                if (!toGroup.isEmpty()) {
+                    Node firstItem = toGroup.get(0);
+                    if (firstItem instanceof org.example.component.GraphicLayer) {
+                        groupZone = ((org.example.component.GraphicLayer) firstItem).getActiveZone();
+                    } else if (firstItem instanceof org.example.component.GroupLayerV2) {
+                        groupZone = ((org.example.component.GroupLayerV2) firstItem).getActiveZone();
+                    } else if (firstItem instanceof org.example.component.GroupLayer) {
+                        groupZone = ((org.example.component.GroupLayer) firstItem).getActiveZone();
+                    }
+                }
+                if (groupZone != null) {
+                    newGroup.setActiveZone(groupZone);
+                }
+
                 // Calculate Insertion Index
                 int targetIndex = -1;
                 for (Node n : toGroup) {
@@ -806,33 +843,44 @@ public class UserLayerManager {
 
             java.util.Map<Node, javafx.geometry.Point2D> targetWorkspaceCenters = new java.util.HashMap<>();
             java.util.Map<Node, javafx.geometry.Point2D> localCenters = new java.util.HashMap<>();
+            java.util.Map<Node, javafx.scene.transform.Transform> combinedTransforms = new java.util.HashMap<>();
 
             for (Node c : children) {
                 beforeStates.add(new org.example.pattern.NodeMemento(c));
                 javafx.geometry.Point2D centerLocal = getStableCenter(c);
                 localCenters.put(c, centerLocal);
                 targetWorkspaceCenters.put(c, localToWorkspace(c, centerLocal));
+
+                // Capture combined transform relative to the group's parent dynamically.
+                // If the child is a GroupLayer or GroupLayerV2, its internal transforms are applied
+                // to its contentGroup. We must start concatenation from contentGroup to include them.
+                Node startNode;
+                if (c instanceof org.example.component.GroupLayerV2) {
+                    startNode = ((org.example.component.GroupLayerV2) c).getContentGroup();
+                } else if (c instanceof org.example.component.GroupLayer) {
+                    startNode = ((org.example.component.GroupLayer) c).getContentGroup();
+                } else {
+                    startNode = c;
+                }
+
+                javafx.scene.transform.Transform combined = startNode.getLocalToParentTransform();
+                Node next = startNode.getParent();
+                while (next != null && next != parent) {
+                    combined = next.getLocalToParentTransform().createConcatenation(combined);
+                    next = next.getParent();
+                }
+                combinedTransforms.put(c, combined);
             }
 
             // 2. REPARENT & APPLY PROPERTIES (PASS 2)
             int i = 0;
             for (Node c : children) {
-                // Determine Rotation (Cumulative)
-                // CRITICAL FIX: GroupLayerV2 stores rotation in its internal rotateTransform
-                // (applied to contentGroup), NOT in node.getRotate() or node.getTransforms().
-                // Reading getRotate() on a GroupLayerV2 always returns 0 — use getInternalRotation().
-                double extraAngle = 0;
+                // Determine group's shear BEFORE reparenting (for shear restoration fallback)
+                double shearX = 0;
+                double shearY = 0;
                 if (groupNode instanceof org.example.component.GroupLayerV2) {
-                    extraAngle = ((org.example.component.GroupLayerV2) groupNode).getInternalRotation();
-                } else if (groupNode instanceof org.example.component.GroupLayer) {
-                    extraAngle = ((org.example.component.GroupLayer) groupNode).getInternalRotation();
-                } else {
-                    // Legacy Group: read from node rotate + any Rotate transforms
-                    extraAngle = groupNode.getRotate();
-                    for (javafx.scene.transform.Transform t : groupNode.getTransforms()) {
-                        if (t instanceof javafx.scene.transform.Rotate)
-                            extraAngle += ((javafx.scene.transform.Rotate) t).getAngle();
-                    }
+                    shearX = ((org.example.component.GroupLayerV2) groupNode).getInternalShearX();
+                    shearY = ((org.example.component.GroupLayerV2) groupNode).getInternalShearY();
                 }
 
                 // Remove from Group
@@ -849,60 +897,40 @@ public class UserLayerManager {
                 c.setTranslateX(0);
                 c.setTranslateY(0);
 
-                // RESTORE ROTATION
-                if (c instanceof org.example.component.ShapeLayer) {
-                    ((org.example.component.ShapeLayer) c).addRotation(extraAngle);
-                } else if (c instanceof org.example.component.ImageLayer) {
-                    ((org.example.component.ImageLayer) c).addRotation(extraAngle);
-                } else if (c instanceof org.example.component.GroupLayer) {
-                    ((org.example.component.GroupLayer) c).addRotation(extraAngle);
-                } else if (c instanceof org.example.component.GroupLayerV2) {
-                    ((org.example.component.GroupLayerV2) c).addRotation(extraAngle);
-                } else if (c instanceof org.example.component.TextLayer) {
-                    ((org.example.component.TextLayer) c).addRotation(extraAngle);
-                } else {
-                    c.setRotate(c.getRotate() + extraAngle);
+                // DECOMPOSE AND APPLY ROTATION AND SCALE
+                javafx.scene.transform.Transform combined = combinedTransforms.get(c);
+                if (combined != null) {
+                    double a = combined.getMxx();
+                    double b = combined.getMxy();
+                    double c_val = combined.getMyx();
+                    double d = combined.getMyy();
+
+                    double det = a * d - b * c_val;
+                    double sx = Math.sqrt(a * a + c_val * c_val);
+                    double sy = Math.sqrt(b * b + d * d);
+
+                    if (det < 0) {
+                        sx = -sx;
+                    }
+
+                    double rotation = 0;
+                    if (Math.abs(sx) > 1e-9) {
+                        rotation = Math.toDegrees(Math.atan2(c_val / sx, a / sx));
+                    }
+
+                    setNodeRotationAndScale(c, rotation, sx, sy);
                 }
 
-                // RESTORE SCALE
-                double scaleX = 1.0;
-                double scaleY = 1.0;
-
-                // CRITICAL FIX: In Pure Geometric Mode, children are already scaled.
-                // We ONLY apply scale if the group has a non-unitary scale PROPERTY
-                // (setScaleX/Y)
-                // that hasn't been absorbed yet, or if it's a legacy group.
-                // For GroupLayer and GroupLayerV2, we've moved to a model where root scale IS
-                // always 1.0
-                // because of absorption, so we use 1.0 here to avoid double-scaling.
-
-                if (groupNode instanceof org.example.component.GroupLayerV2 ||
-                        groupNode instanceof org.example.component.GroupLayer) {
-                    // Geometric groups: scale is already in children.
-                    scaleX = 1.0;
-                    scaleY = 1.0;
-                } else {
-                    // Legacy or standard Group
-                    scaleX = groupNode.getScaleX();
-                    scaleY = groupNode.getScaleY();
-                }
-
-                if (Math.abs(scaleX - 1.0) > 0.001 || Math.abs(scaleY - 1.0) > 0.001) {
+                // RESTORE SHEAR (fallback if group was sheared)
+                if (Math.abs(shearX) > 0.001 || Math.abs(shearY) > 0.001) {
                     if (c instanceof org.example.component.ShapeLayer) {
-                        ((org.example.component.ShapeLayer) c).multiplyScale(scaleX, scaleY);
+                        ((org.example.component.ShapeLayer) c).getTransformManager().multiplyShear(shearX, shearY);
                     } else if (c instanceof org.example.component.ImageLayer) {
-                        ((org.example.component.ImageLayer) c).multiplyScale(scaleX, scaleY);
-                    } else if (c instanceof org.example.component.GroupLayer) {
-                        ((org.example.component.GroupLayer) c).multiplyScale(scaleX, scaleY);
+                        org.example.component.ImageLayer il = (org.example.component.ImageLayer) c;
+                        il.getShearTransform().setX(il.getShearTransform().getX() + shearX);
+                        il.getShearTransform().setY(il.getShearTransform().getY() + shearY);
                     } else if (c instanceof org.example.component.GroupLayerV2) {
-                        // For nested V2 groups
-                        org.example.component.GroupLayerV2 nested = (org.example.component.GroupLayerV2) c;
-                        double newSX = nested.getInternalScaleX() * scaleX;
-                        double newSY = nested.getInternalScaleY() * scaleY;
-                        nested.setInternalScale(newSX, newSY);
-                    } else {
-                        c.setScaleX(c.getScaleX() * scaleX);
-                        c.setScaleY(c.getScaleY() * scaleY);
+                        ((org.example.component.GroupLayerV2) c).multiplyShear(shearX, shearY);
                     }
                 }
 
@@ -925,6 +953,34 @@ public class UserLayerManager {
 
                         c.setTranslateX(c.getTranslateX() + dx);
                         c.setTranslateY(c.getTranslateY() + dy);
+                    }
+                }
+                
+                if (!allLayers.contains(c)) {
+                    allLayers.add(c);
+                }
+
+                if (parent.getParent() instanceof org.example.component.helper.SmartZoneContainer zoneContainer) {
+                    String groupZone = null;
+                    if (groupNode instanceof org.example.component.GroupLayerV2) {
+                        groupZone = ((org.example.component.GroupLayerV2) groupNode).getActiveZone();
+                    } else if (groupNode instanceof org.example.component.GroupLayer) {
+                        groupZone = ((org.example.component.GroupLayer) groupNode).getActiveZone();
+                    }
+                    if (groupZone != null) {
+                        if (c instanceof org.example.component.ShapeLayer) {
+                            ((org.example.component.ShapeLayer) c).setActiveZone(groupZone);
+                        } else if (c instanceof org.example.component.ImageLayer) {
+                            ((org.example.component.ImageLayer) c).setActiveZone(groupZone);
+                        } else if (c instanceof org.example.component.TextLayer) {
+                            ((org.example.component.TextLayer) c).setActiveZone(groupZone);
+                        } else if (c instanceof org.example.component.GroupLayerV2) {
+                            ((org.example.component.GroupLayerV2) c).setActiveZone(groupZone);
+                        }
+                    }
+                    zoneContainer.updateItemState(c);
+                    if (historyManager != null && historyManager.getVisualizer() != null) {
+                        historyManager.getVisualizer().getPowerClipManager().refreshZoneClip(zoneContainer.getZoneId());
                     }
                 }
 
@@ -1053,6 +1109,39 @@ public class UserLayerManager {
             } else if (n instanceof org.example.component.helper.SmartZoneContainer) {
                 collectTextLayers(((org.example.component.helper.SmartZoneContainer) n).getContentGroup(), list);
             }
+        }
+    }
+
+    private void setNodeRotationAndScale(Node n, double rotation, double scaleX, double scaleY) {
+        if (n instanceof org.example.component.ShapeLayer) {
+            org.example.component.ShapeLayer sl = (org.example.component.ShapeLayer) n;
+            sl.getTransformManager().setInternalRotation(rotation);
+            sl.getTransformManager().setInternalScaleX(scaleX);
+            sl.getTransformManager().setInternalScaleY(scaleY);
+        } else if (n instanceof org.example.component.ImageLayer) {
+            org.example.component.ImageLayer il = (org.example.component.ImageLayer) n;
+            il.setInternalRotation(rotation);
+            il.setInternalScaleX(scaleX);
+            il.setInternalScaleY(scaleY);
+        } else if (n instanceof org.example.component.TextLayer) {
+            org.example.component.TextLayer tl = (org.example.component.TextLayer) n;
+            tl.setInternalRotation(rotation);
+            tl.setInternalScaleX(scaleX);
+            tl.setInternalScaleY(scaleY);
+        } else if (n instanceof org.example.component.GroupLayerV2) {
+            org.example.component.GroupLayerV2 gl = (org.example.component.GroupLayerV2) n;
+            gl.setInternalRotation(rotation);
+            gl.setInternalScaleX(scaleX);
+            gl.setInternalScaleY(scaleY);
+        } else if (n instanceof org.example.component.GroupLayer) {
+            org.example.component.GroupLayer gl = (org.example.component.GroupLayer) n;
+            gl.setInternalRotation(rotation);
+            gl.setInternalScaleX(scaleX);
+            gl.setInternalScaleY(scaleY);
+        } else {
+            n.setRotate(rotation);
+            n.setScaleX(scaleX);
+            n.setScaleY(scaleY);
         }
     }
 }

@@ -410,7 +410,15 @@ public class PrendaVisualizer extends StackPane {
             numberManager.clearNodeSignatures();
         }
     }
-    public void flushUIStateToDataModel() { stateManager.flushUIStateToDataModel(); }
+    public void flushUIStateToDataModel() {
+        stateManager.flushUIStateToDataModel();
+        org.example.model.PrendaState state = stateManager.getActiveState();
+        if (numberManager != null && state != null) {
+            numberManager.saveNumberColorsToState(state, "chest", numberManager.getChestNumber(stateManager.isEditandoArquero()));
+            numberManager.saveNumberColorsToState(state, "back", numberManager.getBackNumber(stateManager.isEditandoArquero()));
+            numberManager.saveNumberColorsToState(state, "short", numberManager.getShortNumber(stateManager.isEditandoArquero()));
+        }
+    }
     public void setEditModeVisuals(boolean v) { 
         uiController.setEditModeVisuals(v); 
         updateEditModeContainerStyle(v);
@@ -654,6 +662,8 @@ public class PrendaVisualizer extends StackPane {
              if (node instanceof ShapeLayer) ((ShapeLayer) node).setUserLocked(locked);
              else if (node instanceof ImageLayer) ((ImageLayer) node).setUserLocked(locked);
              else if (node instanceof TextLayer) ((TextLayer) node).setUserLocked(locked);
+             else if (node instanceof GroupLayerV2) ((GroupLayerV2) node).setUserLocked(locked);
+             else if (node instanceof GroupLayer) ((GroupLayer) node).setUserLocked(locked);
         });
     }
 

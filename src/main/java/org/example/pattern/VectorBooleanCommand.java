@@ -7,7 +7,7 @@ import java.util.ArrayList;
 
 public class VectorBooleanCommand implements ICommand {
     public enum ActionType {
-        WELD, UNWELD
+        WELD, UNWELD, CUT
     }
 
     private final UserLayerManager manager;
@@ -112,7 +112,9 @@ public class VectorBooleanCommand implements ICommand {
 
     @Override
     public String getName() {
-        return type == ActionType.WELD ? "Soldar Vectores" : "Desoldar Vectores";
+        if (type == ActionType.WELD) return "Soldar Vectores";
+        if (type == ActionType.UNWELD) return "Desoldar Vectores";
+        return "Cortar Vectores";
     }
 
     @Override

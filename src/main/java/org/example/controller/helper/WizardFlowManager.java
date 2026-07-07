@@ -133,7 +133,7 @@ public class WizardFlowManager {
                 rootOverlay.getChildren().add(btnCenterView);
             }
 
-            // Integrar barras de herramientas del delegado
+            // Integrar barras de herramientas del delegado y paleta de colores
             if (personalizacionDelegate != null) {
                 javafx.scene.Node toolsCapsule = personalizacionDelegate.getIntegratedBottomBar();
                 if (toolsCapsule != null) {
@@ -149,6 +149,14 @@ public class WizardFlowManager {
                     StackPane.setAlignment(verticalBar, Pos.CENTER_LEFT);
                     StackPane.setMargin(verticalBar, new Insets(0, 0, 0, 30));
                     rootOverlay.getChildren().add(verticalBar);
+                }
+
+                javafx.scene.Node colorPaletteNode = personalizacionDelegate.getColorPaletteNode();
+                if (colorPaletteNode != null) {
+                    detachFromParent(colorPaletteNode);
+                    StackPane.setAlignment(colorPaletteNode, Pos.CENTER_RIGHT);
+                    StackPane.setMargin(colorPaletteNode, new Insets(0, 8, 0, 0));
+                    rootOverlay.getChildren().add(colorPaletteNode);
                 }
             }
 

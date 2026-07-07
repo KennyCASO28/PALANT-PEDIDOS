@@ -106,7 +106,7 @@ public class MarqueeSelectionHandler {
         List<Node> nodesToSelect = new ArrayList<>();
 
         for (Node layer : visualizer.getUserLayerManager().getLayers()) {
-            if (!layer.isVisible() || (layer instanceof GraphicLayer && ((GraphicLayer) layer).isLocked())) {
+            if (!layer.isVisible() || layer.isMouseTransparent() || (layer instanceof GraphicLayer && ((GraphicLayer) layer).isLocked())) {
                 continue;
             }
 

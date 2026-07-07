@@ -770,9 +770,9 @@ public class JugadoresDelegate {
     }
 
     private void eliminarJugadorSeleccionado() {
-        DetallePedido seleccionado = tabla.getSelectionModel().getSelectedItem();
-        if (seleccionado != null) {
-            listaJugadores.remove(seleccionado);
+        List<DetallePedido> seleccionados = new java.util.ArrayList<>(tabla.getSelectionModel().getSelectedItems());
+        if (!seleccionados.isEmpty()) {
+            listaJugadores.removeAll(seleccionados);
             actualizarContador();
         }
     }
@@ -780,20 +780,50 @@ public class JugadoresDelegate {
     private void editarJugadorSeleccionado() {
         DetallePedido seleccionado = tabla.getSelectionModel().getSelectedItem();
         if (seleccionado != null) {
-            // Fill manual inputs
-            tabla.getSelectionModel().clearSelection(); // Deselect to avoid confusion
-            // Switch to manual Tab if possible? accessing tabPane is hard here without ref
+            Dialog<DetallePedido> dialog = new Dialog<>();
+            dialog.setTitle("Editar Jugador");
+            dialog.setHeaderText("Modificar datos de la fila seleccionada");
+            UIFactory.estilizarDialogo(dialog);
 
-            // Simple fallback: Show manual dialog or fill inputs
-            txtNombreManual.setText(seleccionado.getNombre());
-            txtNumeroManual.setText(seleccionado.getNumero());
-            comboTallaManual.setValue(seleccionado.getTalla());
+            ButtonType guardarType = new ButtonType("Guardar", ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(guardarType, ButtonType.CANCEL);
 
-            listaJugadores.remove(seleccionado);
-            actualizarContador();
+            GridPane grid = new GridPane();
+            grid.setHgap(20);
+            grid.setVgap(15);
+            grid.setPadding(new Insets(20));
 
-            UIFactory.mostrarAlerta(Alert.AlertType.INFORMATION, "Editando",
-                    "Los datos se pasaron al formulario manual.");
+            TextField txtNombre = new TextField(seleccionado.getNombre() != null ? seleccionado.getNombre() : "");
+            TextField txtNumero = new TextField(seleccionado.getNumero() != null ? seleccionado.getNumero() : "");
+            
+            ComboBox<String> cbTalla = new ComboBox<>();
+            cbTalla.getItems().addAll(TipoTalla.getLabels());
+            cbTalla.setValue(seleccionado.getTalla());
+            
+            grid.add(new Label("Nombre:"), 0, 0);
+            grid.add(txtNombre, 1, 0);
+            grid.add(new Label("Número:"), 0, 1);
+            grid.add(txtNumero, 1, 1);
+            grid.add(new Label("Talla:"), 0, 2);
+            grid.add(cbTalla, 1, 2);
+
+            dialog.getDialogPane().setContent(grid);
+
+            dialog.setResultConverter(btn -> {
+                if (btn == guardarType) {
+                    seleccionado.setNombre(txtNombre.getText());
+                    seleccionado.setNumero(txtNumero.getText());
+                    if (cbTalla.getValue() != null) {
+                        seleccionado.setTalla(cbTalla.getValue());
+                    }
+                    return seleccionado;
+                }
+                return null;
+            });
+
+            dialog.showAndWait().ifPresent(res -> {
+                tabla.refresh();
+            });
         }
     }
 

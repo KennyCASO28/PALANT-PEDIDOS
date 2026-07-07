@@ -162,6 +162,12 @@ public class VectorBooleanHelper {
 
     public static ShapeLayer createShapeLayerFromPath(Path originalPath, javafx.scene.paint.Color fill,
                                                       javafx.scene.paint.Color stroke, double strokeWidth) {
+        return createShapeLayerFromPath(originalPath, fill, stroke, strokeWidth, null);
+    }
+
+    public static ShapeLayer createShapeLayerFromPath(Path originalPath, javafx.scene.paint.Color fill,
+                                                      javafx.scene.paint.Color stroke, double strokeWidth,
+                                                      org.example.model.ShapeLayerState sourceStyleState) {
         if (originalPath == null || originalPath.getElements().isEmpty()) return null;
 
         ensureClosed(originalPath);
@@ -188,6 +194,28 @@ public class VectorBooleanHelper {
         layer.getState().svgPathData = svgData;
         layer.getState().bezierNodes = convertPathToBezierNodes(normalizedPath);
         layer.getState().originalBezierNodes = ShapePathSupport.copyNodes(layer.getState().bezierNodes);
+
+        if (sourceStyleState != null) {
+            layer.getState().fillColor = sourceStyleState.fillColor;
+            layer.getState().strokeColor = sourceStyleState.strokeColor;
+            layer.getState().strokeWidth = sourceStyleState.strokeWidth;
+            layer.getState().strokeLineJoin = sourceStyleState.strokeLineJoin;
+            layer.getState().strokeType = sourceStyleState.strokeType;
+
+            // Contour / Glow
+            layer.getState().contourSteps = sourceStyleState.contourSteps;
+            layer.getState().contourDistance = sourceStyleState.contourDistance;
+            layer.getState().contourColor = sourceStyleState.contourColor;
+            layer.getState().contourLineJoin = sourceStyleState.contourLineJoin;
+
+            // Gradient / Transparency
+            layer.getState().isGradientTransparency = sourceStyleState.isGradientTransparency;
+            layer.getState().transparencyAngle = sourceStyleState.transparencyAngle;
+            layer.getState().transparencyStartAlpha = sourceStyleState.transparencyStartAlpha;
+            layer.getState().transparencyEndAlpha = sourceStyleState.transparencyEndAlpha;
+            layer.getState().transparencyBalance = sourceStyleState.transparencyBalance;
+        }
+
         layer.setTranslateX(bounds.getMinX());
         layer.setTranslateY(bounds.getMinY());
         layer.renderShape();
@@ -407,38 +435,38 @@ public class VectorBooleanHelper {
 
         List<Shape> shapesToUnion = new ArrayList<>();
 
+        ShapeLayer firstLayer = layersToWeld.get(0);
+        javafx.scene.Group parentGroup = null;
+        if (firstLayer.getParent() instanceof javafx.scene.Group) {
+            parentGroup = (javafx.scene.Group) firstLayer.getParent();
+        }
+        javafx.scene.Group targetContainer = parentGroup;
+        if (targetContainer == null) {
+            targetContainer = visualizer.getUserLayerManager().getLayerGroup();
+        }
+
+        // Collect parent groups to check for empty/single child cleanup later
+        java.util.Set<javafx.scene.Group> potentialEmptyGroups = new java.util.HashSet<>();
         for (ShapeLayer layer : layersToWeld) {
-            List<org.example.model.BezierNode> nodes = layer.getState().bezierNodes;
-
-            // For primitive shapes (Rectangle, Circle, etc.) that have no bezier nodes, convert first
-            if (nodes == null || nodes.isEmpty()) {
-                ShapePathSupport.PathConversionResult res = ShapePathSupport.convertPrimitiveToPath(
-                    layer.getCurrentShapeNode(),
-                    layer.getState().width, layer.getState().height,
-                    layer.getState().arcWidth, layer.getState().arcHeight,
-                    layer.getState().isClosed);
-                if (res != null) nodes = res.getNodes();
+            javafx.scene.Parent p = layer.getParent();
+            if (p instanceof javafx.scene.Group) {
+                javafx.scene.Parent gp = p.getParent();
+                if (gp instanceof org.example.component.GroupLayerV2 || gp instanceof org.example.component.GroupLayer) {
+                    potentialEmptyGroups.add((javafx.scene.Group) gp);
+                } else if (p instanceof org.example.component.GroupLayerV2 || p instanceof org.example.component.GroupLayer) {
+                    potentialEmptyGroups.add((javafx.scene.Group) p);
+                }
             }
+        }
 
+        for (ShapeLayer layer : layersToWeld) {
+            List<org.example.model.BezierNode> nodes = getLocalBezierNodes(layer);
             if (nodes == null || nodes.isEmpty()) continue;
 
-            // Transform each bezier node from layer's local space to parent space.
-            javafx.scene.transform.Transform t = layer.getLocalToParentTransform();
-            List<org.example.model.BezierNode> parentNodes = new ArrayList<>();
-            boolean firstNodeOfThisShape = true;
-            for (org.example.model.BezierNode bn : nodes) {
-                javafx.geometry.Point2D anchor = t.transform(bn.anchor);
-                javafx.geometry.Point2D c1 = t.transform(bn.control1 != null ? bn.control1 : bn.anchor);
-                javafx.geometry.Point2D c2 = t.transform(bn.control2 != null ? bn.control2 : bn.anchor);
+            // Transform each bezier node globally to target container space to prevent size reduction and misalignment
+            List<org.example.model.BezierNode> parentNodes = transformNodesGlobally(nodes, layer, targetContainer);
 
-                org.example.model.BezierNode tbn = new org.example.model.BezierNode(anchor, c1, c2);
-                tbn.segmentType = bn.segmentType;
-                tbn.isMoveTo = bn.isMoveTo || firstNodeOfThisShape;
-                firstNodeOfThisShape = false;
-                parentNodes.add(tbn);
-            }
-
-            // Build SVG path in parent space
+            // Build SVG path in target space
             String svgData = ShapePathSupport.buildSvgPath(parentNodes, true);
             if (!svgData.isEmpty()) {
                 SVGPath svgPath = new SVGPath();
@@ -459,16 +487,10 @@ public class VectorBooleanHelper {
         Path unionPath = (Path) Shape.union(unionResult, new Path());
 
         // Create the welded ShapeLayer using the existing helper
-        ShapeLayer weldedLayer = createShapeLayerFromPath(unionPath, fill, stroke, strokeWidth);
+        ShapeLayer weldedLayer = createShapeLayerFromPath(unionPath, fill, stroke, strokeWidth, firstLayer.getState());
         if (weldedLayer == null) return;
-
-        ShapeLayer firstLayer = layersToWeld.get(0);
         weldedLayer.setActiveZone(firstLayer.getActiveZone());
 
-        javafx.scene.Group parentGroup = null;
-        if (firstLayer.getParent() instanceof javafx.scene.Group) {
-            parentGroup = (javafx.scene.Group) firstLayer.getParent();
-        }
         int insertionIndex = parentGroup != null ? parentGroup.getChildren().indexOf(firstLayer) : -1;
 
         // Collect original nodes for command
@@ -496,15 +518,14 @@ public class VectorBooleanHelper {
             visualizer.getUserLayerManager().setPerformingHistoryAction(wasHistory);
         }
 
-        // Sync PowerClip container item state if in a zone
+        // Sync PowerClip container item state if in a zone and refresh clip
         if (weldedLayer.getActiveZone() != null) {
             SmartZoneContainer zoneContainer = visualizer.getPowerClipManager().getContainer(weldedLayer.getActiveZone());
             if (zoneContainer != null) {
                 zoneContainer.updateItemState(weldedLayer);
             }
+            visualizer.getPowerClipManager().refreshZoneClip(weldedLayer.getActiveZone());
         }
-
-        visualizer.getUserLayerManager().selectNode(weldedLayer);
 
         if (visualizer.getHistoryManager() != null) {
             visualizer.getHistoryManager().addCommand(new org.example.pattern.VectorBooleanCommand(
@@ -516,8 +537,283 @@ public class VectorBooleanHelper {
                 originalStates
             ));
         }
+
+        visualizer.getUserLayerManager().selectNode(weldedLayer);
+
+        // Clean up empty or single-child groups dynamically
+        for (javafx.scene.Group groupNode : potentialEmptyGroups) {
+            int childCount = 0;
+            if (groupNode instanceof org.example.component.GroupLayerV2) {
+                childCount = ((org.example.component.GroupLayerV2) groupNode).getUserLayers().size();
+            } else if (groupNode instanceof org.example.component.GroupLayer) {
+                childCount = ((org.example.component.GroupLayer) groupNode).getUserLayers().size();
+            }
+            
+            if (childCount == 0) {
+                visualizer.getUserLayerManager().removeLayer(groupNode);
+            } else if (childCount == 1) {
+                visualizer.getUserLayerManager().ungroup(groupNode);
+            }
+        }
     }
 
+    public static void cutSelectedShapes(PrendaVisualizer visualizer, List<ShapeLayer> layersToCut) {
+        if (layersToCut == null || layersToCut.size() < 2 || visualizer == null) return;
+
+        // Sort layers to cut by global Z-order
+        List<Node> allLayers = visualizer.getUserLayerManager().getLayers();
+        layersToCut.sort(java.util.Comparator.comparingInt(node -> {
+            int idx = allLayers.indexOf(node);
+            return idx != -1 ? idx : 0;
+        }));
+
+        int totalCount = layersToCut.size();
+        ShapeLayer cutterLayer = layersToCut.get(totalCount - 1);
+        List<ShapeLayer> targetLayers = new ArrayList<>(layersToCut.subList(0, totalCount - 1));
+
+        // Get local bezier nodes for cutter and convert primitive to path if necessary
+        List<org.example.model.BezierNode> cutterLocalNodes = getLocalBezierNodes(cutterLayer);
+        if (cutterLocalNodes == null || cutterLocalNodes.isEmpty()) return;
+
+        // Collect parent groups to check for empty/single child cleanup later
+        java.util.Set<javafx.scene.Group> potentialEmptyGroups = new java.util.HashSet<>();
+        for (ShapeLayer layer : layersToCut) {
+            javafx.scene.Parent p = layer.getParent();
+            if (p instanceof javafx.scene.Group) {
+                javafx.scene.Parent gp = p.getParent();
+                if (gp instanceof org.example.component.GroupLayerV2 || gp instanceof org.example.component.GroupLayer) {
+                    potentialEmptyGroups.add((javafx.scene.Group) gp);
+                } else if (p instanceof org.example.component.GroupLayerV2 || p instanceof org.example.component.GroupLayer) {
+                    potentialEmptyGroups.add((javafx.scene.Group) p);
+                }
+            }
+        }
+
+        List<ShapeLayer> resultCutLayers = new ArrayList<>();
+
+        for (ShapeLayer targetLayer : targetLayers) {
+            List<org.example.model.BezierNode> targetLocalNodes = getLocalBezierNodes(targetLayer);
+            if (targetLocalNodes == null || targetLocalNodes.isEmpty()) {
+                resultCutLayers.add(null);
+                continue;
+            }
+
+            // Find target's parent container Group
+            javafx.scene.Group targetParentGroup = null;
+            if (targetLayer.getParent() instanceof javafx.scene.Group) {
+                targetParentGroup = (javafx.scene.Group) targetLayer.getParent();
+            }
+            if (targetParentGroup == null) {
+                targetParentGroup = visualizer.getUserLayerManager().getLayerGroup();
+            }
+
+            // Transform target's and cutter's local bezier nodes to target's parent space globally
+            List<org.example.model.BezierNode> targetParentNodes = transformNodesGlobally(targetLocalNodes, targetLayer, targetParentGroup);
+            List<org.example.model.BezierNode> cutterParentNodes = transformNodesGlobally(cutterLocalNodes, cutterLayer, targetParentGroup);
+            
+            // Scale up target nodes by 100x to force JavaFX CSG engine to use high precision
+            List<org.example.model.BezierNode> scaledTargetNodes = scaleNodes(targetParentNodes, 100.0);
+            String targetSvgData = ShapePathSupport.buildSvgPath(scaledTargetNodes, true);
+            if (targetSvgData.isEmpty()) {
+                resultCutLayers.add(null);
+                continue;
+            }
+            SVGPath targetSvgPath = new SVGPath();
+            targetSvgPath.setContent(targetSvgData);
+
+            // Scale up cutter nodes by 100x to force JavaFX CSG engine to use high precision
+            List<org.example.model.BezierNode> scaledCutterNodes = scaleNodes(cutterParentNodes, 100.0);
+            String cutterSvgData = ShapePathSupport.buildSvgPath(scaledCutterNodes, true);
+            if (cutterSvgData.isEmpty()) {
+                resultCutLayers.add(null);
+                continue;
+            }
+            SVGPath cutterSvgPath = new SVGPath();
+            cutterSvgPath.setContent(cutterSvgData);
+
+            // Perform subtraction: Target - Cutter
+            Shape subtractResult = Shape.subtract(targetSvgPath, cutterSvgPath);
+
+            // Convert result shape into standard JavaFX Path
+            Path subtractPath = (Path) Shape.union(subtractResult, new Path());
+            
+            // Scale path elements back down by 100x
+            scalePathDown(subtractPath, 100.0);
+
+            // Create shape layer in target's parent space copying target's style/gradient
+            ShapeLayer cutLayer = createShapeLayerFromPath(subtractPath, targetLayer.getFillColor(),
+                    targetLayer.getStrokeColor(), targetLayer.getStrokeWidth(), targetLayer.getState());
+            resultCutLayers.add(cutLayer);
+        }
+
+        // Record parents and insertion indices BEFORE removing them
+        List<javafx.scene.Group> parentGroups = new ArrayList<>();
+        List<Integer> insertionIndices = new ArrayList<>();
+        for (ShapeLayer targetLayer : targetLayers) {
+            javafx.scene.Group parentGroup = null;
+            int insertionIndex = -1;
+            if (targetLayer.getParent() instanceof javafx.scene.Group) {
+                parentGroup = (javafx.scene.Group) targetLayer.getParent();
+                insertionIndex = parentGroup.getChildren().indexOf(targetLayer);
+            }
+            parentGroups.add(parentGroup);
+            insertionIndices.add(insertionIndex);
+        }
+
+        // Collect original nodes and their states for undo/redo command
+        List<javafx.scene.Node> originalNodes = new ArrayList<>(layersToCut);
+        List<org.example.pattern.NodeMemento> originalStates = new ArrayList<>();
+        for (ShapeLayer layer : layersToCut) {
+            originalStates.add(new org.example.pattern.NodeMemento(layer));
+        }
+
+        // Remove old layers (the targets and the cutter)
+        boolean wasHistory = visualizer.getUserLayerManager().isPerformingHistoryAction();
+        visualizer.getUserLayerManager().setPerformingHistoryAction(true);
+        try {
+            for (ShapeLayer layer : layersToCut) {
+                visualizer.getUserLayerManager().removeLayer(layer);
+            }
+        } finally {
+            visualizer.getUserLayerManager().setPerformingHistoryAction(wasHistory);
+        }
+
+        // Add successfully cut layers back into their respective original containers
+        List<Node> newResultNodes = new ArrayList<>();
+        for (int i = 0; i < targetLayers.size(); i++) {
+            ShapeLayer targetLayer = targetLayers.get(i);
+            ShapeLayer cutLayer = resultCutLayers.get(i);
+            if (cutLayer == null) continue;
+            newResultNodes.add(cutLayer);
+
+            cutLayer.setActiveZone(targetLayer.getActiveZone());
+
+            javafx.scene.Group parentGroup = parentGroups.get(i);
+            int insertionIndex = insertionIndices.get(i);
+
+            if (parentGroup != null) {
+                visualizer.addShapeLayerToContainer(cutLayer, parentGroup, insertionIndex, false);
+            } else {
+                visualizer.addShapeLayer(cutLayer);
+            }
+
+            // Sync PowerClip container item state if in a zone and refresh clip
+            if (cutLayer.getActiveZone() != null) {
+                SmartZoneContainer zoneContainer = visualizer.getPowerClipManager().getContainer(cutLayer.getActiveZone());
+                if (zoneContainer != null) {
+                    zoneContainer.updateItemState(cutLayer);
+                }
+                visualizer.getPowerClipManager().refreshZoneClip(cutLayer.getActiveZone());
+            }
+        }
+
+        // Clean up empty or single-child groups dynamically
+        for (javafx.scene.Group groupNode : potentialEmptyGroups) {
+            int childCount = 0;
+            if (groupNode instanceof org.example.component.GroupLayerV2) {
+                childCount = ((org.example.component.GroupLayerV2) groupNode).getUserLayers().size();
+            } else if (groupNode instanceof org.example.component.GroupLayer) {
+                childCount = ((org.example.component.GroupLayer) groupNode).getUserLayers().size();
+            }
+            
+            if (childCount == 0) {
+                visualizer.getUserLayerManager().removeLayer(groupNode);
+            } else if (childCount == 1) {
+                visualizer.getUserLayerManager().ungroup(groupNode);
+            }
+        }
+
+        // Recalculate bounds for parent groups that are still active (have children left)
+        for (javafx.scene.Group pg : parentGroups) {
+            if (pg == null) continue;
+            javafx.scene.Group gNode = null;
+            if (pg.getParent() instanceof org.example.component.GroupLayerV2) {
+                gNode = (javafx.scene.Group) pg.getParent();
+            } else if (pg instanceof org.example.component.GroupLayerV2) {
+                gNode = pg;
+            } else if (pg.getParent() instanceof org.example.component.GroupLayer) {
+                gNode = (javafx.scene.Group) pg.getParent();
+            } else if (pg instanceof org.example.component.GroupLayer) {
+                gNode = pg;
+            }
+            
+            if (gNode != null && gNode.getParent() != null) {
+                if (gNode instanceof org.example.component.GroupLayerV2 gv2) {
+                    gv2.recalculateBounds();
+                    gv2.updateSelectionOverlay();
+                } else if (gNode instanceof org.example.component.GroupLayer gl) {
+                    gl.recalculateBounds();
+                }
+            }
+        }
+
+        // Clear selection and select new result nodes
+        visualizer.getUserLayerManager().clearSelection();
+        for (Node resNode : newResultNodes) {
+            visualizer.getUserLayerManager().addToSelection(resNode);
+        }
+
+        // Register Command in History Manager
+        if (visualizer.getHistoryManager() != null) {
+            visualizer.getHistoryManager().addCommand(new org.example.pattern.VectorBooleanCommand(
+                visualizer.getUserLayerManager(),
+                originalNodes,
+                newResultNodes,
+                org.example.pattern.VectorBooleanCommand.ActionType.CUT,
+                cutterLayer.getActiveZone(),
+                originalStates
+            ));
+        }
+    }
+
+    private static List<org.example.model.BezierNode> getLocalBezierNodes(ShapeLayer layer) {
+        List<org.example.model.BezierNode> nodes = layer.getState().bezierNodes;
+        if (nodes == null || nodes.isEmpty()) {
+            ShapePathSupport.PathConversionResult res = ShapePathSupport.convertPrimitiveToPath(
+                layer.getCurrentShapeNode(),
+                layer.getState().width, layer.getState().height,
+                layer.getState().arcWidth, layer.getState().arcHeight,
+                layer.getState().isClosed);
+            if (res != null) nodes = res.getNodes();
+        }
+        return nodes;
+    }
+
+    private static List<org.example.model.BezierNode> transformNodes(List<org.example.model.BezierNode> nodes, javafx.scene.transform.Transform t) {
+        List<org.example.model.BezierNode> parentNodes = new ArrayList<>();
+        if (nodes == null) return parentNodes;
+        boolean firstNodeOfThisShape = true;
+        for (org.example.model.BezierNode bn : nodes) {
+            javafx.geometry.Point2D anchor = t.transform(bn.anchor);
+            javafx.geometry.Point2D c1 = t.transform(bn.control1 != null ? bn.control1 : bn.anchor);
+            javafx.geometry.Point2D c2 = t.transform(bn.control2 != null ? bn.control2 : bn.anchor);
+
+            org.example.model.BezierNode tbn = new org.example.model.BezierNode(anchor, c1, c2);
+            tbn.segmentType = bn.segmentType;
+            tbn.isMoveTo = bn.isMoveTo || firstNodeOfThisShape;
+            firstNodeOfThisShape = false;
+            parentNodes.add(tbn);
+        }
+        return parentNodes;
+    }
+
+    private static List<org.example.model.BezierNode> transformNodesGlobally(List<org.example.model.BezierNode> nodes, Node source, javafx.scene.Group target) {
+        List<org.example.model.BezierNode> parentNodes = new ArrayList<>();
+        if (nodes == null) return parentNodes;
+        boolean firstNodeOfThisShape = true;
+        for (org.example.model.BezierNode bn : nodes) {
+            javafx.geometry.Point2D anchor = target.sceneToLocal(source.localToScene(bn.anchor));
+            javafx.geometry.Point2D c1 = target.sceneToLocal(source.localToScene(bn.control1 != null ? bn.control1 : bn.anchor));
+            javafx.geometry.Point2D c2 = target.sceneToLocal(source.localToScene(bn.control2 != null ? bn.control2 : bn.anchor));
+
+            org.example.model.BezierNode tbn = new org.example.model.BezierNode(anchor, c1, c2);
+            tbn.segmentType = bn.segmentType;
+            tbn.isMoveTo = bn.isMoveTo || firstNodeOfThisShape;
+            firstNodeOfThisShape = false;
+            parentNodes.add(tbn);
+        }
+        return parentNodes;
+    }
 
     public static void unweldShape(PrendaVisualizer visualizer, ShapeLayer layer) {
         if (layer == null || layer.getType() != ShapeType.CUSTOM_PATH || visualizer == null) return;
@@ -635,6 +931,62 @@ public class VectorBooleanHelper {
                     activeZone,
                     originalStates
                 ));
+            }
+        }
+    }
+
+    private static List<org.example.model.BezierNode> scaleNodes(List<org.example.model.BezierNode> nodes, double scale) {
+        List<org.example.model.BezierNode> result = new ArrayList<>();
+        if (nodes == null) return result;
+        for (org.example.model.BezierNode bn : nodes) {
+            javafx.geometry.Point2D anchor = new javafx.geometry.Point2D(bn.anchor.getX() * scale, bn.anchor.getY() * scale);
+            javafx.geometry.Point2D c1 = bn.control1 != null ? new javafx.geometry.Point2D(bn.control1.getX() * scale, bn.control1.getY() * scale) : null;
+            javafx.geometry.Point2D c2 = bn.control2 != null ? new javafx.geometry.Point2D(bn.control2.getX() * scale, bn.control2.getY() * scale) : null;
+            org.example.model.BezierNode newBn = new org.example.model.BezierNode(anchor, c1, c2);
+            newBn.segmentType = bn.segmentType;
+            newBn.isMoveTo = bn.isMoveTo;
+            result.add(newBn);
+        }
+        return result;
+    }
+
+    private static void scalePathDown(Path path, double scale) {
+        if (path == null) return;
+        for (javafx.scene.shape.PathElement elem : path.getElements()) {
+            if (elem instanceof javafx.scene.shape.MoveTo) {
+                javafx.scene.shape.MoveTo mt = (javafx.scene.shape.MoveTo) elem;
+                mt.setX(mt.getX() / scale);
+                mt.setY(mt.getY() / scale);
+            } else if (elem instanceof javafx.scene.shape.LineTo) {
+                javafx.scene.shape.LineTo lt = (javafx.scene.shape.LineTo) elem;
+                lt.setX(lt.getX() / scale);
+                lt.setY(lt.getY() / scale);
+            } else if (elem instanceof javafx.scene.shape.CubicCurveTo) {
+                javafx.scene.shape.CubicCurveTo cc = (javafx.scene.shape.CubicCurveTo) elem;
+                cc.setControlX1(cc.getControlX1() / scale);
+                cc.setControlY1(cc.getControlY1() / scale);
+                cc.setControlX2(cc.getControlX2() / scale);
+                cc.setControlY2(cc.getControlY2() / scale);
+                cc.setX(cc.getX() / scale);
+                cc.setY(cc.getY() / scale);
+            } else if (elem instanceof javafx.scene.shape.QuadCurveTo) {
+                javafx.scene.shape.QuadCurveTo qc = (javafx.scene.shape.QuadCurveTo) elem;
+                qc.setControlX(qc.getControlX() / scale);
+                qc.setControlY(qc.getControlY() / scale);
+                qc.setX(qc.getX() / scale);
+                qc.setY(qc.getY() / scale);
+            } else if (elem instanceof javafx.scene.shape.ArcTo) {
+                javafx.scene.shape.ArcTo at = (javafx.scene.shape.ArcTo) elem;
+                at.setX(at.getX() / scale);
+                at.setY(at.getY() / scale);
+                at.setRadiusX(at.getRadiusX() / scale);
+                at.setRadiusY(at.getRadiusY() / scale);
+            } else if (elem instanceof javafx.scene.shape.HLineTo) {
+                javafx.scene.shape.HLineTo hl = (javafx.scene.shape.HLineTo) elem;
+                hl.setX(hl.getX() / scale);
+            } else if (elem instanceof javafx.scene.shape.VLineTo) {
+                javafx.scene.shape.VLineTo vl = (javafx.scene.shape.VLineTo) elem;
+                vl.setY(vl.getY() / scale);
             }
         }
     }

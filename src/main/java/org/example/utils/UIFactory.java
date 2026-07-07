@@ -802,7 +802,10 @@ public class UIFactory {
                                             onColor.accept(color);
                                         },
                                         color -> {
-                                            if (color != null) onColor.accept(color);
+                                            if (color != null) {
+                                                btn.setUserData(color);
+                                                updateIcon.run();
+                                            }
                                         });
                             }
                         },
@@ -822,7 +825,6 @@ public class UIFactory {
                                     (liveColor) -> {
                                         btn.setUserData(liveColor);
                                         updateIcon.run();
-                                        onColor.accept(liveColor);
                                     });
                         });
 

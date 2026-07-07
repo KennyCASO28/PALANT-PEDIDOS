@@ -32,14 +32,14 @@ public class DetallePedido {
     }
 
     public DetallePedido(String nombre, String numero, String talla) {
-        this.nombre.set(nombre);
+        setNombre(nombre);
         this.numero.set(numero);
         setTalla(talla);
         this.tallaShort.set(talla);
     }
 
     public DetallePedido(String nombre, String numero, String talla, String genero) {
-        this.nombre.set(nombre);
+        setNombre(nombre);
         this.numero.set(numero);
         setTalla(talla);
         this.tallaShort.set(talla);
@@ -49,7 +49,15 @@ public class DetallePedido {
     // --- GETTERS / SETTERS / PROPERTIES ---
 
     public String getNombre() { return nombre.get(); }
-    public void setNombre(String v) { this.nombre.set(v); }
+    public void setNombre(String v) { 
+        this.nombre.set(v); 
+        if (v != null) {
+            String upper = v.trim().toUpperCase();
+            if (upper.equals("ARQUERO") || upper.startsWith("ARQUERO ") || upper.startsWith("ARQUERO-") || upper.startsWith("ARQUERO_")) {
+                setEsArquero(true);
+            }
+        }
+    }
     public StringProperty nombreProperty() { return nombre; }
 
     public String getNumero() { return numero.get(); }

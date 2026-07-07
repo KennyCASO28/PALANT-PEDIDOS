@@ -55,12 +55,13 @@ public class ShortsRenderer extends BaseGarmentRenderer {
         configureDetailLayer(brandDetail, Color.WHITE);
         brandDetail.setVisible(false);
 
-        // GROUP 1: Base (for clipping/background)
-        group.getChildren().addAll(shorts);
+        // GROUP 1: Base (Behind User Images)
+        // Order: shorts base BEFORE linea so lines appear visually on top, but clipped to outline
+        group.getChildren().addAll(shorts, shortsLinea);
 
-        // GROUP 2: Details (On Top)
+        // GROUP 2: Details (On Top of User Images)
         detailGroup.getChildren().addAll(
-                shortsStripe, shortsLinea, shortsPicket, shortsWaist, shortsElastic,
+                shortsStripe, shortsPicket, shortsWaist, shortsElastic,
                 shortsCuff, shortsCord, shortsShadow, shortsDetail, shortCrest,
                 brandBase, brandDetail);
     }
@@ -76,6 +77,7 @@ public class ShortsRenderer extends BaseGarmentRenderer {
 
         safeSetContent(shortsStripe, hasStripe ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_franja.svg")) : "");
         safeSetContent(shortsLinea, hasLinea ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_linea.svg")) : "");
+        shortsLinea.setVisible(hasLinea);
         safeSetContent(shortsLineaClip, shorts.getContent());
         safeSetContent(shortsPicket, hasPicket ? SVGCache.loadOptionalPath(basePath.replace(".svg", "_piquete.svg")) : "");
         safeSetContent(shortsWaist, SVGCache.loadOptionalPath(basePath.replace(".svg", "_cintura.svg")));

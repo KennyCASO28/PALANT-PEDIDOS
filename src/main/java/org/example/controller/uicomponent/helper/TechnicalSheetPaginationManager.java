@@ -160,7 +160,16 @@ public class TechnicalSheetPaginationManager {
         sortedGenders.sort((g1, g2) -> g1.equals("HOMBRE") ? -1 : (g2.equals("HOMBRE") ? 1 : g1.compareTo(g2)));
 
         for (String gender : sortedGenders) {
-            List<DetallePedido> genderList = jugadores.stream().filter(p -> !p.isEsArquero() && (p.getGenero() != null ? p.getGenero().toUpperCase() : "HOMBRE").equals(gender)).collect(Collectors.toList());
+            List<DetallePedido> genderList = jugadores.stream().filter(p -> {
+                if (p.isEsArquero()) return false;
+                if (p.getNombre() != null) {
+                    String nameUpper = p.getNombre().trim().toUpperCase();
+                    if (nameUpper.equals("ARQUERO") || nameUpper.startsWith("ARQUERO ") || nameUpper.startsWith("ARQUERO-") || nameUpper.startsWith("ARQUERO_")) {
+                        return false;
+                    }
+                }
+                return (p.getGenero() != null ? p.getGenero().toUpperCase() : "HOMBRE").equals(gender);
+            }).collect(Collectors.toList());
             if (genderList.isEmpty()) continue;
 
             Map<String, List<DetallePedido>> groups = new LinkedHashMap<>();

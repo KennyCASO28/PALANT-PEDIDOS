@@ -45,8 +45,8 @@ public class ShapeMenuHelper {
             MenuItem editZone = new MenuItem("EDITAR CONTENIDO: " + layer.getActiveZone().toUpperCase());
             editZone.setGraphic(UIFactory.crearIcono("mdi2c-crop-free", 16, "#27ae60"));
             editZone.setOnAction(ev -> {
-                if (layer.getEditContentHandler() != null)
-                    layer.getEditContentHandler().run();
+                if (layer.getVisualizer() != null)
+                    layer.getVisualizer().getPowerClipManager().enterEditMode(layer.getActiveZone());
             });
             menu.getItems().add(editZone);
 

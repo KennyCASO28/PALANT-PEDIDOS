@@ -395,9 +395,6 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void setInternalRotation(double angle) { rotateTransform.setAngle(angle); updateVisuals(); }
     @Override
     public void setInternalScaleX(double s) { 
-        if ((scaleTransform.getX() > 0 && s < 0) || (scaleTransform.getX() < 0 && s > 0)) {
-            shearTransform.setY(shearTransform.getY() * -1);
-        }
         scaleTransform.setX(s); 
         updateVisuals(); 
     }
@@ -405,9 +402,6 @@ public class ImageLayer extends Group implements GraphicLayer {
     public double getInternalScaleY() { return scaleTransform.getY(); }
     @Override
     public void setInternalScaleY(double s) { 
-        if ((scaleTransform.getY() > 0 && s < 0) || (scaleTransform.getY() < 0 && s > 0)) {
-            shearTransform.setX(shearTransform.getX() * -1);
-        }
         scaleTransform.setY(s); 
         updateVisuals(); 
     }
@@ -577,13 +571,9 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void flipHorizontal() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            rotateTransform.setAngle(-rotateTransform.getAngle());
-            shearTransform.setX(-shearTransform.getX());
             setInternalScaleX(scaleTransform.getX() * -1);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
         } else {
-            rotateTransform.setAngle(-rotateTransform.getAngle());
-            shearTransform.setX(-shearTransform.getX());
             setInternalScaleX(scaleTransform.getX() * -1);
         }
     }
@@ -591,13 +581,9 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void flipVertical() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            rotateTransform.setAngle(-rotateTransform.getAngle());
-            shearTransform.setY(-shearTransform.getY());
             setInternalScaleY(scaleTransform.getY() * -1);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
         } else {
-            rotateTransform.setAngle(-rotateTransform.getAngle());
-            shearTransform.setY(-shearTransform.getY());
             setInternalScaleY(scaleTransform.getY() * -1);
         }
     }

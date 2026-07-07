@@ -64,7 +64,7 @@ public class ShapeManagerUIOrchestrator {
         toolbar.getChildren().add(controller.getSystemColorPicker());
         toolbar.getChildren().add(controller.getTargetScopeButton());
         toolbar.getChildren().add(new Separator());
-        toolbar.getChildren().addAll(controller.getWeldButton(), controller.getUnweldButton(), new Separator());
+        toolbar.getChildren().addAll(controller.getWeldButton(), controller.getUnweldButton(), controller.getCutButton(), new Separator());
 
         toolbar.getChildren().addAll(controller.getFillPicker(), controller.getStrokePicker());
 
@@ -236,23 +236,44 @@ public class ShapeManagerUIOrchestrator {
         btnFlipH.setOnAction(e -> {
             ShapeLayer activeLayer = controller.getActiveShapeLayer();
             if (activeLayer != null) {
-                controller.getActionHandler().recordPropertyChange("Espejo Horizontal",
-                        ShapeLayer::getInternalScaleX,
-                        ShapeLayer::setInternalScaleX,
-                        activeLayer.getInternalScaleX() * -1.0);
+                activeLayer.getTransformManager().flipHorizontal();
             }
         });
         btnFlipV.setOnAction(e -> {
             ShapeLayer activeLayer = controller.getActiveShapeLayer();
             if (activeLayer != null) {
-                controller.getActionHandler().recordPropertyChange("Espejo Vertical",
-                        ShapeLayer::getInternalScaleY,
-                        ShapeLayer::setInternalScaleY,
-                        activeLayer.getInternalScaleY() * -1.0);
+                activeLayer.getTransformManager().flipVertical();
             }
         });
 
-        mirrorBox.getChildren().addAll(btnFlipH, btnFlipV);
+        // New button: Duplicate to Opposite Side (preserves visual inclination, no angle inversion)
+        Button btnDuplicateOpposite = new Button("Duplicar Lado Opuesto", UIFactory.crearIcono("mdi2c-copy", 18, "#2c3e50"));
+        styleTransformActionButton(btnDuplicateOpposite);
+        btnDuplicateOpposite.setStyle(btnDuplicateOpposite.getStyle() + "; -fx-base: #27ae60;");
+        btnDuplicateOpposite.setOnAction(e -> {
+            ShapeLayer activeLayer = controller.getActiveShapeLayer();
+            if (activeLayer != null && activeLayer.getVisualizer() != null) {
+                double currentScaleX = activeLayer.getInternalScaleX();
+                double width = activeLayer.getState().width * Math.abs(currentScaleX);
+                double offsetX = width * 1.5;
+                ShapeLayer clone = activeLayer.createDeepClone();
+                clone.setTranslateX(activeLayer.getTranslateX() + offsetX);
+                clone.setTranslateY(activeLayer.getTranslateY());
+                clone.setInternalScaleX(currentScaleX);
+                clone.setInternalScaleY(activeLayer.getInternalScaleY());
+                clone.setRotate(activeLayer.getRotate());
+                clone.setInternalShearX(activeLayer.getTransformManager().getInternalShearX());
+                clone.setInternalShearY(activeLayer.getTransformManager().getInternalShearY());
+                activeLayer.getVisualizer().addShapeLayer(clone);
+                if (activeLayer.getVisualizer().getPowerClipManager() != null
+                        && activeLayer.getVisualizer().getPowerClipManager().isEditing()) {
+                    activeLayer.getVisualizer().applySmartPowerClip(clone,
+                            activeLayer.getVisualizer().getPowerClipManager().getCurrentEditingZone(), false);
+                }
+            }
+        });
+
+        mirrorBox.getChildren().addAll(btnFlipH, btnFlipV, btnDuplicateOpposite);
 
         box.getChildren().addAll(new HBox(10, lblRot, txtRot), slRot, new Separator(), new Label("Invertir:"),
                 mirrorBox, new Separator(), new HBox(10, lblScale, txtScale), slScale);
@@ -477,14 +498,21 @@ public class ShapeManagerUIOrchestrator {
             if (active != null) {
                 java.util.List<ShapeLayer> newLayers = active.separateContours();
                 Node prev = active;
+                java.util.List<Node> allNodes = new java.util.ArrayList<>();
+                allNodes.add(active);
                 for (ShapeLayer nl : newLayers) {
                     visualizer.addShapeLayer(nl);
                     visualizer.getLayerManager().moveNodeBehind(nl, prev);
+                    allNodes.add(nl);
                     prev = nl;
                 }
                 controller.setIsUpdatingUI(true);
                 slSteps.setValue(0);
                 controller.setIsUpdatingUI(false);
+                visualizer.getLayerManager().clearSelection();
+                for (Node n : allNodes) {
+                    visualizer.getLayerManager().addToSelection(n);
+                }
             }
         });
 

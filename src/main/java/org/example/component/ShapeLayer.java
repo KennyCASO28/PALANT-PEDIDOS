@@ -426,6 +426,62 @@ public class ShapeLayer extends Group implements GraphicLayer {
     public void cutToClipboard() { ShapeClipboardSupport.cut(this); }
     public static ShapeLayer getClipboardCopy() { return ShapeClipboardSupport.getClipboardCopy(); }
 
+    /**
+     * Creates a deep clone preserving ALL state including contours, transforms, and transparency.
+     * This is more robust than using the clipboard support for cloning.
+     */
+    public ShapeLayer createDeepClone() {
+        ShapeLayer clone = new ShapeLayer(state.type, state.fillColor, state.strokeColor, state.strokeWidth);
+
+        clone.state.width = state.width;
+        clone.state.height = state.height;
+        clone.state.visualMinX = state.visualMinX;
+        clone.state.visualMinY = state.visualMinY;
+        clone.state.arcWidth = state.arcWidth;
+        clone.state.arcHeight = state.arcHeight;
+        clone.state.isClosed = state.isClosed;
+        clone.state.strokeLineJoin = state.strokeLineJoin;
+        clone.state.strokeType = state.strokeType;
+        clone.state.svgPathData = state.svgPathData;
+        clone.state.bezierNodes = state.bezierNodes != null ? ShapePathSupport.copyNodes(state.bezierNodes) : null;
+        clone.state.originalBezierNodes = state.originalBezierNodes != null ? ShapePathSupport.copyNodes(state.originalBezierNodes) : null;
+        clone.state.customPoints = state.customPoints != null ? new java.util.ArrayList<>(state.customPoints) : null;
+        clone.state.contourSteps = state.contourSteps;
+        clone.state.contourDistance = state.contourDistance;
+        clone.state.contourColor = state.contourColor;
+        clone.state.contourLineJoin = state.contourLineJoin;
+        clone.state.isGradientTransparency = state.isGradientTransparency;
+        clone.state.transparencyAngle = state.transparencyAngle;
+        clone.state.transparencyStartAlpha = state.transparencyStartAlpha;
+        clone.state.transparencyEndAlpha = state.transparencyEndAlpha;
+        clone.state.transparencyBalance = state.transparencyBalance;
+        clone.state.activeZone = state.activeZone;
+        clone.state.isLocked = state.isLocked;
+        clone.state.isUserLocked = state.isUserLocked;
+
+        clone.setVisualizer(visualizer);
+        clone.renderShape();
+
+        clone.setTranslateX(getTranslateX());
+        clone.setTranslateY(getTranslateY());
+        clone.transformManager.setInternalRotation(transformManager.getInternalRotation());
+        clone.transformManager.setInternalScaleX(transformManager.getInternalScaleX());
+        clone.transformManager.setInternalScaleY(transformManager.getInternalScaleY());
+        clone.setInternalShearX(transformManager.getInternalShearX());
+        clone.setInternalShearY(transformManager.getInternalShearY());
+
+        if (state.contourSteps > 0) {
+            clone.applyContour(state.contourSteps, state.contourDistance, state.contourColor);
+        }
+
+        if (state.isGradientTransparency) {
+            clone.setTransparency(true, state.transparencyAngle, state.transparencyStartAlpha, state.transparencyEndAlpha);
+            clone.setTransparencyBalance(state.transparencyBalance);
+        }
+
+        return clone;
+    }
+
     // --- Z-Order ---
     public void zBringToFront() { 
         if (getParent() instanceof Group g) {

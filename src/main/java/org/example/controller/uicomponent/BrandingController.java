@@ -216,7 +216,6 @@ public class BrandingController {
                                     color -> {
                                         if (color == null) visualizer.clearPreviewColors();
                                         else visualizer.setPreviewColor("brandChest", color);
-                                        onPreview.accept(color);
                                     });
                 });
                 cpBrandBtnArr[0] = cpBrandBtn;
@@ -339,7 +338,6 @@ public class BrandingController {
                                     color -> {
                                         if (color == null) visualizer.clearPreviewColors();
                                         else visualizer.setPreviewColor("brandShort", color);
-                                        onPreview.accept(color);
                                     });
                         });
                 cpShortBrandBtnArr[0] = cpShortBrandBtn;
@@ -455,7 +453,10 @@ public class BrandingController {
                                             visualizer.setSocksBrandColor(color, true);
                                         }
                                     },
-                                    color -> onPreview.accept(color));
+                                    color -> {
+                                        if (color == null) visualizer.clearPreviewColors();
+                                        else visualizer.setPreviewColor("brandSocks", color);
+                                    });
                         });
                 cpSocksBtnArr[0] = cpSocksBtn;
                 cpSocksBtn.setMaxWidth(Double.MAX_VALUE);

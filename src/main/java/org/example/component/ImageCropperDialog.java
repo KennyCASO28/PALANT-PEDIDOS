@@ -116,6 +116,7 @@ public class ImageCropperDialog extends Dialog<Image> {
         Button btnReset = new Button("RESTAURAR");
         btnReset.setGraphic(UIFactory.crearIcono("mdi2r-restore", 16, "white"));
         btnReset.setStyle("-fx-background-color: #e67e22; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-cursor: hand; -fx-background-radius: 8;");
+        btnReset.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
         btnReset.setOnAction(e -> {
             resetCropRect();
             updateVisuals(dimTop, dimBottom, dimLeft, dimRight);
@@ -124,10 +125,12 @@ public class ImageCropperDialog extends Dialog<Image> {
         Button btnCrop = new Button("ACEPTAR");
         btnCrop.setGraphic(UIFactory.crearIcono("mdi2c-check", 18, "white"));
         btnCrop.setStyle("-fx-background-color: #2ecc71; -fx-text-fill: white; -fx-font-weight: 900; -fx-padding: 10 40; -fx-cursor: hand; -fx-background-radius: 8; -fx-font-size: 14px;");
+        btnCrop.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
         btnCrop.setOnAction(e -> confirmCrop());
         
         Button btnCancel = new Button("CANCELAR");
         btnCancel.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30; -fx-cursor: hand; -fx-background-radius: 8; -fx-font-size: 14px;");
+        btnCancel.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
         btnCancel.setOnAction(e -> {
             setResult(null);
             this.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);

@@ -1137,6 +1137,11 @@ public class PedidoController {
             return;
 
         isRestoringDesign = true;
+        boolean wasRecording = true;
+        if (prendaVisualizer.getHistoryManager() != null) {
+            wasRecording = prendaVisualizer.getHistoryManager().isRecording();
+            prendaVisualizer.getHistoryManager().setRecording(false);
+        }
         try {
             // First update the controller flag to ensure they are synchronized from the beginning of transition
             editandoDisenoArquero = forArquero;
@@ -1147,6 +1152,9 @@ public class PedidoController {
             }
         } finally {
             isRestoringDesign = false;
+            if (prendaVisualizer.getHistoryManager() != null) {
+                prendaVisualizer.getHistoryManager().setRecording(wasRecording);
+            }
         }
     }
 

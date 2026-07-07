@@ -86,6 +86,7 @@ public class GroupLayer extends Group {
         selectionHitArea.setFill(Color.web("#ffffff", 0.01)); // Casi invisible pero captable por ratón
         selectionHitArea.setDepthTest(DepthTest.DISABLE);
         selectionHitArea.setCache(false);
+        selectionHitArea.setMouseTransparent(true);
 
         // 2. Content Group (Donde van tus figuras)
         contentGroup = new Group();
@@ -203,6 +204,13 @@ public class GroupLayer extends Group {
     public void setInternalShearX(double s) { shearTransform.setX(s); }
     public double getInternalShearY() { return shearTransform.getY(); }
     public void setInternalShearY(double s) { shearTransform.setY(s); }
+
+    public void multiplyShear(double sx, double sy) {
+        shearTransform.setX(shearTransform.getX() + sx);
+        shearTransform.setY(shearTransform.getY() + sy);
+        updateVisuals();
+    }
+
     public double getCustomPivotX() { return customPivotX; }
     public void setCustomPivotX(double x) { customPivotX = x; }
     public double getCustomPivotY() { return customPivotY; }
@@ -351,6 +359,20 @@ public class GroupLayer extends Group {
 
     public void setUserLocked(boolean locked) {
         this.isUserLocked = locked;
+        // Propagar bloqueo a hijos recursivamente usando systemLocked
+        for (Node child : getUserLayers()) {
+            if (child instanceof ShapeLayer) {
+                ((ShapeLayer) child).setSystemLocked(locked);
+            } else if (child instanceof ImageLayer) {
+                ((ImageLayer) child).setSystemLocked(locked);
+            } else if (child instanceof TextLayer) {
+                ((TextLayer) child).setSystemLocked(locked);
+            } else if (child instanceof GroupLayerV2) {
+                ((GroupLayerV2) child).setSystemLocked(locked);
+            } else if (child instanceof GroupLayer) {
+                ((GroupLayer) child).setSystemLocked(locked);
+            }
+        }
         refreshLockState();
     }
 

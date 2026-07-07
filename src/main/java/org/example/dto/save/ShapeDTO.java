@@ -212,7 +212,23 @@ public class ShapeDTO extends LayerDTO {
         copy.setClosed(this.isClosed);
         copy.setSvgContent(this.svgContent);
         if (this.bezierNodes != null) {
-            copy.setBezierNodes(new java.util.ArrayList<>(this.bezierNodes));
+            java.util.List<BezierNodeDTO> copiedNodes = new java.util.ArrayList<>();
+            for (BezierNodeDTO n : this.bezierNodes) {
+                BezierNodeDTO nc = new BezierNodeDTO();
+                nc.setAnchorX(n.getAnchorX());
+                nc.setAnchorY(n.getAnchorY());
+                nc.setControl1X(n.getControl1X());
+                nc.setControl1Y(n.getControl1Y());
+                nc.setControl2X(n.getControl2X());
+                nc.setControl2Y(n.getControl2Y());
+                nc.setHasControl1(n.isHasControl1());
+                nc.setHasControl2(n.isHasControl2());
+                nc.setMoveTo(n.isMoveTo());
+                nc.setType(n.getType());
+                nc.setSegmentType(n.getSegmentType());
+                copiedNodes.add(nc);
+            }
+            copy.setBezierNodes(copiedNodes);
         }
         copy.setArcWidth(this.arcWidth);
         copy.setArcHeight(this.arcHeight);

@@ -45,6 +45,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
     private ToggleButton btnCurrentShape;
     private Button btnWeld;
     private Button btnUnweld;
+    private Button btnCut;
 
     // State
     private org.example.component.GraphicLayer activeGraphicLayer = null;
@@ -347,6 +348,18 @@ public class ShapeManagerController implements org.example.component.helper.Draw
         return btnUnweld;
     }
 
+    public Button getCutButton() {
+        if (btnCut == null) {
+            btnCut = new Button("Cortar", UIFactory.crearIcono("mdi2c-content-cut", 16, "#555"));
+            btnCut.setTooltip(new Tooltip("Cortar Vectores (Restar)"));
+            buttonFactory.styleToolButton(btnCut);
+            btnCut.setOnAction(e -> actionHandler.cutSelectedShapes());
+            visualizer.addSelectionListener(n -> updateWeldButtonState());
+            updateWeldButtonState();
+        }
+        return btnCut;
+    }
+
     private void updateWeldButtonState() {
         if (btnWeld == null || btnUnweld == null) return;
         boolean hasShape = visualizer.getLayerManager().getSelectedNodes().stream()
@@ -355,6 +368,10 @@ public class ShapeManagerController implements org.example.component.helper.Draw
         btnWeld.setOpacity(hasShape ? 1.0 : 0.5);
         btnUnweld.setDisable(!hasShape);
         btnUnweld.setOpacity(hasShape ? 1.0 : 0.5);
+        if (btnCut != null) {
+            btnCut.setDisable(!hasShape);
+            btnCut.setOpacity(hasShape ? 1.0 : 0.5);
+        }
     }
 
     public Button getLockButton() {

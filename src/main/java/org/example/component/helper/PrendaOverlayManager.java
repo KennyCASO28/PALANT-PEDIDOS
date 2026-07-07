@@ -123,9 +123,9 @@ public class PrendaOverlayManager {
         if (hasShorts && currentCorteShort != TipoCorte.PANTALONETA
                 && currentCorteShort != TipoCorte.LICRA) {
             if ("SHORT_FRONT".equals(zone)) {
-                content = getSplitZoneContent(shortsRenderer.getShorts(), true);
+                content = getSplitZoneContentForShorts(shortsRenderer.getShorts(), true);
             } else if ("SHORT_BACK".equals(zone)) {
-                content = getSplitZoneContent(shortsRenderer.getShorts(), false);
+                content = getSplitZoneContentForShorts(shortsRenderer.getShorts(), false);
             }
         }
 
@@ -175,6 +175,43 @@ public class PrendaOverlayManager {
                     sb.append(absolutePart).append(" ");
             } else {
                 if (!isFrontPiece(lastMoveX))
+                    sb.append(absolutePart).append(" ");
+            }
+        }
+
+        return sb.toString().trim();
+    }
+
+    public String getSplitZoneContentForShorts(javafx.scene.shape.SVGPath sourcePath, boolean isFront) {
+        String fullContent = sourcePath.getContent();
+        if (fullContent == null || fullContent.isEmpty())
+            return "";
+
+        double boundsCenter = sourcePath.getLayoutBounds().getMinX() + (sourcePath.getLayoutBounds().getWidth() / 2.0);
+
+        StringBuilder sb = new StringBuilder();
+        String[] parts = fullContent.split("(?=[Mm])");
+        double lastMoveX = 0.0;
+        double lastMoveY = 0.0;
+
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.isEmpty())
+                continue;
+
+            String absolutePart = org.example.utils.SVGUtils.absoluteifyPiece(part, lastMoveX, lastMoveY);
+            double[] absCoords = org.example.utils.SVGUtils.parseCoordinatePair(absolutePart.substring(1));
+            lastMoveX = absCoords[0];
+            lastMoveY = absCoords[1];
+
+            boolean isLeftPiece = lastMoveX < boundsCenter;
+            boolean pieceIsFront = isFrontOnLeft ? isLeftPiece : !isLeftPiece;
+
+            if (isFront) {
+                if (pieceIsFront)
+                    sb.append(absolutePart).append(" ");
+            } else {
+                if (!pieceIsFront)
                     sb.append(absolutePart).append(" ");
             }
         }

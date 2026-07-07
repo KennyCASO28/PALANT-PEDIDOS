@@ -41,7 +41,6 @@ public final class ShapeSelectionOverlaySupport {
         StackPane shearRight = createShearHandle(Cursor.V_RESIZE, false, shearTransform);
 
         javafx.scene.Group pivotHandle = org.example.utils.UIFactory.crearPivotHandle();
-        org.example.utils.GeometryUtility.applyAntiShear(pivotHandle, shearTransform, 5, 5);
 
         StackPane arcTopLeft = createArcHandle(shearTransform);
         StackPane arcTopRight = createArcHandle(shearTransform);
@@ -67,14 +66,12 @@ public final class ShapeSelectionOverlaySupport {
 
     public static StackPane createResizeHandle(Cursor cursor, Shear shearTransform) {
         StackPane handle = org.example.utils.UIFactory.crearSquareHandle(null, 4, "#0047AB", "#ffffff", cursor);
-        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 2, 2);
         return handle;
     }
 
     public static StackPane createRotationHandle(Shear shearTransform) {
         StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 16, "#e8a020",
                 Cursor.OPEN_HAND);
-        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 8, 8);
         return handle;
     }
 
@@ -82,7 +79,6 @@ public final class ShapeSelectionOverlaySupport {
         String iconName = isHorizontal ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down";
         StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 16, "#16a085", cursor);
         handle.setVisible(false);
-        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 8, 8);
         return handle;
     }
 
@@ -178,7 +174,6 @@ public final class ShapeSelectionOverlaySupport {
         }
 
         applyAntiScale(nodes, state.scaleTransform().getX(), state.scaleTransform().getY(), state.viewportScale());
-        applyAntiShear(nodes, state.shearTransform());
 
         updatePivotTransforms(
                 state.rotateTransform(),
@@ -281,33 +276,7 @@ public final class ShapeSelectionOverlaySupport {
         nodes.arcBottomRight().setVisible(visible);
     }
 
-    private static void applyAntiShear(OverlayNodes nodes, Shear shearTransform) {
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.topLeft(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.topRight(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.bottomLeft(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.bottomRight(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.topCenter(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.bottomCenter(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.leftCenter(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.rightCenter(), shearTransform, 2, 2);
 
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.rotTopLeft(), shearTransform, 5, 5);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.rotTopRight(), shearTransform, 5, 5);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.rotBottomLeft(), shearTransform, 5, 5);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.rotBottomRight(), shearTransform, 5, 5);
-
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.shearTop(), shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.shearBottom(), shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.shearLeft(), shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.shearRight(), shearTransform, 8, 8);
-
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.pivotHandle(), shearTransform, 5, 5);
-
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.arcTopLeft(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.arcTopRight(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.arcBottomLeft(), shearTransform, 2, 2);
-        org.example.utils.GeometryUtility.applyAntiShear(nodes.arcBottomRight(), shearTransform, 2, 2);
-    }
 
     private static void applyAntiScale(OverlayNodes nodes, double scaleX, double scaleY, double viewportScale) {
         double totalX = Math.max(0.001, Math.abs(scaleX) * viewportScale);
@@ -388,14 +357,15 @@ public final class ShapeSelectionOverlaySupport {
             rotateTransform.setPivotY(pivotY);
         }
 
-        // Shear and Scale pivots are less sensitive but should be updated if
-        // significant
-        if (Math.abs(shearTransform.getPivotX() - defaultPivotX) > 0.001
-                || Math.abs(shearTransform.getPivotY() - defaultPivotY) > 0.001) {
-            shearTransform.setPivotX(defaultPivotX);
-            shearTransform.setPivotY(defaultPivotY);
-            scaleTransform.setPivotX(defaultPivotX);
-            scaleTransform.setPivotY(defaultPivotY);
+        // Shear and Scale pivots should respect custom pivot if set
+        double shearScalePivotX = customPivotX != -1 ? visualMinX + customPivotX : defaultPivotX;
+        double shearScalePivotY = customPivotY != -1 ? visualMinY + customPivotY : defaultPivotY;
+        if (Math.abs(shearTransform.getPivotX() - shearScalePivotX) > 0.001
+                || Math.abs(shearTransform.getPivotY() - shearScalePivotY) > 0.001) {
+            shearTransform.setPivotX(shearScalePivotX);
+            shearTransform.setPivotY(shearScalePivotY);
+            scaleTransform.setPivotX(shearScalePivotX);
+            scaleTransform.setPivotY(shearScalePivotY);
         }
     }
 

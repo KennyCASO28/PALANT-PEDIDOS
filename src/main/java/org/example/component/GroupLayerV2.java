@@ -63,6 +63,13 @@ public class GroupLayerV2 extends Group {
     private Bounds cachedBounds;
     private boolean boundsDirty = true;
 
+    private final javafx.beans.value.ChangeListener<Bounds> childBoundsListener = (obs, oldVal, newVal) -> {
+        invalidateBounds();
+        if (isSelected) {
+            updateSelectionOverlay();
+        }
+    };
+
     private String activeZone = null;
 
     public void setActiveZone(String activeZone) {
@@ -88,8 +95,9 @@ public class GroupLayerV2 extends Group {
         contentGroup.setDepthTest(DepthTest.DISABLE);
         contentGroup.setCache(false);
 
-        // IMPORTANTE: Transformaciones para permitir escala/espejo, rotación y sesgo
-        contentGroup.getTransforms().addAll(scaleTransform, rotateTransform, shearTransform);
+        // IMPORTANTE: Transformaciones para permitir escala/espejo y rotación.
+        // El sesgo (shear) se aplica geométricamente para no deformar los bordes (strokes).
+        contentGroup.getTransforms().addAll(scaleTransform, rotateTransform);
 
         // 3. Selection Overlay
         selectionOverlay = new Group();
@@ -137,6 +145,7 @@ public class GroupLayerV2 extends Group {
         selectionHitArea.setPickOnBounds(true);
         selectionHitArea.setDepthTest(DepthTest.DISABLE);
         selectionHitArea.setCache(false);
+        selectionHitArea.setMouseTransparent(true);
 
         // Bind overlay transforms securely
         overlayScaleTransform.xProperty().bind(scaleTransform.xProperty());
@@ -256,11 +265,14 @@ public class GroupLayerV2 extends Group {
             ((org.example.component.ShapeLayer) node).setGrouped(true);
         }
 
+        node.boundsInParentProperty().addListener(childBoundsListener);
+
         userLayers.add(node);
         contentGroup.getChildren().add(node);
 
         invalidateBounds();
         updateSelectionOverlay();
+        syncUserLayersOrder();
     }
 
     public void removeChild(Node node) {
@@ -268,9 +280,18 @@ public class GroupLayerV2 extends Group {
             if (node instanceof org.example.component.ShapeLayer) {
                 ((org.example.component.ShapeLayer) node).setGrouped(false);
             }
+            node.boundsInParentProperty().removeListener(childBoundsListener);
             contentGroup.getChildren().remove(node);
             invalidateBounds();
             updateSelectionOverlay();
+            syncUserLayersOrder();
+        }
+    }
+
+    public void syncUserLayersOrder() {
+        userLayers.clear();
+        for (Node child : contentGroup.getChildren()) {
+            userLayers.add(child);
         }
     }
 
@@ -333,8 +354,35 @@ public class GroupLayerV2 extends Group {
     }
 
     public void multiplyShear(double sx, double sy) {
-        shearTransform.setX(shearTransform.getX() + sx);
-        shearTransform.setY(shearTransform.getY() + sy);
+        if (sx == 0 && sy == 0) return;
+
+        Bounds b = calculateBounds();
+        double gx = b.getCenterX();
+        double gy = b.getCenterY();
+
+        for (Node n : userLayers) {
+            Bounds childB;
+            if (n instanceof ShapeLayer sl) {
+                childB = sl.localToParent(new javafx.geometry.BoundingBox(sl.getVisualMinX(), sl.getVisualMinY(), sl.getLogicalWidth(), sl.getLogicalHeight()));
+            } else {
+                childB = n.getBoundsInParent();
+            }
+            double cx = childB.getCenterX();
+            double cy = childB.getCenterY();
+
+            if (n instanceof ShapeLayer) {
+                ((ShapeLayer) n).multiplyShear(sx, sy);
+            } else if (n instanceof GroupLayerV2) {
+                ((GroupLayerV2) n).multiplyShear(sx, sy);
+            } else if (n instanceof GroupLayer) {
+                ((GroupLayer) n).multiplyShear(sx, sy);
+            }
+
+            n.setTranslateX(n.getTranslateX() + sx * (cy - gy));
+            n.setTranslateY(n.getTranslateY() + sy * (cx - gx));
+        }
+
+        invalidateBounds();
         updateSelectionOverlay();
     }
 
@@ -825,14 +873,14 @@ public class GroupLayerV2 extends Group {
             double parentDx = currParent.getX() - startParent.getX();
             double parentDy = currParent.getY() - startParent.getY();
 
-            // --- CORRECTION: Project Parent Delta into the Group's Rotated Local Space ---
+            // --- CORRECTION: Project Parent Delta into the Group's Rotated and Scaled Local Space ---
             double angleRad = Math.toRadians(rotateTransform.getAngle());
             double cos = Math.cos(angleRad);
             double sin = Math.sin(angleRad);
 
-            // Delta in unrotated local space of the group
-            double localDx = parentDx * cos + parentDy * sin;
-            double localDy = -parentDx * sin + parentDy * cos;
+            // Delta in unrotated local space of the group, accounting for mirroring
+            double localDx = (parentDx * cos + parentDy * sin) * Math.signum(scaleTransform.getX());
+            double localDy = (-parentDx * sin + parentDy * cos) * Math.signum(scaleTransform.getY());
 
             double safeW = Math.max(0.1, ctx.startBoundsW);
             double safeH = Math.max(0.1, ctx.startBoundsH);
@@ -993,7 +1041,8 @@ public class GroupLayerV2 extends Group {
     private void setupShearHandlers() {
         final class ShearCtx {
             double startX, startY;
-            double initShearX, initShearY;
+            double appliedSoFarX = 0;
+            double appliedSoFarY = 0;
             org.example.pattern.NodeMemento beforeMemento;
         }
         final ShearCtx ctx = new ShearCtx();
@@ -1004,8 +1053,8 @@ public class GroupLayerV2 extends Group {
             ctx.beforeMemento = new org.example.pattern.NodeMemento(this);
             ctx.startX = e.getSceneX();
             ctx.startY = e.getSceneY();
-            ctx.initShearX = shearTransform.getX();
-            ctx.initShearY = shearTransform.getY();
+            ctx.appliedSoFarX = 0;
+            ctx.appliedSoFarY = 0;
             e.consume();
         };
 
@@ -1019,18 +1068,28 @@ public class GroupLayerV2 extends Group {
                     if (invert)
                         factor = -factor;
 
+                    double proposedShearX = 0;
+                    double proposedShearY = 0;
+
                     if (isHorizontal) {
-                        shearTransform.setX(ctx.initShearX + (localDelta.getX() * factor));
+                        proposedShearX = localDelta.getX() * factor;
                     } else {
-                        shearTransform.setY(ctx.initShearY + (localDelta.getY() * factor));
+                        proposedShearY = localDelta.getY() * factor;
                     }
-                    updateSelectionOverlay();
+
+                    double deltaShearX = proposedShearX - ctx.appliedSoFarX;
+                    double deltaShearY = proposedShearY - ctx.appliedSoFarY;
+
+                    ctx.appliedSoFarX = proposedShearX;
+                    ctx.appliedSoFarY = proposedShearY;
+
+                    multiplyShear(deltaShearX, deltaShearY);
                     e.consume();
                 };
 
         javafx.event.EventHandler<javafx.scene.input.MouseEvent> release = e -> {
             if (visualizer != null && visualizer.getHistoryManager() != null
-                    && (ctx.initShearX != shearTransform.getX() || ctx.initShearY != shearTransform.getY())) {
+                    && (ctx.appliedSoFarX != 0 || ctx.appliedSoFarY != 0)) {
                 org.example.pattern.NodeMemento afterMemento = new org.example.pattern.NodeMemento(this);
                 TransformCommand cmd = new TransformCommand(this, ctx.beforeMemento, afterMemento, null);
                 visualizer.getHistoryManager().addCommand(cmd);
@@ -1113,7 +1172,9 @@ public class GroupLayerV2 extends Group {
         double angleRad = Math.toRadians(-rotateTransform.getAngle());
         double cos = Math.cos(angleRad);
         double sin = Math.sin(angleRad);
-        return new Point2D(dx * cos - dy * sin, dx * sin + dy * cos);
+        double localX = (dx * cos - dy * sin) * Math.signum(scaleTransform.getX());
+        double localY = (dx * sin + dy * cos) * Math.signum(scaleTransform.getY());
+        return new Point2D(localX, localY);
     }
 
     // ============================================
@@ -1171,8 +1232,32 @@ public class GroupLayerV2 extends Group {
 
     public void setUserLocked(boolean locked) {
         this.isUserLocked = locked;
+        // Propagar bloqueo a hijos recursivamente usando systemLocked
+        // para que no sean manipulables individualmente mientras el grupo esté bloqueado
+        propagateLockToChildren(locked);
         if (isSelected)
             updateSelectionOverlay();
+    }
+
+    /**
+     * Propaga el estado de bloqueo a todos los hijos del grupo recursivamente.
+     * Usa setSystemLocked para no interferir con bloqueos individuales del usuario.
+     */
+    private void propagateLockToChildren(boolean locked) {
+        for (Node child : userLayers) {
+            if (child instanceof ShapeLayer) {
+                ((ShapeLayer) child).setSystemLocked(locked);
+            } else if (child instanceof ImageLayer) {
+                ((ImageLayer) child).setSystemLocked(locked);
+            } else if (child instanceof TextLayer) {
+                ((TextLayer) child).setSystemLocked(locked);
+            } else if (child instanceof GroupLayerV2) {
+                ((GroupLayerV2) child).setSystemLocked(locked);
+                ((GroupLayerV2) child).propagateLockToChildren(locked);
+            } else if (child instanceof GroupLayer) {
+                ((GroupLayer) child).setSystemLocked(locked);
+            }
+        }
     }
 
     public boolean isUserLocked() {
@@ -1196,10 +1281,7 @@ public class GroupLayerV2 extends Group {
         double centerYLocal = bLocal.getMinY() + bLocal.getHeight() / 2.0;
         javafx.geometry.Point2D centerSceneBefore = localToScene(centerXLocal, centerYLocal);
 
-        setInternalRotation(-getInternalRotation());
-        double oldShearX = shearTransform.getX();
-        setInternalShear(-oldShearX, shearTransform.getY());
-        
+
         multiplyScale(-1, 1);
         
         javafx.geometry.Bounds bAfter = calculateBounds();
@@ -1232,10 +1314,7 @@ public class GroupLayerV2 extends Group {
         double centerYLocal = bLocal.getMinY() + bLocal.getHeight() / 2.0;
         javafx.geometry.Point2D centerSceneBefore = localToScene(centerXLocal, centerYLocal);
 
-        setInternalRotation(-getInternalRotation());
-        double oldShearY = shearTransform.getY();
-        setInternalShear(shearTransform.getX(), -oldShearY);
-        
+
         multiplyScale(1, -1);
         
         javafx.geometry.Bounds bAfter = calculateBounds();

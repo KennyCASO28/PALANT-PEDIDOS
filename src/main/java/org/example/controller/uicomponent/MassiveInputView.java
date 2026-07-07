@@ -272,6 +272,7 @@ public class MassiveInputView {
         String curManga = currentConfig[0];
         String curTallaShort = currentConfig[1];
         String curTipoBottom = (currentConfig.length > 2) ? currentConfig[2] : "DEFAULT";
+        String curPrendas = (currentConfig.length > 3) ? currentConfig[3] : "AMBOS";
 
         Dialog<String[]> dialog = new Dialog<>();
         dialog.setTitle("Configurar Bloque");
@@ -361,6 +362,11 @@ public class MassiveInputView {
         cbTipoBottom.setValue(curTipoBottom.equals("DEFAULT") ? "USAR DEFECTO" : curTipoBottom);
         cbTipoBottom.setPrefWidth(200);
 
+        ComboBox<String> cbPrendas = new ComboBox<>();
+        cbPrendas.getItems().addAll("AMBOS", "SOLO_SUPERIOR", "SOLO_INFERIOR");
+        cbPrendas.setValue(curPrendas);
+        cbPrendas.setPrefWidth(200);
+
         if (disableBottom) {
             cbShort.setDisable(true);
             cbShort.setValue("NO APLICA");
@@ -369,16 +375,22 @@ public class MassiveInputView {
             cbTipoBottom.setDisable(true);
             cbTipoBottom.setValue("NO APLICA");
             cbTipoBottom.setStyle("-fx-opacity: 0.7; -fx-background-color: #eee;");
+            
+            cbPrendas.setDisable(true);
+            cbPrendas.setValue("SOLO_SUPERIOR");
+            cbPrendas.setStyle("-fx-opacity: 0.7; -fx-background-color: #eee;");
         }
 
         int row = 0;
+        g.add(new Label("Prendas Incluidas:"), 0, row);
+        g.add(cbPrendas, 1, row++);
         g.add(new Label("Tipo Manga:"), 0, row);
         g.add(cbManga, 1, row++);
 
         // Always show bottom fields, but disabled if needed
-        g.add(new Label("Talla Inf.:"), 0, row);
+        g.add(new Label("Talla Inferior:"), 0, row);
         g.add(cbShort, 1, row++);
-        g.add(new Label("Tipo Inf.:"), 0, row);
+        g.add(new Label("Tipo Inferior:"), 0, row);
         g.add(cbTipoBottom, 1, row++);
 
         dialog.getDialogPane().setContent(g);
@@ -386,7 +398,7 @@ public class MassiveInputView {
             if (db == applyType) {
                 String sVal = cbShort.getValue().equals("IGUAL A CAMISETA") ? "SAME" : cbShort.getValue();
                 String tVal = cbTipoBottom.getValue().equals("USAR DEFECTO") ? "DEFAULT" : cbTipoBottom.getValue();
-                return new String[] { cbManga.getValue(), sVal, tVal };
+                return new String[] { cbManga.getValue(), sVal, tVal, cbPrendas.getValue() };
             }
             return null;
         });
@@ -449,10 +461,11 @@ public class MassiveInputView {
                 String manga = (data.config != null) ? data.config[0] : "DEFAULT";
                 String tShort = (data.config != null) ? data.config[1] : "SAME";
                 String tipoBottom = (data.config != null && data.config.length > 2) ? data.config[2] : "DEFAULT";
+                String prendas = (data.config != null && data.config.length > 3) ? data.config[3] : "AMBOS";
 
                 for (int i = 0; i < data.qty; i++) {
                     DetallePedido newItem = createItemImpl("JUGADOR", String.valueOf(currentCounter), data.size,
-                            genero.name(), manga, tShort, tipoBottom);
+                            genero.name(), manga, tShort, tipoBottom, prendas);
                     generated.add(newItem);
                     currentCounter++;
                 }
@@ -480,7 +493,7 @@ public class MassiveInputView {
     }
 
     private DetallePedido createItemImpl(String nombre, String numero, String talla, String genero,
-            String overrideManga, String overrideShort, String overrideTipoBottom) {
+            String overrideManga, String overrideShort, String overrideTipoBottom, String overridePrendas) {
         DetallePedido nuevo = new DetallePedido(nombre, numero, talla, genero);
 
         // Defaults from Config
@@ -491,6 +504,15 @@ public class MassiveInputView {
             boolean top = (tipo != org.example.model.TipoPrenda.SHORT);
             boolean bottom = (tipo == org.example.model.TipoPrenda.SHORT) || cfg.llevaShort();
             boolean socks = cfg.llevaMedias();
+
+            if (overridePrendas != null && !overridePrendas.equals("AMBOS")) {
+                if (overridePrendas.equals("SOLO_SUPERIOR")) {
+                    bottom = false;
+                    socks = false;
+                } else if (overridePrendas.equals("SOLO_INFERIOR")) {
+                    top = false;
+                }
+            }
 
             nuevo.setIncludeTop(top);
             nuevo.setIncludeBottom(bottom);

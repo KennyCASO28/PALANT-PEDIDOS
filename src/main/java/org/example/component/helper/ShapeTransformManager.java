@@ -46,10 +46,6 @@ public class ShapeTransformManager {
     }
 
     public void setInternalScaleX(double s) { 
-        // If we cross the zero boundary (flip), we must invert ShearY to maintain visual symmetry
-        if ((scaleTransform.getX() > 0 && s < 0) || (scaleTransform.getX() < 0 && s > 0)) {
-            setInternalShearY(getInternalShearY() * -1);
-        }
         scaleTransform.setX(s); 
         layer.updateVisuals(); 
     }
@@ -59,10 +55,6 @@ public class ShapeTransformManager {
     }
 
     public void setInternalScaleY(double s) { 
-        // If we cross the zero boundary (flip), we must invert ShearX to maintain visual symmetry
-        if ((scaleTransform.getY() > 0 && s < 0) || (scaleTransform.getY() < 0 && s > 0)) {
-            setInternalShearX(getInternalShearX() * -1);
-        }
         scaleTransform.setY(s); 
         layer.updateVisuals(); 
     }
@@ -89,18 +81,12 @@ public class ShapeTransformManager {
 
     public void flipHorizontal() {
         NodeMemento before = new NodeMemento(layer);
-        rotateTransform.setAngle(-rotateTransform.getAngle());
-        double oldShearX = shearTransform.getX();
-        setInternalShearX(-oldShearX);
         setInternalScaleX(scaleTransform.getX() * -1);
         addTransformUndo(before);
     }
 
     public void flipVertical() {
         NodeMemento before = new NodeMemento(layer);
-        rotateTransform.setAngle(-rotateTransform.getAngle());
-        double oldShearY = shearTransform.getY();
-        setInternalShearY(-oldShearY);
         setInternalScaleY(scaleTransform.getY() * -1);
         addTransformUndo(before);
     }

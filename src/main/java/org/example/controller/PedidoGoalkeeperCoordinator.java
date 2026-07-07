@@ -516,6 +516,10 @@ final class PedidoGoalkeeperCoordinator {
             controller.arqueroActivoDesignId = targetDesignId;
             controller.prendaVisualizer.setActiveDesign(toGoalkeeper);
 
+            if (controller.prendaVisualizer.getHistoryManager() != null) {
+                controller.prendaVisualizer.getHistoryManager().clearHistory();
+            }
+
             String label = null;
             if (toGoalkeeper && targetDesignId != null) {
                 GoalkeeperDesignDTO design = controller.disenosArquero.get(targetDesignId);

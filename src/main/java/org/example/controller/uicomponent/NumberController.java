@@ -177,6 +177,7 @@ public class NumberController {
             composition.setLayerColor(4, active ? Color.WHITE : Color.TRANSPARENT);
             // Updating immediately to show the change in preview
             visualizer.setPreviewColor("number_marca_4", active ? Color.WHITE : Color.TRANSPARENT);
+            saveNumberColorsToState(composition, label);
         });
 
         colorGrid.add(cellBase, 0, 0);
@@ -203,6 +204,7 @@ public class NumberController {
         if (initial == null) {
             initial = defaultColor;
             comp.setLayerColor(layerIndex, initial);
+            saveNumberColorsToState(comp, sectionLabel);
         }
 
         final String partName = "number_" + label.toLowerCase() + "_" + layerIndex;
@@ -211,7 +213,7 @@ public class NumberController {
         MenuButton pickerBtn = UIFactory.createColorMenuButton(initial, label,
                 newColor -> {
                     if (newColor != null) {
-                        applyNumberColor(comp, layerIndex, newColor, label, pickerKey, true);
+                        applyNumberColor(comp, layerIndex, newColor, label, pickerKey, true, sectionLabel);
                     }
                 },
                 (onCommit, onPreview) -> {
@@ -219,7 +221,7 @@ public class NumberController {
                         color -> {
                             if (color == null) { visualizer.clearPreviewColors(); return; }
                             visualizer.clearPreviewColors();
-                            applyNumberColor(comp, layerIndex, color, label, pickerKey, true);
+                            applyNumberColor(comp, layerIndex, color, label, pickerKey, true, sectionLabel);
                             onCommit.accept(color); 
                         },
                         color -> {
@@ -229,7 +231,6 @@ public class NumberController {
                                 comp.setLayerColor(layerIndex, color); 
                                 handleSmartPreview(comp, layerIndex, color, sectionLabel);
                             }
-                            onPreview.accept(color);
                         }
                     );
                 });
@@ -253,10 +254,11 @@ public class NumberController {
         }
     }
 
-    private void applyNumberColor(NumberComposition comp, int layerIndex, Color color, String label, String pickerKey, boolean triggerSmart) {
+    private void applyNumberColor(NumberComposition comp, int layerIndex, Color color, String label, String pickerKey, boolean triggerSmart, String sectionLabel) {
         Color startColor = comp.getLayerColor(layerIndex);
         if (color != null && !color.equals(startColor)) {
             comp.setLayerColor(layerIndex, color);
+            saveNumberColorsToState(comp, sectionLabel);
             
             // Sync Picker Button Color
             MenuButton btn = pickerButtons.get(comp.hashCode() + layerIndex);
@@ -267,34 +269,36 @@ public class NumberController {
                     label + " Color", startColor, color,
                     c -> { 
                         comp.setLayerColor(layerIndex, c);
+                        saveNumberColorsToState(comp, sectionLabel);
                         MenuButton b = pickerButtons.get(comp.hashCode() + layerIndex);
                         if (b != null) UIFactory.setColorMenuButtonColor(b, c);
                         // We might need to refresh dependents on undo too
-                        if (triggerSmart) handleSmartUpdates(comp, layerIndex, c);
+                        if (triggerSmart) handleSmartUpdates(comp, layerIndex, c, sectionLabel);
                     }));
 
             // TRIGGER SMART UPDATES
-            if (triggerSmart) handleSmartUpdates(comp, layerIndex, color);
+            if (triggerSmart) handleSmartUpdates(comp, layerIndex, color, sectionLabel);
         }
     }
 
-    private void handleSmartUpdates(NumberComposition comp, int changedIndex, Color newColor) {
+    private void handleSmartUpdates(NumberComposition comp, int changedIndex, Color newColor, String sectionLabel) {
         if (changedIndex == 0) {
             // Smart Combo adaptation based on Base color (index 0 -> target index 1)
             Color smartCombo = org.example.utils.ColorUtils.getSmartCombination(newColor);
-            updateDependentColor(comp, 1, smartCombo, "Smart Combo");
+            updateDependentColor(comp, 1, smartCombo, "Smart Combo", sectionLabel);
         }
         if (changedIndex == 2) {
             // Contorno affects Marca (index 2 -> target index 4)
-            updateDependentColor(comp, 4, newColor, "Smart Brand");
+            updateDependentColor(comp, 4, newColor, "Smart Brand", sectionLabel);
         }
     }
 
-    private void updateDependentColor(NumberComposition comp, int targetIndex, Color newColor, String reason) {
+    private void updateDependentColor(NumberComposition comp, int targetIndex, Color newColor, String reason, String sectionLabel) {
         Color oldColor = comp.getLayerColor(targetIndex);
         if (oldColor == null || !oldColor.equals(newColor)) {
             // Apply color to composition
             comp.setLayerColor(targetIndex, newColor);
+            saveNumberColorsToState(comp, sectionLabel);
             
             // Sync Picker Button Color immediately without full updateUI
             MenuButton btn = pickerButtons.get(comp.hashCode() + targetIndex);
@@ -307,9 +311,20 @@ public class NumberController {
                     reason, oldColor != null ? oldColor : Color.TRANSPARENT, newColor,
                     c -> { 
                         comp.setLayerColor(targetIndex, c); 
+                        saveNumberColorsToState(comp, sectionLabel);
                         MenuButton b = pickerButtons.get(comp.hashCode() + targetIndex);
                         if (b != null) UIFactory.setColorMenuButtonColor(b, c);
                     }));
         }
+    }
+
+    private void saveNumberColorsToState(NumberComposition comp, String sectionLabel) {
+        String loc = "short";
+        if (sectionLabel.equalsIgnoreCase("pecho")) {
+            loc = "chest";
+        } else if (sectionLabel.equalsIgnoreCase("espalda")) {
+            loc = "back";
+        }
+        visualizer.getNumberManager().saveNumberColorsToState(visualizer.getState(), loc, comp);
     }
 }

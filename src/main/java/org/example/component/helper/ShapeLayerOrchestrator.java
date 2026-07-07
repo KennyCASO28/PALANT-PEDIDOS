@@ -46,8 +46,14 @@ public class ShapeLayerOrchestrator {
                 ? layer.getState().fillColor
                 : (layer.getState().strokeColor != null ? layer.getState().strokeColor : Color.BLACK);
 
+        double origTranslateX = layer.getTranslateX();
+        double origTranslateY = layer.getTranslateY();
+        double origRotate = layer.getRotate();
+        double origScaleX = layer.getScaleX();
+        double origScaleY = layer.getScaleY();
+
         for (int i = 1; i <= steps; i++) {
-            ShapeLayer nl = layer.createClone();
+            ShapeLayer nl = layer.createDeepClone();
             nl.getState().contourSteps = 0;
 
             Color stepColor = baseColor.interpolate(c, (double) i / steps);
@@ -68,13 +74,14 @@ public class ShapeLayerOrchestrator {
 
             nl.renderShape();
 
-            Point2D p0 = layer.localToParent(0, 0);
-            Point2D pOffset = layer.localToParent(offset, offset);
-            double dx = pOffset.getX() - p0.getX();
-            double dy = pOffset.getY() - p0.getY();
+            double worldOffsetX = offset * Math.abs(origScaleX);
+            double worldOffsetY = offset * Math.abs(origScaleY);
 
-            nl.setTranslateX(layer.getTranslateX() + dx);
-            nl.setTranslateY(layer.getTranslateY() + dy);
+            nl.setTranslateX(origTranslateX + worldOffsetX);
+            nl.setTranslateY(origTranslateY + worldOffsetY);
+            nl.setRotate(origRotate);
+            nl.setScaleX(1.0);
+            nl.setScaleY(1.0);
 
             newLayers.add(nl);
         }

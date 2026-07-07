@@ -111,6 +111,40 @@ public class ShapeCreationService {
         }
     }
 
+    /**
+     * Returns true when the user is actively placing Bezier points
+     * (the pen tool is drawing a custom path).
+     */
+    public boolean isCreatingBezier() {
+        return isCreatingShape && creationType == ShapeType.CUSTOM_PATH && bezierNodes != null;
+    }
+
+    /**
+     * Removes the last placed Bezier point during creation.
+     * If only one point remains, cancels the entire creation.
+     * @return true if a point was removed (or creation was cancelled), false if nothing to undo
+     */
+    public boolean undoLastBezierPoint() {
+        if (!isCreatingBezier() || bezierNodes == null || bezierNodes.isEmpty()) {
+            return false;
+        }
+
+        if (bezierNodes.size() <= 1) {
+            // Only one point left — cancel the entire creation
+            cancelShapeCreation();
+            if (visualizer.getShapeManagerController() != null) {
+                visualizer.getShapeManagerController().deselectAllShapeTools();
+            }
+            return true;
+        }
+
+        // Remove the last point
+        bezierNodes.remove(bezierNodes.size() - 1);
+        currentDragNode = null;
+        updateBezierPreview();
+        return true;
+    }
+
     private void initCreationHandlers() {
         if (creationPressHandler != null) return;
 

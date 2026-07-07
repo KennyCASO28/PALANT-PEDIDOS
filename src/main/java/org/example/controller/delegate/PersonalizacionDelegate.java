@@ -508,12 +508,11 @@ public class PersonalizacionDelegate {
     }
 
     private void createLogosSection() {
-        // ── Document Color Palette ──
-        javafx.scene.layout.VBox paletteWrapper = new javafx.scene.layout.VBox(4);
-        paletteWrapper.setPadding(new Insets(8, 8, 0, 8));
-        paletteWrapper.getChildren().add(colorPalette.getNode());
+        container.getChildren().add(logoController.getContainer());
+    }
 
-        container.getChildren().addAll(paletteWrapper, logoController.getContainer());
+    public javafx.scene.Node getColorPaletteNode() {
+        return colorPalette.getNode();
     }
 
     public void hideFloatingToolbar() {
@@ -676,11 +675,13 @@ public class PersonalizacionDelegate {
         if (getShapeController() != null) {
             javafx.scene.Node w = getShapeController().getWeldButton();
             javafx.scene.Node uw = getShapeController().getUnweldButton();
+            javafx.scene.Node cut = getShapeController().getCutButton();
             javafx.scene.Node n = getShapeController().getNodeEditButton();
             javafx.scene.Node s = getShapeController().getStrokeButton();
             
             if (w != null) editGroup.getChildren().add(w);
             if (uw != null) editGroup.getChildren().add(uw);
+            if (cut != null) editGroup.getChildren().add(cut);
             if (n != null) shapeGroup.getChildren().add(n);
             if (s != null) editGroup.getChildren().add(s);
         }

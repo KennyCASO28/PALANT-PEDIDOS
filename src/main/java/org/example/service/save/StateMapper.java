@@ -171,6 +171,8 @@ public class StateMapper {
             dto.setTipoManga(dp.getTipoManga());
             dto.setTipoBottom(dp.getTipoBottom());
             dto.setTallaShort(dp.getTallaShort());
+            dto.setTipoMedias(dp.getTipoMedias());
+            dto.setArqueroDesignId(dp.getArqueroDesignId());
             list.add(dto);
         }
         return list;
@@ -407,6 +409,9 @@ public class StateMapper {
                             bnDto.setControl2X(bn.control2.getX());
                             bnDto.setControl2Y(bn.control2.getY());
                         }
+                        bnDto.setMoveTo(bn.isMoveTo);
+                        if (bn.type != null) bnDto.setType(bn.type.name());
+                        if (bn.segmentType != null) bnDto.setSegmentType(bn.segmentType.name());
                         bnDtos.add(bnDto);
                     }
                     sDto.setBezierNodes(bnDtos);
@@ -786,6 +791,13 @@ public class StateMapper {
                             bnDto.isHasControl1() ? new javafx.geometry.Point2D(bnDto.getControl1X(), bnDto.getControl1Y()) : null,
                             bnDto.isHasControl2() ? new javafx.geometry.Point2D(bnDto.getControl2X(), bnDto.getControl2Y()) : null
                         );
+                        bn.isMoveTo = bnDto.isMoveTo();
+                        if (bnDto.getType() != null) {
+                            bn.type = org.example.model.BezierNode.NodeType.valueOf(bnDto.getType());
+                        }
+                        if (bnDto.getSegmentType() != null) {
+                            bn.segmentType = org.example.model.BezierNode.SegmentType.valueOf(bnDto.getSegmentType());
+                        }
                         restoredNodes.add(bn);
                     }
                     sl.setBezierNodes(restoredNodes);

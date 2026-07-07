@@ -249,9 +249,9 @@ public class GarmentZoneService {
         } else if ("ESPALDA".equals(zone)) {
             return visualizer.getOverlayManager().getSplitZoneContent(visualizer.getActiveShirtRenderer().getBody(), false);
         } else if ("SHORT_FRONT".equals(zone)) {
-            return visualizer.getOverlayManager().getSplitZoneContent(visualizer.getActiveShortsRenderer().getShorts(), true);
+            return visualizer.getOverlayManager().getSplitZoneContentForShorts(visualizer.getActiveShortsRenderer().getShorts(), true);
         } else if ("SHORT_BACK".equals(zone)) {
-            return visualizer.getOverlayManager().getSplitZoneContent(visualizer.getActiveShortsRenderer().getShorts(),
+            return visualizer.getOverlayManager().getSplitZoneContentForShorts(visualizer.getActiveShortsRenderer().getShorts(),
                     false);
         }
         return "";

@@ -190,9 +190,7 @@ public class ShapeManagerActionHandler {
 
         java.util.List<ShapeLayer> shapeLayers = new java.util.ArrayList<>();
         for (Node node : selection) {
-            if (node instanceof ShapeLayer) {
-                shapeLayers.add((ShapeLayer) node);
-            }
+            collectShapeLayers(node, shapeLayers);
         }
 
         if (shapeLayers.size() < 2) {
@@ -208,8 +206,61 @@ public class ShapeManagerActionHandler {
 
     public void unweldSelectedShape() {
         ShapeLayer active = controller.getActiveShapeLayer();
+        if (active == null && visualizer.getLayerManager() != null) {
+            Set<Node> selection = visualizer.getLayerManager().getSelectedNodes();
+            java.util.List<ShapeLayer> shapeLayers = new java.util.ArrayList<>();
+            for (Node node : selection) {
+                collectShapeLayers(node, shapeLayers);
+            }
+            if (shapeLayers.size() == 1) {
+                active = shapeLayers.get(0);
+            }
+        }
         if (active == null) return;
         // Delegate to VectorBooleanHelper which works directly with bezierNodes (no Shape.union bugs)
         org.example.component.helper.VectorBooleanHelper.unweldShape(visualizer, active);
+    }
+
+    public void cutSelectedShapes() {
+        if (visualizer.getLayerManager() == null) return;
+
+        Set<Node> selection = visualizer.getLayerManager().getSelectedNodes();
+        if (selection.isEmpty()) {
+            ShapeLayer active = controller.getActiveShapeLayer();
+            if (active != null) {
+                selection = new java.util.HashSet<>();
+                selection.add(active);
+            } else {
+                return;
+            }
+        }
+
+        java.util.List<ShapeLayer> shapeLayers = new java.util.ArrayList<>();
+        for (Node node : selection) {
+            collectShapeLayers(node, shapeLayers);
+        }
+
+        if (shapeLayers.size() < 2) {
+            UIFactory.mostrarAlerta(Alert.AlertType.WARNING, "Cortar",
+                    "Selecciona al menos 2 vectores para cortar.");
+            return;
+        }
+
+        // Delegate to VectorBooleanHelper
+        org.example.component.helper.VectorBooleanHelper.cutSelectedShapes(visualizer, shapeLayers);
+    }
+
+    private void collectShapeLayers(Node node, java.util.List<ShapeLayer> shapeLayers) {
+        if (node instanceof ShapeLayer) {
+            shapeLayers.add((ShapeLayer) node);
+        } else if (node instanceof org.example.component.GroupLayer) {
+            for (Node child : ((org.example.component.GroupLayer) node).getUserLayers()) {
+                collectShapeLayers(child, shapeLayers);
+            }
+        } else if (node instanceof org.example.component.GroupLayerV2) {
+            for (Node child : ((org.example.component.GroupLayerV2) node).getUserLayers()) {
+                collectShapeLayers(child, shapeLayers);
+            }
+        }
     }
 }

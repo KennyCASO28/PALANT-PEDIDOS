@@ -121,6 +121,12 @@ public class VisualizerSnapshotService {
         if (visualizer.getCamisetaColorManager() != null) visualizer.getCamisetaColorManager().setLocked(true);
         if (visualizer.getArqueroColorManager() != null) visualizer.getArqueroColorManager().setLocked(true);
 
+        boolean wasRecording = true;
+        if (visualizer.getHistoryManager() != null) {
+            wasRecording = visualizer.getHistoryManager().isRecording();
+            visualizer.getHistoryManager().setRecording(false);
+        }
+
         visualizer.beginAtomicSnapshotMode();
         try {
             return captureAtomicSnapshot(
@@ -132,6 +138,9 @@ public class VisualizerSnapshotService {
                     savedArqueroState,
                     scale);
         } finally {
+            if (visualizer.getHistoryManager() != null) {
+                visualizer.getHistoryManager().setRecording(wasRecording);
+            }
             if (hasViewport) {
                 visualizer.getViewportController().setViewportState(oldZoom, oldTX, oldTY);
             }
