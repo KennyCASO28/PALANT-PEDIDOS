@@ -571,21 +571,35 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void flipHorizontal() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+            double currentRotation = getInternalRotation();
             setInternalScaleX(scaleTransform.getX() * -1);
+            setInternalRotation(-currentRotation);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
         } else {
+            double currentRotation = getInternalRotation();
             setInternalScaleX(scaleTransform.getX() * -1);
+            setInternalRotation(-currentRotation);
         }
     }
 
     public void flipVertical() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+            double currentRotation = getInternalRotation();
             setInternalScaleY(scaleTransform.getY() * -1);
+            setInternalRotation(normalizeAngle(180 + currentRotation));
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
         } else {
+            double currentRotation = getInternalRotation();
             setInternalScaleY(scaleTransform.getY() * -1);
+            setInternalRotation(normalizeAngle(180 + currentRotation));
         }
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > 180) angle -= 360;
+        while (angle <= -180) angle += 360;
+        return angle;
     }
 
     public void multiplyScale(double sx, double sy) {

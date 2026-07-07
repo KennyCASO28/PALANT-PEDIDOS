@@ -344,7 +344,7 @@ public class TextLayer extends Group implements GraphicLayer {
             localDx /= (curSx > 0.01 ? curSx : 1.0);
             localDy /= (curSy > 0.01 ? curSy : 1.0);
 
-            double proposedW = initialDim[0] + localDx;
+double proposedW = initialDim[0] + localDx;
             double proposedH = initialDim[1] + localDy;
 
             boolean flipX = proposedW < 0;
@@ -359,8 +359,41 @@ public class TextLayer extends Group implements GraphicLayer {
             logicalWidth = newW;
             logicalHeight = newH;
 
-            setInternalScaleX(initialScale[0] * (flipX ? -1 : 1));
-            setInternalScaleY(initialScale[1] * (flipY ? -1 : 1));
+            // REAL FLIP: Mirror in SCREEN coordinates
+            boolean isCornerHandle = (sx != 0 && sy != 0);
+            boolean isLeftHandle = (sx == -1);
+            boolean isRightHandle = (sx == 1);
+            boolean isTopHandle = (sy == -1);
+            boolean isBottomHandle = (sy == 1);
+
+            double currentRotation = rotateTransform.getAngle();
+            double newScaleX = initialScale[0];
+            double newScaleY = initialScale[1];
+
+            // Check if we crossed zero (flipping from positive to negative scale means flip occurred)
+            boolean crossedFlipX = (initialScale[0] > 0 && flipX) || (initialScale[0] < 0 && !flipX);
+            boolean crossedFlipY = (initialScale[1] > 0 && flipY) || (initialScale[1] < 0 && !flipY);
+
+            // Apply true mirror flip using rotation transformation
+            if (crossedFlipX && (isLeftHandle || isRightHandle)) {
+                double newRot = -currentRotation;
+                rotateTransform.setAngle(newRot);
+                newScaleX = Math.abs(initialScale[0]);
+            } else if (crossedFlipY && (isTopHandle || isBottomHandle)) {
+                double newRot = 180 + currentRotation;
+                rotateTransform.setAngle(normalizeAngle(newRot));
+                newScaleY = Math.abs(initialScale[1]);
+            } else if (crossedFlipX || crossedFlipY) {
+                double newRot = currentRotation;
+                if (crossedFlipX) newRot = -newRot;
+                if (crossedFlipY) newRot = 180 + newRot;
+                rotateTransform.setAngle(normalizeAngle(newRot));
+                if (crossedFlipX) newScaleX = Math.abs(initialScale[0]);
+                if (crossedFlipY) newScaleY = Math.abs(initialScale[1]);
+            }
+
+            setInternalScaleX(newScaleX);
+            setInternalScaleY(newScaleY);
 
             if (trajectory != null) {
                 trajectory.scalePoints(factorX, factorY);
@@ -368,7 +401,7 @@ public class TextLayer extends Group implements GraphicLayer {
 
             renderText();
 
-            // Re-align based on the opposite anchor to keep that point fixed in scene
+            // Re-align based on the opposite anchor to keep that point fixed
             double ax = -sx * (logicalWidth / 2.0);
             double ay = -sy * (logicalHeight / 2.0);
             Point2D currentAnchor = localToParent(ax, ay);
@@ -1462,23 +1495,37 @@ public class TextLayer extends Group implements GraphicLayer {
     public void flipHorizontal() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+            double currentRotation = rotateTransform.getAngle();
             setInternalScaleX(scaleTransform.getX() * -1);
+            rotateTransform.setAngle(-currentRotation);
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
                     new org.example.pattern.NodeMemento(this), activeZone));
         } else {
+            double currentRotation = rotateTransform.getAngle();
             setInternalScaleX(scaleTransform.getX() * -1);
+            rotateTransform.setAngle(-currentRotation);
         }
     }
 
     public void flipVertical() {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+            double currentRotation = rotateTransform.getAngle();
             setInternalScaleY(scaleTransform.getY() * -1);
+            rotateTransform.setAngle(normalizeAngle(180 + currentRotation));
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
                     new org.example.pattern.NodeMemento(this), activeZone));
         } else {
+            double currentRotation = rotateTransform.getAngle();
             setInternalScaleY(scaleTransform.getY() * -1);
+            rotateTransform.setAngle(normalizeAngle(180 + currentRotation));
         }
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > 180) angle -= 360;
+        while (angle <= -180) angle += 360;
+        return angle;
     }
 
     // Compatibility for StateMapper

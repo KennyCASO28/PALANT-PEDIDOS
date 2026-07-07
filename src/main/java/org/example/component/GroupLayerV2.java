@@ -225,18 +225,18 @@ public class GroupLayerV2 extends Group {
     }
 
     private StackPane createRotHandle() {
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 16,
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 4,
                 "#e8a020", Cursor.HAND);
         handle.setVisible(false);
-        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 8, 8);
+        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 2, 2);
         return handle;
     }
 
     private StackPane createShearHandle(Cursor cursor, boolean horizontal) {
         String iconName = horizontal ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down";
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 16, "#16a085", cursor);
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 4, "#16a085", cursor);
         handle.setVisible(false);
-        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 8, 8);
+        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 2, 2);
         return handle;
     }
 
@@ -458,6 +458,49 @@ public class GroupLayerV2 extends Group {
         }
     }
 
+    private void updateCursors(double angle, double scaleX, double scaleY) {
+        topLeft.setCursor(getRotatedCursor(Cursor.NW_RESIZE, angle, scaleX, scaleY));
+        topRight.setCursor(getRotatedCursor(Cursor.NE_RESIZE, angle, scaleX, scaleY));
+        bottomLeft.setCursor(getRotatedCursor(Cursor.SW_RESIZE, angle, scaleX, scaleY));
+        bottomRight.setCursor(getRotatedCursor(Cursor.SE_RESIZE, angle, scaleX, scaleY));
+        topCenter.setCursor(getRotatedCursor(Cursor.N_RESIZE, angle, scaleX, scaleY));
+        bottomCenter.setCursor(getRotatedCursor(Cursor.S_RESIZE, angle, scaleX, scaleY));
+        leftCenter.setCursor(getRotatedCursor(Cursor.W_RESIZE, angle, scaleX, scaleY));
+        rightCenter.setCursor(getRotatedCursor(Cursor.E_RESIZE, angle, scaleX, scaleY));
+    }
+
+    private Cursor getRotatedCursor(Cursor base, double angle, double scaleX, double scaleY) {
+        double baseAngle = 0;
+        if (base == Cursor.N_RESIZE) baseAngle = 0;
+        else if (base == Cursor.NE_RESIZE) baseAngle = 45;
+        else if (base == Cursor.E_RESIZE) baseAngle = 90;
+        else if (base == Cursor.SE_RESIZE) baseAngle = 135;
+        else if (base == Cursor.S_RESIZE) baseAngle = 180;
+        else if (base == Cursor.SW_RESIZE) baseAngle = 225;
+        else if (base == Cursor.W_RESIZE) baseAngle = 270;
+        else if (base == Cursor.NW_RESIZE) baseAngle = 315;
+
+        if (scaleX < 0) baseAngle = 360 - baseAngle;
+        if (scaleY < 0) baseAngle = 180 - baseAngle;
+
+        double finalAngle = (baseAngle + angle) % 360;
+        if (finalAngle < 0) finalAngle += 360;
+
+        int snap = (int) Math.round(finalAngle / 45.0) % 8;
+
+        switch (snap) {
+            case 0: return Cursor.N_RESIZE;
+            case 1: return Cursor.NE_RESIZE;
+            case 2: return Cursor.E_RESIZE;
+            case 3: return Cursor.SE_RESIZE;
+            case 4: return Cursor.S_RESIZE;
+            case 5: return Cursor.SW_RESIZE;
+            case 6: return Cursor.W_RESIZE;
+            case 7: return Cursor.NW_RESIZE;
+        }
+        return base;
+    }
+
     // ============================================
     // BOUNDS
     // ============================================
@@ -590,13 +633,15 @@ public class GroupLayerV2 extends Group {
         positionNode(leftCenter, x - hs, y + h / 2 - hs);
         positionNode(rightCenter, x + w - hs, y + h / 2 - hs);
 
+        updateCursors(rotateTransform.getAngle(), scaleTransform.getX(), scaleTransform.getY());
+
         // Rotation Mode Handles
         rotTopLeft.setVisible(showRotate);
         rotTopRight.setVisible(showRotate);
         rotBottomLeft.setVisible(showRotate);
         rotBottomRight.setVisible(showRotate);
 
-        double rs = 16 / 2.0;
+        double rs = 8 / 2.0; // Extra Reduced size
         positionNode(rotTopLeft, x - rs, y - rs);
         positionNode(rotTopRight, x + w - rs, y - rs);
         positionNode(rotBottomLeft, x - rs, y + h - rs);
@@ -645,24 +690,24 @@ public class GroupLayerV2 extends Group {
     }
 
     private void applyAntiShearToHandles() {
-        org.example.utils.GeometryUtility.applyAntiShear(topLeft, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(topRight, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(bottomLeft, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(bottomRight, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(topCenter, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(bottomCenter, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(leftCenter, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(rightCenter, shearTransform, 8, 8);
+        org.example.utils.GeometryUtility.applyAntiShear(topLeft, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(topRight, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(bottomLeft, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(bottomRight, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(topCenter, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(bottomCenter, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(leftCenter, shearTransform, 6, 6);
+        org.example.utils.GeometryUtility.applyAntiShear(rightCenter, shearTransform, 6, 6);
 
-        org.example.utils.GeometryUtility.applyAntiShear(rotTopLeft, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(rotTopRight, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(rotBottomLeft, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(rotBottomRight, shearTransform, 8, 8);
+        org.example.utils.GeometryUtility.applyAntiShear(rotTopLeft, shearTransform, 2, 2);
+        org.example.utils.GeometryUtility.applyAntiShear(rotTopRight, shearTransform, 2, 2);
+        org.example.utils.GeometryUtility.applyAntiShear(rotBottomLeft, shearTransform, 2, 2);
+        org.example.utils.GeometryUtility.applyAntiShear(rotBottomRight, shearTransform, 2, 2);
 
-        org.example.utils.GeometryUtility.applyAntiShear(shearTop, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(shearBottom, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(shearLeft, shearTransform, 8, 8);
-        org.example.utils.GeometryUtility.applyAntiShear(shearRight, shearTransform, 8, 8);
+        org.example.utils.GeometryUtility.applyAntiShear(shearTop, shearTransform, 2, 2);
+        org.example.utils.GeometryUtility.applyAntiShear(shearBottom, shearTransform, 2, 2);
+        org.example.utils.GeometryUtility.applyAntiShear(shearLeft, shearTransform, 2, 2);
+        org.example.utils.GeometryUtility.applyAntiShear(shearRight, shearTransform, 2, 2);
 
         org.example.utils.GeometryUtility.applyAntiShear(pivotHandle, shearTransform, 8, 8);
     }
@@ -812,7 +857,9 @@ public class GroupLayerV2 extends Group {
             double startBoundsW, startBoundsH;
             double startTx, startTy;
             Point2D startAnchorWorld;
+            Point2D startCenterWorld;
             double ax, ay;
+            double cx, cy;
             double appliedSoFarX = 1.0; // Local tracker for incremental scaling
             double appliedSoFarY = 1.0;
         }
@@ -856,9 +903,13 @@ public class GroupLayerV2 extends Group {
             // Calculate Anchor Point in Local Coordinates (RELATIVE TO START)
             ctx.ax = (dirX == -1) ? b.getMaxX() : (dirX == 1) ? b.getMinX() : b.getCenterX();
             ctx.ay = (dirY == -1) ? b.getMaxY() : (dirY == 1) ? b.getMinY() : b.getCenterY();
+            
+            ctx.cx = b.getCenterX();
+            ctx.cy = b.getCenterY();
 
             // Store stable World Anchor
             ctx.startAnchorWorld = this.localToParent(contentGroup.localToParent(new Point2D(ctx.ax, ctx.ay)));
+            ctx.startCenterWorld = this.localToParent(contentGroup.localToParent(new Point2D(ctx.cx, ctx.cy)));
         });
 
         handle.setOnMouseDragged(e -> {
@@ -878,29 +929,28 @@ public class GroupLayerV2 extends Group {
             double cos = Math.cos(angleRad);
             double sin = Math.sin(angleRad);
 
-            // Delta in unrotated local space of the group, accounting for mirroring
-            double localDx = (parentDx * cos + parentDy * sin) * Math.signum(scaleTransform.getX());
-            double localDy = (-parentDx * sin + parentDy * cos) * Math.signum(scaleTransform.getY());
+            // Delta in unrotated local space of the group
+            // Divide by absolute scale so visual movement matches mouse movement even when flipped
+            double scaleMagX = Math.abs(scaleTransform.getX());
+            double scaleMagY = Math.abs(scaleTransform.getY());
+            
+            double localDx = (parentDx * cos + parentDy * sin) / (scaleMagX != 0 ? scaleMagX : 1);
+            double localDy = (-parentDx * sin + parentDy * cos) / (scaleMagY != 0 ? scaleMagY : 1);
 
             double safeW = Math.max(0.1, ctx.startBoundsW);
             double safeH = Math.max(0.1, ctx.startBoundsH);
 
-            double proposedW = safeW + localDx * dirX;
-            double proposedH = safeH + localDy * dirY;
+            double scaleFactor = e.isShiftDown() ? 2.0 : 1.0;
+            double proposedW = safeW + localDx * dirX * scaleFactor;
+            double proposedH = safeH + localDy * dirY * scaleFactor;
 
-            // Snap logic (Ctrl modifier)
-            if (e.isControlDown()) {
-                if (dirX != 0 && Math.abs(proposedW) > 0) {
-                    long m = Math.round(proposedW / safeW);
-                    if (m == 0)
-                        m = (proposedW < 0) ? -1 : 1;
-                    proposedW = m * safeW;
-                }
-                if (dirY != 0 && Math.abs(proposedH) > 0) {
-                    long m = Math.round(proposedH / safeH);
-                    if (m == 0)
-                        m = (proposedH < 0) ? -1 : 1;
-                    proposedH = m * safeH;
+            // Proportional resize (Ctrl modifier)
+            if (e.isControlDown() && dirX != 0 && dirY != 0) {
+                double aspect = safeW / safeH;
+                if (Math.abs(localDx) > Math.abs(localDy)) {
+                    proposedH = proposedW / aspect;
+                } else {
+                    proposedW = proposedH * aspect;
                 }
             }
 
@@ -924,11 +974,16 @@ public class GroupLayerV2 extends Group {
             multiplyScale(finalMsx, finalMsy);
 
             // 2. Compensation: Calculate current position of anchor in parent space
-            Point2D currentAnchorLocal = new Point2D(ctx.ax * totalRatioX, ctx.ay * totalRatioY);
-            Point2D currentAnchorParent = localToParent(contentGroup.localToParent(currentAnchorLocal));
+            // FIX: The anchor coordinates in contentGroup space remain constant (ctx.ax, ctx.ay).
+            // We just project them through the updated transforms to find their new world position.
+            double currentAx = e.isShiftDown() ? ctx.cx : ctx.ax;
+            double currentAy = e.isShiftDown() ? ctx.cy : ctx.ay;
+            Point2D startTargetAnchor = e.isShiftDown() ? ctx.startCenterWorld : ctx.startAnchorWorld;
 
-            double dx = ctx.startAnchorWorld.getX() - currentAnchorParent.getX();
-            double dy = ctx.startAnchorWorld.getY() - currentAnchorParent.getY();
+            Point2D currentAnchorParent = localToParent(contentGroup.localToParent(new Point2D(currentAx, currentAy)));
+
+            double dx = startTargetAnchor.getX() - currentAnchorParent.getX();
+            double dy = startTargetAnchor.getY() - currentAnchorParent.getY();
 
             // 3. Translate group to keep anchor stationary
             setTranslateX(getTranslateX() + dx);
@@ -997,7 +1052,22 @@ public class GroupLayerV2 extends Group {
                 return;
             double currentMouseAngle = Math
                     .toDegrees(Math.atan2(e.getSceneY() - ctx.pivot.getY(), e.getSceneX() - ctx.pivot.getX()));
-            rotateTransform.setAngle(ctx.startAngle + (currentMouseAngle - ctx.startMouseAngle));
+            
+            double deltaAngle = currentMouseAngle - ctx.startMouseAngle;
+            while (deltaAngle > 180) deltaAngle -= 360;
+            while (deltaAngle <= -180) deltaAngle += 360;
+            
+            double newAngle = ctx.startAngle + deltaAngle * 0.5; // Reduced sensitivity
+            
+            if (e.isShiftDown()) {
+                // Snap to 15 degree increments
+                newAngle = Math.round(newAngle / 15.0) * 15.0;
+            }
+            
+            rotateTransform.setAngle(newAngle);
+            if (visualizer != null && visualizer.getShapeManagerController() != null) {
+                visualizer.getShapeManagerController().updateAngleUI(newAngle);
+            }
             updateSelectionOverlay();
             e.consume();
         };
@@ -1064,7 +1134,7 @@ public class GroupLayerV2 extends Group {
                         return;
                     Point2D localDelta = screenToUnrotatedLocalDelta(e.getSceneX() - ctx.startX,
                             e.getSceneY() - ctx.startY);
-                    double factor = 0.005; // Sensitivity
+                    double factor = 0.0025; // Sensitivity reduced from 0.005
                     if (invert)
                         factor = -factor;
 
@@ -1281,7 +1351,6 @@ public class GroupLayerV2 extends Group {
         double centerYLocal = bLocal.getMinY() + bLocal.getHeight() / 2.0;
         javafx.geometry.Point2D centerSceneBefore = localToScene(centerXLocal, centerYLocal);
 
-
         multiplyScale(-1, 1);
         
         javafx.geometry.Bounds bAfter = calculateBounds();
@@ -1314,7 +1383,6 @@ public class GroupLayerV2 extends Group {
         double centerYLocal = bLocal.getMinY() + bLocal.getHeight() / 2.0;
         javafx.geometry.Point2D centerSceneBefore = localToScene(centerXLocal, centerYLocal);
 
-
         multiplyScale(1, -1);
         
         javafx.geometry.Bounds bAfter = calculateBounds();
@@ -1336,6 +1404,22 @@ public class GroupLayerV2 extends Group {
         if (visualizer != null && visualizer.getHistoryManager() != null) {
             visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
         }
+    }
+
+    public void directFlipHorizontal() {
+        scaleTransform.setX(scaleTransform.getX() * -1.0);
+        updateSelectionOverlay();
+    }
+
+    public void directFlipVertical() {
+        scaleTransform.setY(scaleTransform.getY() * -1.0);
+        updateSelectionOverlay();
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > 180) angle -= 360;
+        while (angle <= -180) angle += 360;
+        return angle;
     }
 
 }

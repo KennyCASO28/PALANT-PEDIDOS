@@ -298,6 +298,26 @@ public class GarmentInputHandler {
                     return;
                 }
             }
+
+            // ----------------------------------------------------------------
+            // 4. LAYER ORDER (Shift + PageUp / PageDown)
+            // ----------------------------------------------------------------
+            if (isShiftDown && !inSidePanel && layerManager.getSelectedNodes().size() > 0) {
+                if (e.getCode() == javafx.scene.input.KeyCode.PAGE_UP) {
+                    for (javafx.scene.Node node : layerManager.getSelectedNodes()) {
+                        layerManager.bringForward(node);
+                    }
+                    e.consume();
+                    return;
+                }
+                if (e.getCode() == javafx.scene.input.KeyCode.PAGE_DOWN) {
+                    for (javafx.scene.Node node : layerManager.getSelectedNodes()) {
+                        layerManager.sendBackward(node);
+                    }
+                    e.consume();
+                    return;
+                }
+            }
         };
 
         // Attach to Scene to ensure global hotkeys work regardless of focus.
@@ -802,22 +822,6 @@ public class GarmentInputHandler {
                     handleGlobalContextMenu(e, finalZone);
                 }
                 e.consume();
-            } else if (e.getButton() == javafx.scene.input.MouseButton.PRIMARY && e.isShiftDown()) {
-                if (visualizer.getViewportController() != null && visualizer.getViewportController().isPanningEnabled()) {
-                    return; // Do not open edit mode if panning is enabled
-                }
-                // Prevent opening checks if already editing (User Request: "Don't open other
-                // containers while editing one")
-                if (visualizer.getPowerClipManager().isEditing()) {
-                    e.consume();
-                    return;
-                }
-
-                String zone = visualizer.getShapeHelper().detectZone(e.getSceneX(), e.getSceneY());
-                if (zone != null) {
-                    visualizer.getPowerClipManager().enterEditMode(zone);
-                    e.consume();
-                }
             }
         });
     }

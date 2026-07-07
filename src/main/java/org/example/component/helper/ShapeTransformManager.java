@@ -81,14 +81,32 @@ public class ShapeTransformManager {
 
     public void flipHorizontal() {
         NodeMemento before = new NodeMemento(layer);
+        double currentRotation = getInternalRotation();
         setInternalScaleX(scaleTransform.getX() * -1);
+        double newRot = -currentRotation;
+        setInternalRotation(newRot);
+        if (layer.getVisualizer() != null && layer.getVisualizer().getShapeManagerController() != null) {
+            layer.getVisualizer().getShapeManagerController().updateAngleUI(newRot);
+        }
         addTransformUndo(before);
     }
 
     public void flipVertical() {
         NodeMemento before = new NodeMemento(layer);
+        double currentRotation = getInternalRotation();
         setInternalScaleY(scaleTransform.getY() * -1);
+        double newRot = normalizeAngle(180 + currentRotation);
+        setInternalRotation(newRot);
+        if (layer.getVisualizer() != null && layer.getVisualizer().getShapeManagerController() != null) {
+            layer.getVisualizer().getShapeManagerController().updateAngleUI(newRot);
+        }
         addTransformUndo(before);
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > 180) angle -= 360;
+        while (angle <= -180) angle += 360;
+        return angle;
     }
 
     public void setSize(double width, double height, double visualMinX, double visualMinY, List<BezierNode> bezierNodes, 

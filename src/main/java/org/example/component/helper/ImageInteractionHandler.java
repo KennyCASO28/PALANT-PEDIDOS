@@ -264,7 +264,7 @@ public class ImageInteractionHandler {
                 return;
             }
 
-            // --- PREMIUM RESIZING ---
+// --- PREMIUM RESIZING ---
             double proposedW = ctx[0] + dxL * dW;
             double proposedH = ctx[1] + dyL * dH;
 
@@ -274,10 +274,14 @@ public class ImageInteractionHandler {
             double newW = Math.max(5, Math.abs(proposedW));
             double newH = Math.max(5, Math.abs(proposedH));
 
-            // PROPORTIONAL BY DEFAULT for Corners (unless SHIFT is pressed)
-            boolean proportional = (dW != 0 && dH != 0); // Corner
-            if (e.isShiftDown())
-                proportional = !proportional; // Toggle with shift
+            boolean isCornerHandle = (dW != 0 && dH != 0);
+            boolean isLeftHandle = (dW == -1);
+            boolean isRightHandle = (dW == 1);
+            boolean isTopHandle = (dH == -1);
+            boolean isBottomHandle = (dH == 1);
+
+            // CORNERS: proportional by default, Shift cancels
+            boolean proportional = isCornerHandle && !e.isShiftDown();
 
             if (proportional) {
                 double ratio = ctx[0] / ctx[1];
@@ -288,13 +292,73 @@ public class ImageInteractionHandler {
             }
 
             layer.setSize(newW, newH);
-            layer.setInternalScaleX(ctx[10] * (flipX ? -1 : 1));
-            layer.setInternalScaleY(ctx[11] * (flipY ? -1 : 1));
 
-            // 4. ANCHOR STABILIZATION: Keep the opposite corner fixed in world space
-            double anchorX = (dW == -1) ? newW : (dW == 1) ? 0 : newW / 2.0;
-            double anchorY = (dH == -1) ? newH : (dH == 1) ? 0 : newH / 2.0;
-            Point2D newAnchorWorld = layer.localToParent(anchorX, anchorY);
+            // REAL FLIP: Mirror in SCREEN coordinates
+            // For horizontal mirror (flip along Y axis in screen): newRot = -oldRot
+            // For vertical mirror (flip along X axis in screen): newRot = 180 - oldRot
+            double currentRotation = layer.getRotate();
+            double newScaleX = ctx[10];
+            double newScaleY = ctx[11];
+
+            // Check if we crossed zero (flipping from positive to negative scale means flip occurred)
+            boolean crossedFlipX = (ctx[10] > 0 && flipX) || (ctx[10] < 0 && !flipX);
+            boolean crossedFlipY = (ctx[11] > 0 && flipY) || (ctx[11] < 0 && !flipY);
+
+            // Apply true mirror flip using rotation transformation
+            if (crossedFlipX && isLeftHandle) {
+                // LATERAL FLIP (left handle crossed center): this is horizontal mirror
+                double newRot = -currentRotation;
+                layer.getRotateTransform().setAngle(newRot);
+                newScaleX = Math.abs(ctx[10]);
+            } else if (crossedFlipX && isRightHandle) {
+                // LATERAL FLIP (right handle crossed center): this is horizontal mirror
+                double newRot = -currentRotation;
+                layer.getRotateTransform().setAngle(newRot);
+                newScaleX = Math.abs(ctx[10]);
+            } else if (crossedFlipY && isTopHandle) {
+                // VERTICAL FLIP (top handle crossed center): this is vertical mirror
+                double newRot = 180 + currentRotation;
+                layer.getRotateTransform().setAngle(normalizeAngle(newRot));
+                newScaleY = Math.abs(ctx[11]);
+            } else if (crossedFlipY && isBottomHandle) {
+                // VERTICAL FLIP (bottom handle crossed center): this is vertical mirror
+                double newRot = 180 + currentRotation;
+                layer.getRotateTransform().setAngle(normalizeAngle(newRot));
+                newScaleY = Math.abs(ctx[11]);
+            } else if (crossedFlipX || crossedFlipY) {
+                // Corner handle flip - apply both flips
+                double newRot = currentRotation;
+                if (crossedFlipX) newRot = -newRot;
+                if (crossedFlipY) newRot = 180 + newRot;
+                layer.getRotateTransform().setAngle(normalizeAngle(newRot));
+                if (crossedFlipX) newScaleX = Math.abs(ctx[10]);
+                if (crossedFlipY) newScaleY = Math.abs(ctx[11]);
+            }
+
+            layer.setInternalScaleX(newScaleX);
+            layer.setInternalScaleY(newScaleY);
+
+            // ANCHOR STABILIZATION: Keep the opposite corner/edge fixed
+            double anchorLocalX = 0;
+            double anchorLocalY = 0;
+
+            if (dW == -1) {
+                anchorLocalX = newW;
+            } else if (dW == 1) {
+                anchorLocalX = 0;
+            } else {
+                anchorLocalX = newW / 2.0;
+            }
+
+            if (dH == -1) {
+                anchorLocalY = newH;
+            } else if (dH == 1) {
+                anchorLocalY = 0;
+            } else {
+                anchorLocalY = newH / 2.0;
+            }
+
+            Point2D newAnchorWorld = layer.localToParent(anchorLocalX, anchorLocalY);
 
             if (anchor[0] != null) {
                 layer.setTranslateX(layer.getTranslateX() + (anchor[0].getX() - newAnchorWorld.getX()));
@@ -650,5 +714,11 @@ public class ImageInteractionHandler {
             this.shearRight = shearRight;
             this.pivotHandle = pivotHandle;
         }
+    }
+
+    private double normalizeAngle(double angle) {
+        while (angle > 180) angle -= 360;
+        while (angle <= -180) angle += 360;
+        return angle;
     }
 }

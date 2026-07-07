@@ -70,37 +70,37 @@ public final class ShapeSelectionOverlaySupport {
     }
 
     public static StackPane createRotationHandle(Shear shearTransform) {
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 16, "#e8a020",
-                Cursor.OPEN_HAND);
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 4, "#e8a020",
+                Cursor.HAND);
         return handle;
     }
-
-    public static StackPane createShearHandle(Cursor cursor, boolean isHorizontal, Shear shearTransform) {
-        String iconName = isHorizontal ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down";
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 16, "#16a085", cursor);
+    public static StackPane createShearHandle(Cursor cursor, boolean horizontal, Shear shearTransform) {
+        String iconName = horizontal ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down";
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 4, "#16a085", cursor);
         handle.setVisible(false);
         return handle;
     }
-
     public static StackPane createArcHandle(Shear shearTransform) {
         StackPane handle = new StackPane();
         handle.setPrefSize(16, 16);
-        // Slightly larger than a dot (6x6) for better visibility as requested
-        Rectangle rect = new Rectangle(6, 6, Color.BLACK);
-        rect.setStroke(Color.WHITE);
+        javafx.scene.shape.Rectangle rect = new javafx.scene.shape.Rectangle(4, 4, javafx.scene.paint.Color.BLACK);
+        rect.setStroke(javafx.scene.paint.Color.WHITE);
         rect.setStrokeWidth(1.2);
-        rect.setArcWidth(2); // Slightly soft corners for the handle
+        rect.setArcWidth(2); 
         rect.setArcHeight(2);
-
         handle.getChildren().add(rect);
         handle.setCursor(Cursor.HAND);
-        handle.setPickOnBounds(true);
-        // Anti-Shear to keep it clean
-        org.example.utils.GeometryUtility.applyAntiShear(handle, shearTransform, 3, 3);
+        return handle;
+    }
+    public static StackPane createArcRotationHandle(Shear shearTransform) {
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 4, "#9b59b6",
+                Cursor.HAND);
         return handle;
     }
 
     public static void updateVisuals(OverlayNodes nodes, VisualState state) {
+        if (nodes == null) return;
+
         double width = state.width();
         double height = state.height();
         double visualMinX = state.visualMinX();
@@ -127,8 +127,8 @@ public final class ShapeSelectionOverlaySupport {
         double selectionHandleOffset = 6.0;
         positionSelectionHandles(nodes, pTL, pTR, pBL, pBR, selectionHandleOffset);
 
-        // transformHandleOffset must be 8.0 because createRotationHandle uses size 16
-        double transformHandleOffset = 8.0;
+        // transformHandleOffset must be 2.0 because createRotationHandle uses size 4
+        double transformHandleOffset = 2.0;
         positionTransformHandles(nodes, pTL, pTR, pBL, pBR, transformHandleOffset);
 
         nodes.border().setStroke(Color.web("#0047AB"));
@@ -185,6 +185,51 @@ public final class ShapeSelectionOverlaySupport {
                 height,
                 state.customPivotX(),
                 state.customPivotY());
+
+        updateCursors(nodes, state.rotateTransform().getAngle(), state.scaleTransform().getX(), state.scaleTransform().getY());
+    }
+
+    public static void updateCursors(OverlayNodes nodes, double angle, double scaleX, double scaleY) {
+        nodes.topLeft().setCursor(getRotatedCursor(Cursor.NW_RESIZE, angle, scaleX, scaleY));
+        nodes.topRight().setCursor(getRotatedCursor(Cursor.NE_RESIZE, angle, scaleX, scaleY));
+        nodes.bottomLeft().setCursor(getRotatedCursor(Cursor.SW_RESIZE, angle, scaleX, scaleY));
+        nodes.bottomRight().setCursor(getRotatedCursor(Cursor.SE_RESIZE, angle, scaleX, scaleY));
+        nodes.topCenter().setCursor(getRotatedCursor(Cursor.N_RESIZE, angle, scaleX, scaleY));
+        nodes.bottomCenter().setCursor(getRotatedCursor(Cursor.S_RESIZE, angle, scaleX, scaleY));
+        nodes.leftCenter().setCursor(getRotatedCursor(Cursor.W_RESIZE, angle, scaleX, scaleY));
+        nodes.rightCenter().setCursor(getRotatedCursor(Cursor.E_RESIZE, angle, scaleX, scaleY));
+    }
+
+    private static Cursor getRotatedCursor(Cursor base, double angle, double scaleX, double scaleY) {
+        double baseAngle = 0;
+        if (base == Cursor.N_RESIZE) baseAngle = 0;
+        else if (base == Cursor.NE_RESIZE) baseAngle = 45;
+        else if (base == Cursor.E_RESIZE) baseAngle = 90;
+        else if (base == Cursor.SE_RESIZE) baseAngle = 135;
+        else if (base == Cursor.S_RESIZE) baseAngle = 180;
+        else if (base == Cursor.SW_RESIZE) baseAngle = 225;
+        else if (base == Cursor.W_RESIZE) baseAngle = 270;
+        else if (base == Cursor.NW_RESIZE) baseAngle = 315;
+
+        if (scaleX < 0) baseAngle = 360 - baseAngle;
+        if (scaleY < 0) baseAngle = 180 - baseAngle;
+
+        double finalAngle = (baseAngle + angle) % 360;
+        if (finalAngle < 0) finalAngle += 360;
+
+        int snap = (int) Math.round(finalAngle / 45.0) % 8;
+
+        switch (snap) {
+            case 0: return Cursor.N_RESIZE;
+            case 1: return Cursor.NE_RESIZE;
+            case 2: return Cursor.E_RESIZE;
+            case 3: return Cursor.SE_RESIZE;
+            case 4: return Cursor.S_RESIZE;
+            case 5: return Cursor.SW_RESIZE;
+            case 6: return Cursor.W_RESIZE;
+            case 7: return Cursor.NW_RESIZE;
+        }
+        return base;
     }
 
     private static javafx.geometry.Point2D shearPoint(double x, double y, double shX, double shY, double px,

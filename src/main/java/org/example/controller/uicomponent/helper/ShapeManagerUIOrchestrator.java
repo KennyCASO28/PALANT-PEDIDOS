@@ -234,15 +234,21 @@ public class ShapeManagerUIOrchestrator {
         styleTransformActionButton(btnFlipV);
 
         btnFlipH.setOnAction(e -> {
-            ShapeLayer activeLayer = controller.getActiveShapeLayer();
-            if (activeLayer != null) {
-                activeLayer.getTransformManager().flipHorizontal();
+            for (Node node : visualizer.getLayerManager().getSelectedNodes()) {
+                if (node instanceof GroupLayerV2) {
+                    ((GroupLayerV2) node).flipHorizontal();
+                } else if (node instanceof ShapeLayer) {
+                    ((ShapeLayer) node).getTransformManager().flipHorizontal();
+                }
             }
         });
         btnFlipV.setOnAction(e -> {
-            ShapeLayer activeLayer = controller.getActiveShapeLayer();
-            if (activeLayer != null) {
-                activeLayer.getTransformManager().flipVertical();
+            for (Node node : visualizer.getLayerManager().getSelectedNodes()) {
+                if (node instanceof GroupLayerV2) {
+                    ((GroupLayerV2) node).flipVertical();
+                } else if (node instanceof ShapeLayer) {
+                    ((ShapeLayer) node).getTransformManager().flipVertical();
+                }
             }
         });
 
