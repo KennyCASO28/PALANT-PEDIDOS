@@ -8,10 +8,7 @@ import org.example.component.PrendaVisualizer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import javafx.scene.Node;
-import javafx.animation.ScaleTransition;
 import javafx.animation.FadeTransition;
-import javafx.animation.ParallelTransition;
-import javafx.animation.SequentialTransition;
 import javafx.animation.Interpolator;
 import javafx.util.Duration;
 
@@ -525,42 +522,19 @@ public class PrendaLayerFactory {
     private void playAppearanceAnimation(Node node) {
         if (node == null) return;
 
-        double origScaleX = node.getScaleX();
-        double origScaleY = node.getScaleY();
         double origOpacity = node.getOpacity();
 
-        // Start collapsed and transparent
-        node.setScaleX(origScaleX * 0.4);
-        node.setScaleY(origScaleY * 0.4);
+        // Start transparent and fade in
         node.setOpacity(0.0);
 
-        ScaleTransition st1 = new ScaleTransition(Duration.millis(140), node);
-        st1.setFromX(origScaleX * 0.4);
-        st1.setFromY(origScaleY * 0.4);
-        st1.setToX(origScaleX * 1.15);
-        st1.setToY(origScaleY * 1.15);
-        st1.setInterpolator(Interpolator.EASE_OUT);
-
-        ScaleTransition st2 = new ScaleTransition(Duration.millis(90), node);
-        st2.setFromX(origScaleX * 1.15);
-        st2.setFromY(origScaleY * 1.15);
-        st2.setToX(origScaleX);
-        st2.setToY(origScaleY);
-        st2.setInterpolator(Interpolator.EASE_IN);
-
-        SequentialTransition scaleSeq = new SequentialTransition(st1, st2);
-
-        FadeTransition ft = new FadeTransition(Duration.millis(140), node);
+        FadeTransition ft = new FadeTransition(Duration.millis(200), node);
         ft.setFromValue(0.0);
         ft.setToValue(origOpacity);
         ft.setInterpolator(Interpolator.EASE_OUT);
 
-        ParallelTransition pt = new ParallelTransition(scaleSeq, ft);
-        pt.setOnFinished(e -> {
-            node.setScaleX(origScaleX);
-            node.setScaleY(origScaleY);
+        ft.setOnFinished(e -> {
             node.setOpacity(origOpacity);
         });
-        pt.play();
+        ft.play();
     }
 }

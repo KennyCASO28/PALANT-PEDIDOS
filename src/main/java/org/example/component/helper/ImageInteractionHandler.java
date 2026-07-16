@@ -13,6 +13,7 @@ import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
 import javafx.scene.transform.Shear;
 import org.example.component.ImageLayer;
+import org.example.component.UserLayerManager;
 import org.example.model.ImageLayerState;
 import org.example.pattern.ICommand;
 import org.example.pattern.NodeMemento;
@@ -21,6 +22,10 @@ import org.example.pattern.TransformCommand;
 import org.example.utils.GeometryUtility;
 import org.example.utils.UIFactory;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -39,6 +44,12 @@ public class ImageInteractionHandler {
     private boolean isDrawing = false;
     private NodeMemento dragStartMemento; // Full snapshot for undo (includes parent+index)
 
+    // Multi-drag support
+    private boolean isMultiDrag = false;
+    private List<Node> multiDragNodes = new ArrayList<>();
+    private Map<Node, NodeMemento> multiDragMementos = new HashMap<>();
+    private Point2D multiDragReferencePoint;
+
     public ImageInteractionHandler(ImageLayer layer, ImageLayerState state) {
         this.layer = layer;
         this.state = state;
@@ -46,7 +57,7 @@ public class ImageInteractionHandler {
     }
 
     private boolean isEffectivelyLocked() {
-        return layer.isUserLocked() || (layer.isLocked() && !layer.isBeingEdited());
+        return layer.isUserLocked() || (layer.isLocked() && !layer.isBeingEdited()) || layer.isGrouped();
     }
 
     public void init() {
@@ -71,10 +82,32 @@ public class ImageInteractionHandler {
             e.consume();
         });
 
+        final boolean[] dropCopy = { false };
+        @SuppressWarnings("unchecked")
+        final javafx.event.EventHandler<javafx.scene.input.MouseEvent>[] rightClickFilter = new javafx.event.EventHandler[1];
+
         layer.setOnMousePressed(e -> {
-            if (e.isPrimaryButtonDown()) {
+            boolean isLeft = e.getButton() == javafx.scene.input.MouseButton.PRIMARY;
+            boolean isRight = e.getButton() == javafx.scene.input.MouseButton.SECONDARY;
+            if (isLeft || isRight) {
                 if (isEffectivelyLocked())
                     return;
+
+                dropCopy[0] = isRight; // right-click = copy mode
+                rightClickFilter[0] = ev -> {
+                    if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY
+                            && ev.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED) {
+                        if (!dropCopy[0]) {
+                            dropCopy[0] = true;
+                            if (layer.getVisualizer() != null)
+                                layer.getVisualizer().setCursor(Cursor.CROSSHAIR);
+                        }
+                        ev.consume();
+                    }
+                };
+                if (layer.getScene() != null) {
+                    layer.getScene().addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, rightClickFilter[0]);
+                }
 
                 // Check Drawing Tools
                 DrawingToolContext ctx = layer.getVisualizer() != null ? layer.getVisualizer().getDrawingToolContext()
@@ -99,6 +132,45 @@ public class ImageInteractionHandler {
                     overlay.handlesGroup.setVisible(false);
                 }
 
+                // CHECK MULTI-DRAG
+                isMultiDrag = false;
+                multiDragNodes.clear();
+                multiDragMementos.clear();
+
+                UserLayerManager ulm = null;
+                if (layer.getVisualizer() != null) {
+                    ulm = layer.getVisualizer().getUserLayerManager();
+                }
+
+                if (ulm != null && ulm.getSelectedNodes().size() > 1) {
+                    java.util.Set<Node> selectedSet = ulm.getSelectedNodes();
+                    Node thisTarget = findTopMostUserGroup(layer);
+
+                    boolean allSameParent = true;
+                    Node commonParent = thisTarget.getParent();
+                    for (Node n : selectedSet) {
+                        Node nTarget = findTopMostUserGroup(n);
+                        if (nTarget.getParent() != commonParent) {
+                            allSameParent = false;
+                            break;
+                        }
+                    }
+
+                    if (allSameParent && selectedSet.contains(thisTarget)) {
+                        isMultiDrag = true;
+                        multiDragNodes.addAll(selectedSet);
+                        multiDragReferencePoint = commonParent.sceneToLocal(e.getSceneX(), e.getSceneY());
+
+                        for (Node n : multiDragNodes) {
+                            multiDragMementos.put(n, new NodeMemento(n));
+                        }
+
+                        e.consume();
+                        return;
+                    }
+                }
+
+                // SINGLE DRAG MODE
                 Node target = findTopMostUserGroup(layer);
                 if (target.getParent() == null)
                     return;
@@ -107,14 +179,13 @@ public class ImageInteractionHandler {
                 dragDelta[0] = p.getX() - target.getTranslateX();
                 dragDelta[1] = p.getY() - target.getTranslateY();
 
-                // CRITICAL FIX: Capture full snapshot (parent, index, transforms)
                 dragStartMemento = new NodeMemento(target);
                 e.consume();
             }
         });
 
         layer.setOnMouseDragged(e -> {
-            if (!e.isPrimaryButtonDown() || state.isCropMode || isEffectivelyLocked())
+            if ((!e.isPrimaryButtonDown() && !e.isSecondaryButtonDown()) || state.isCropMode || isEffectivelyLocked())
                 return;
 
             DrawingToolContext ctx = layer.getVisualizer() != null ? layer.getVisualizer().getDrawingToolContext()
@@ -133,11 +204,49 @@ public class ImageInteractionHandler {
                 return;
             }
 
+            // MULTI-DRAG MODE
+            if (isMultiDrag && !multiDragNodes.isEmpty() && multiDragReferencePoint != null) {
+                Node firstNode = multiDragNodes.get(0);
+                Node commonParent = findTopMostUserGroup(firstNode).getParent();
+                if (commonParent == null)
+                    return;
+
+                Point2D currentPoint = commonParent.sceneToLocal(e.getSceneX(), e.getSceneY());
+                double dx = currentPoint.getX() - multiDragReferencePoint.getX();
+                double dy = currentPoint.getY() - multiDragReferencePoint.getY();
+                if (e.isShiftDown()) {
+                    if (Math.abs(dx) >= Math.abs(dy))
+                        dy = 0;
+                    else
+                        dx = 0;
+                }
+
+                for (Node n : multiDragNodes) {
+                    NodeMemento before = multiDragMementos.get(n);
+                    if (before != null) {
+                        n.setTranslateX(before.getTx() + dx);
+                        n.setTranslateY(before.getTy() + dy);
+                    }
+                }
+
+                e.consume();
+                return;
+            }
+
+            // SINGLE DRAG MODE
             Node moveTarget = findTopMostUserGroup(layer);
             if (moveTarget.getParent() != null) {
                 Point2D p = moveTarget.getParent().sceneToLocal(e.getSceneX(), e.getSceneY());
                 double newX = p.getX() - dragDelta[0];
                 double newY = p.getY() - dragDelta[1];
+                if (e.isShiftDown()) {
+                    double dx = newX - moveTarget.getTranslateX();
+                    double dy = newY - moveTarget.getTranslateY();
+                    if (Math.abs(dx) >= Math.abs(dy))
+                        newY = moveTarget.getTranslateY();
+                    else
+                        newX = moveTarget.getTranslateX();
+                }
 
                 moveTarget.setTranslateX(newX);
                 moveTarget.setTranslateY(newY);
@@ -149,6 +258,11 @@ public class ImageInteractionHandler {
         layer.setOnMouseReleased(e -> {
             if (isEffectivelyLocked())
                 return;
+
+            if (rightClickFilter[0] != null && layer.getScene() != null) {
+                layer.getScene().removeEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, rightClickFilter[0]);
+                rightClickFilter[0] = null;
+            }
 
             if (isDrawing) {
                 isDrawing = false;
@@ -164,16 +278,58 @@ public class ImageInteractionHandler {
                 layer.updateVisuals();
             }
 
+            // MULTI-DRAG MODE
+            if (isMultiDrag && !multiDragNodes.isEmpty() && layer.getVisualizer() != null) {
+                for (Node n : multiDragNodes) {
+                    NodeMemento before = multiDragMementos.get(n);
+                    if (before != null) {
+                        NodeMemento after = new NodeMemento(n);
+                        if (before.getTx() != after.getTx() || before.getTy() != after.getTy()) {
+                            String zone = null;
+                            if (n instanceof org.example.component.GraphicLayer) {
+                                zone = ((org.example.component.GraphicLayer) n).getActiveZone();
+                            }
+                            TransformCommand cmd = new TransformCommand(n, before, after, zone);
+                            layer.getVisualizer().getHistoryManager().addCommand(cmd);
+                            org.example.pattern.RepeatActionRecorder.recordTransform(before, after, false);
+                        }
+                    }
+                }
+
+                isMultiDrag = false;
+                multiDragNodes.clear();
+                multiDragMementos.clear();
+                multiDragReferencePoint = null;
+                e.consume();
+                return;
+            }
+
+            // SINGLE DRAG MODE
             Node target = findTopMostUserGroup(layer);
-            // CRITICAL FIX: Use full NodeMemento (captured at mousePressed)
             if (layer.getVisualizer() != null && dragStartMemento != null) {
                 NodeMemento afterMemento = new NodeMemento(target);
-                if (dragStartMemento.getTx() != afterMemento.getTx()
-                        || dragStartMemento.getTy() != afterMemento.getTy()) {
-                    layer.getVisualizer().getHistoryManager().addCommand(new TransformCommand(
-                            target, dragStartMemento, afterMemento, layer.getActiveZone()));
+                if (dropCopy[0]) {
+                    layer.copyToClipboard();
+                    Node clone = org.example.component.ImageLayer.getClipboardCopy();
+                    if (clone != null) {
+                        double targetX = layer.getTranslateX();
+                        double targetY = layer.getTranslateY();
+                        layer.getVisualizer().getLayerFactory().addUserLayer(clone);
+                        clone.setTranslateX(targetX);
+                        clone.setTranslateY(targetY);
+                    }
+
+                    org.example.pattern.RepeatActionRecorder.recordTransform(dragStartMemento, afterMemento, true);
+                    dragStartMemento.restore();
+                } else {
+                    if (dragStartMemento.getTx() != afterMemento.getTx()
+                            || dragStartMemento.getTy() != afterMemento.getTy()) {
+                        layer.getVisualizer().getHistoryManager().addCommand(new TransformCommand(
+                                target, dragStartMemento, afterMemento, layer.getActiveZone()));
+                        org.example.pattern.RepeatActionRecorder.recordTransform(dragStartMemento, afterMemento, false);
+                    }
                 }
-                dragStartMemento = null; // Clear for next drag
+                dragStartMemento = null;
             }
         });
     }
@@ -190,14 +346,35 @@ public class ImageInteractionHandler {
     }
 
     private void setupResizeHandler(Node handle, double dW, double dH) {
-        final double[] ctx = new double[12]; // [startW, startH, sceneX, sceneY, tx, ty, cropX, cropY, cropW, cropH, startScaleX, startScaleY]
+        final double[] ctx = new double[14]; // [startW, startH, sceneX, sceneY, tx, ty, cropX, cropY, cropW, cropH,
+                                             // startScaleX, startScaleY, dynamicDW, dynamicDH]
         final Point2D[] anchor = new Point2D[1];
+        final Point2D[] anchorCenter = new Point2D[1];
         final NodeMemento[] startMemento = new NodeMemento[1];
+
+        final boolean[] dropCopy = { false };
+        @SuppressWarnings("unchecked")
+        final javafx.event.EventHandler<javafx.scene.input.MouseEvent>[] rightClickFilter = new javafx.event.EventHandler[1];
 
         handle.setOnMousePressed(e -> {
             if (isEffectivelyLocked())
                 return;
+
+            dropCopy[0] = false;
             startMemento[0] = new NodeMemento(layer);
+
+            rightClickFilter[0] = ev -> {
+                if (ev.getButton() == javafx.scene.input.MouseButton.SECONDARY &&
+                        ev.getEventType() == javafx.scene.input.MouseEvent.MOUSE_PRESSED) {
+                    dropCopy[0] = true;
+                    layer.setCursor(Cursor.CROSSHAIR);
+                    ev.consume();
+                }
+            };
+            if (layer.getScene() != null) {
+                layer.getScene().addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, rightClickFilter[0]);
+            }
+
             ctx[0] = layer.getWidth();
             ctx[1] = layer.getHeight();
             ctx[4] = layer.getTranslateX();
@@ -214,9 +391,23 @@ public class ImageInteractionHandler {
             ctx[2] = parentMouse.getX();
             ctx[3] = parentMouse.getY();
 
-            double anchorX = (dW == -1) ? ctx[0] : (dW == 1) ? 0 : ctx[0] / 2.0;
-            double anchorY = (dH == -1) ? ctx[1] : (dH == 1) ? 0 : ctx[1] / 2.0;
-            anchor[0] = layer.localToParent(anchorX, anchorY);
+            double dynamicDW = dW;
+            double dynamicDH = dH;
+            if (ctx[10] < 0)
+                dynamicDW = -dynamicDW;
+            if (ctx[11] < 0)
+                dynamicDH = -dynamicDH;
+            ctx[12] = dynamicDW;
+            ctx[13] = dynamicDH;
+
+            double anchorX = (dynamicDW == -1) ? ctx[0] : (dynamicDW == 1) ? 0 : ctx[0] / 2.0;
+            double anchorY = (dynamicDH == -1) ? ctx[1] : (dynamicDH == 1) ? 0 : ctx[1] / 2.0;
+            anchor[0] = layer.localToParent(layer.getContentGroup().localToParent(new Point2D(anchorX, anchorY)));
+
+            double centerAnchorX = ctx[0] / 2.0;
+            double centerAnchorY = ctx[1] / 2.0;
+            anchorCenter[0] = layer
+                    .localToParent(layer.getContentGroup().localToParent(new Point2D(centerAnchorX, centerAnchorY)));
             e.consume();
         });
 
@@ -241,22 +432,30 @@ public class ImageInteractionHandler {
             // 4. Adjust by current scale to avoid "aggressive" resizing
             double sX = ctx[10];
             double sY = ctx[11];
-            dxL /= (sX != 0 ? sX : 1);
-            dyL /= (sY != 0 ? sY : 1);
+            double signX = Math.signum(sX);
+            double signY = Math.signum(sY);
+            if (signX == 0)
+                signX = 1;
+            if (signY == 0)
+                signY = 1;
 
+            dxL = (dxL / Math.abs(sX)) * signX;
+            dyL = (dyL / Math.abs(sY)) * signY;
+
+            // 5. Special logic for Crop mode vs Size mode
             if (state.isCropMode) {
                 // In Crop Mode, use internal state deltas
-                if (dW == -1) {
+                if (ctx[12] == -1) {
                     state.cropX = Math.max(0, Math.min(ctx[6] + ctx[8] - 5, ctx[6] + dxL));
                     state.cropW = ctx[8] - (state.cropX - ctx[6]);
-                } else if (dW == 1) {
+                } else if (ctx[12] == 1) {
                     state.cropW = Math.max(5, Math.min(layer.getWidth() - ctx[6], ctx[8] + dxL));
                 }
 
-                if (dH == -1) {
+                if (ctx[13] == -1) {
                     state.cropY = Math.max(0, Math.min(ctx[7] + ctx[9] - 5, ctx[7] + dyL));
                     state.cropH = ctx[9] - (state.cropY - ctx[7]);
-                } else if (dH == 1) {
+                } else if (ctx[13] == 1) {
                     state.cropH = Math.max(5, Math.min(layer.getHeight() - ctx[7], ctx[9] + dyL));
                 }
                 layer.updateVisuals();
@@ -264,103 +463,48 @@ public class ImageInteractionHandler {
                 return;
             }
 
-// --- PREMIUM RESIZING ---
-            double proposedW = ctx[0] + dxL * dW;
-            double proposedH = ctx[1] + dyL * dH;
+            // --- PREMIUM RESIZING USING InteractionMath ---
+            InteractionMath.ResizeContext rCtx = new InteractionMath.ResizeContext();
+            rCtx.startW = ctx[0];
+            rCtx.startH = ctx[1];
+            rCtx.startScaleX = ctx[10];
+            rCtx.startScaleY = ctx[11];
+            rCtx.startRotation = layer.getRotate(); // Or internal rotation
+            rCtx.localDx = dxp;
+            rCtx.localDy = dyp;
+            rCtx.dW = (int) ctx[12];
+            rCtx.dH = (int) ctx[13];
+            rCtx.isShiftDown = e.isShiftDown();
+            rCtx.isControlDown = e.isControlDown();
+            rCtx.aspect = ctx[0] / ctx[1];
+            rCtx.minW = 5;
+            rCtx.minH = 5;
 
-            boolean flipX = proposedW < 0;
-            boolean flipY = proposedH < 0;
+            InteractionMath.ResizeResult res = InteractionMath.calculateResize(rCtx);
 
-            double newW = Math.max(5, Math.abs(proposedW));
-            double newH = Math.max(5, Math.abs(proposedH));
+            // layer.setSize(res.newW, res.newH); // Removed to prevent double-scaling and
+            // broken clones
+            layer.setInternalScaleX(res.newScaleX);
+            layer.setInternalScaleY(res.newScaleY);
 
-            boolean isCornerHandle = (dW != 0 && dH != 0);
-            boolean isLeftHandle = (dW == -1);
-            boolean isRightHandle = (dW == 1);
-            boolean isTopHandle = (dH == -1);
-            boolean isBottomHandle = (dH == 1);
-
-            // CORNERS: proportional by default, Shift cancels
-            boolean proportional = isCornerHandle && !e.isShiftDown();
-
-            if (proportional) {
-                double ratio = ctx[0] / ctx[1];
-                if (newW / newH > ratio)
-                    newW = newH * ratio;
-                else
-                    newH = newW / ratio;
-            }
-
-            layer.setSize(newW, newH);
-
-            // REAL FLIP: Mirror in SCREEN coordinates
-            // For horizontal mirror (flip along Y axis in screen): newRot = -oldRot
-            // For vertical mirror (flip along X axis in screen): newRot = 180 - oldRot
-            double currentRotation = layer.getRotate();
-            double newScaleX = ctx[10];
-            double newScaleY = ctx[11];
-
-            // Check if we crossed zero (flipping from positive to negative scale means flip occurred)
-            boolean crossedFlipX = (ctx[10] > 0 && flipX) || (ctx[10] < 0 && !flipX);
-            boolean crossedFlipY = (ctx[11] > 0 && flipY) || (ctx[11] < 0 && !flipY);
-
-            // Apply true mirror flip using rotation transformation
-            if (crossedFlipX && isLeftHandle) {
-                // LATERAL FLIP (left handle crossed center): this is horizontal mirror
-                double newRot = -currentRotation;
-                layer.getRotateTransform().setAngle(newRot);
-                newScaleX = Math.abs(ctx[10]);
-            } else if (crossedFlipX && isRightHandle) {
-                // LATERAL FLIP (right handle crossed center): this is horizontal mirror
-                double newRot = -currentRotation;
-                layer.getRotateTransform().setAngle(newRot);
-                newScaleX = Math.abs(ctx[10]);
-            } else if (crossedFlipY && isTopHandle) {
-                // VERTICAL FLIP (top handle crossed center): this is vertical mirror
-                double newRot = 180 + currentRotation;
-                layer.getRotateTransform().setAngle(normalizeAngle(newRot));
-                newScaleY = Math.abs(ctx[11]);
-            } else if (crossedFlipY && isBottomHandle) {
-                // VERTICAL FLIP (bottom handle crossed center): this is vertical mirror
-                double newRot = 180 + currentRotation;
-                layer.getRotateTransform().setAngle(normalizeAngle(newRot));
-                newScaleY = Math.abs(ctx[11]);
-            } else if (crossedFlipX || crossedFlipY) {
-                // Corner handle flip - apply both flips
-                double newRot = currentRotation;
-                if (crossedFlipX) newRot = -newRot;
-                if (crossedFlipY) newRot = 180 + newRot;
-                layer.getRotateTransform().setAngle(normalizeAngle(newRot));
-                if (crossedFlipX) newScaleX = Math.abs(ctx[10]);
-                if (crossedFlipY) newScaleY = Math.abs(ctx[11]);
-            }
-
-            layer.setInternalScaleX(newScaleX);
-            layer.setInternalScaleY(newScaleY);
-
-            // ANCHOR STABILIZATION: Keep the opposite corner/edge fixed
-            double anchorLocalX = 0;
-            double anchorLocalY = 0;
-
-            if (dW == -1) {
-                anchorLocalX = newW;
-            } else if (dW == 1) {
-                anchorLocalX = 0;
+            // ANCHOR STABILIZATION
+            double anchorLocalX;
+            double anchorLocalY;
+            if (res.useCenterAnchor) {
+                anchorLocalX = ctx[0] / 2.0;
+                anchorLocalY = ctx[1] / 2.0;
             } else {
-                anchorLocalX = newW / 2.0;
+                anchorLocalX = (ctx[12] == -1) ? ctx[0] : (ctx[12] == 1) ? 0 : ctx[0] / 2.0;
+                anchorLocalY = (ctx[13] == -1) ? ctx[1] : (ctx[13] == 1) ? 0 : ctx[1] / 2.0;
             }
 
-            if (dH == -1) {
-                anchorLocalY = newH;
-            } else if (dH == 1) {
-                anchorLocalY = 0;
-            } else {
-                anchorLocalY = newH / 2.0;
-            }
+            Point2D newAnchorWorld = layer
+                    .localToParent(layer.getContentGroup().localToParent(new Point2D(anchorLocalX, anchorLocalY)));
 
-            Point2D newAnchorWorld = layer.localToParent(anchorLocalX, anchorLocalY);
-
-            if (anchor[0] != null) {
+            if (res.useCenterAnchor && anchorCenter[0] != null) {
+                layer.setTranslateX(layer.getTranslateX() + (anchorCenter[0].getX() - newAnchorWorld.getX()));
+                layer.setTranslateY(layer.getTranslateY() + (anchorCenter[0].getY() - newAnchorWorld.getY()));
+            } else if (anchor[0] != null) {
                 layer.setTranslateX(layer.getTranslateX() + (anchor[0].getX() - newAnchorWorld.getX()));
                 layer.setTranslateY(layer.getTranslateY() + (anchor[0].getY() - newAnchorWorld.getY()));
             }
@@ -368,11 +512,50 @@ public class ImageInteractionHandler {
         });
 
         handle.setOnMouseReleased(e -> {
-            if (ctx[0] > 0) {
-                recordTransformUndo(startMemento[0]);
-                startMemento[0] = null;
-                ctx[0] = 0;
+            System.out.println("DEBUG IMAGE: handle released! dropCopy=" + dropCopy[0]);
+            if (e.getButton() != javafx.scene.input.MouseButton.PRIMARY)
+                return;
+
+            if (rightClickFilter[0] != null && layer.getScene() != null) {
+                layer.getScene().removeEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, rightClickFilter[0]);
+                rightClickFilter[0] = null;
             }
+            layer.setCursor(Cursor.DEFAULT);
+
+            if (dropCopy[0] && layer.getVisualizer() != null) {
+                layer.copyToClipboard();
+                Node clone = org.example.component.ImageLayer.getClipboardCopy();
+                if (clone != null) {
+                    double targetX = layer.getTranslateX();
+                    double targetY = layer.getTranslateY();
+                    layer.getVisualizer().getLayerFactory().addUserLayer(clone);
+                    clone.setTranslateX(targetX);
+                    clone.setTranslateY(targetY);
+
+                    System.out.println("DEBUG IMAGE: Clone created! tx=" + targetX + ", scaleX="
+                            + ((org.example.component.ImageLayer) clone).getInternalScaleX() + ", width="
+                            + ((org.example.component.ImageLayer) clone).getLogicalWidth());
+                }
+
+                if (startMemento[0] != null) {
+                    org.example.pattern.RepeatActionRecorder.recordTransform(startMemento[0], new NodeMemento(layer),
+                            true);
+                    startMemento[0].restore();
+                }
+            } else {
+                if (ctx[0] > 0) {
+                    recordTransformUndo(startMemento[0]);
+
+                    double newW = layer.getWidth();
+                    double newH = layer.getHeight();
+                    org.example.pattern.RepeatActionRecorder.recordTransform(startMemento[0], new NodeMemento(layer),
+                            false);
+                }
+            }
+
+            startMemento[0] = null;
+            ctx[0] = 0;
+            dropCopy[0] = false;
             e.consume();
         });
     }
@@ -427,6 +610,10 @@ public class ImageInteractionHandler {
             h.setOnMouseDragged(doRotation::accept);
             h.setOnMouseReleased(e -> {
                 recordTransformUndo(startMemento[0]);
+                if (startMemento[0] != null) {
+                    NodeMemento after = new NodeMemento(layer);
+                    org.example.pattern.RepeatActionRecorder.recordTransform(startMemento[0], after, false);
+                }
                 startMemento[0] = null;
                 e.consume();
             });
@@ -503,12 +690,14 @@ public class ImageInteractionHandler {
             double oldPy = layer.getRotateTransform().getPivotY();
 
             Point2D p = layer.sceneToLocal(e.getSceneX(), e.getSceneY());
-            double SNAP_RADIUS = 15.0;
-            double centerX = layer.getWidth() / 2.0;
-            double centerY = layer.getHeight() / 2.0;
-            double dist = p.distance(centerX, centerY);
+            Point2D centerLocal = new Point2D(layer.getWidth() / 2.0, layer.getHeight() / 2.0);
+            Point2D centerScene = layer.localToScene(centerLocal);
+            Point2D pScene = new Point2D(e.getSceneX(), e.getSceneY());
 
-            if (dist <= SNAP_RADIUS) {
+            double SNAP_RADIUS_SCENE = 10.0; // 10 physical screen pixels
+            double distScene = pScene.distance(centerScene);
+
+            if (distScene <= SNAP_RADIUS_SCENE) {
                 layer.setCustomPivot(-1, -1);
                 overlay.pivotHandle.setOpacity(0.6);
             } else {
@@ -611,7 +800,7 @@ public class ImageInteractionHandler {
     private OverlayNodes createOverlayNodes() {
         Rectangle border = new Rectangle();
         border.setStroke(Color.web("#0047AB"));
-        border.setStrokeWidth(1);
+        border.setStrokeWidth(1.5);
         border.setFill(null);
         border.setMouseTransparent(true);
         border.setVisible(false);
@@ -717,8 +906,10 @@ public class ImageInteractionHandler {
     }
 
     private double normalizeAngle(double angle) {
-        while (angle > 180) angle -= 360;
-        while (angle <= -180) angle += 360;
+        while (angle > 180)
+            angle -= 360;
+        while (angle <= -180)
+            angle += 360;
         return angle;
     }
 }

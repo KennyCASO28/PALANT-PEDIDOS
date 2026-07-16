@@ -4,10 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javafx.scene.Node;
-import javafx.animation.ScaleTransition;
 import javafx.animation.FadeTransition;
-import javafx.animation.ParallelTransition;
-import javafx.animation.SequentialTransition;
 import javafx.animation.Interpolator;
 import javafx.util.Duration;
 
@@ -63,7 +60,7 @@ public class GarmentClipboardService {
         }
     }
 
-    private Node cloneNode(Node node) {
+    public Node cloneNode(Node node) {
         if (node instanceof ImageLayer) {
             ((ImageLayer) node).copyToClipboard();
             return ImageLayer.getClipboardCopy();
@@ -83,6 +80,8 @@ public class GarmentClipboardService {
                     newGroup.addChild(childClone);
                 }
             }
+
+            newGroup.updatePivotWithCompensation(originalGroup.getCustomPivotX(), originalGroup.getCustomPivotY());
 
             newGroup.setTranslateX(originalGroup.getTranslateX());
             newGroup.setTranslateY(originalGroup.getTranslateY());
@@ -120,9 +119,13 @@ public class GarmentClipboardService {
             newGroup.setTranslateY(originalGroup.getTranslateY());
 
             // CRITICAL: Copy internal transforms
-            newGroup.getRotateTransform().setAngle(originalGroup.getRotateTransform().getAngle());
-            newGroup.getScaleTransform().setX(originalGroup.getScaleTransform().getX());
-            newGroup.getScaleTransform().setY(originalGroup.getScaleTransform().getY());
+            newGroup.setInternalRotation(originalGroup.getInternalRotation());
+            newGroup.setInternalScaleX(originalGroup.getInternalScaleX());
+            newGroup.setInternalScaleY(originalGroup.getInternalScaleY());
+            newGroup.setInternalShearX(originalGroup.getInternalShearX());
+            newGroup.setInternalShearY(originalGroup.getInternalShearY());
+            newGroup.setCustomPivotX(originalGroup.getCustomPivotX());
+            newGroup.setCustomPivotY(originalGroup.getCustomPivotY());
 
             newGroup.recalculateBounds();
             return newGroup;
@@ -211,6 +214,70 @@ public class GarmentClipboardService {
                 layerManager.addToSelection(node);
             }
         }
+
+        isCutOperation = false; // Reset after paste
+    }
+
+    public void pasteLayerInPlace() {
+        if (centralClipboard == null || centralClipboard.isEmpty()) {
+            return; // Nothing to paste
+        }
+
+        // Re-clone all items from clipboard (to support multiple pastes)
+        List<Node> freshClones = new ArrayList<>();
+        for (Node stored : centralClipboard) {
+            Node freshClone = cloneNode(stored);
+            if (freshClone != null) {
+                resetOpacityRecursively(freshClone, 1.0);
+                freshClones.add(freshClone);
+            }
+        }
+
+        // Context-aware insertion
+        layerFactory.setAnimationsSuspended(true);
+        try {
+            for (int i = 0; i < freshClones.size(); i++) {
+                Node node = freshClones.get(i);
+                // Save the exact translation from the clone (which matches original)
+                double targetX = node.getTranslateX();
+                double targetY = node.getTranslateY();
+
+                layerManager.setPerformingHistoryAction(true); // Stop individual history recording
+                layerFactory.addUserLayer(node);
+                layerManager.setPerformingHistoryAction(false);
+                
+                // Restore the intended translation (overriding any auto-centering by LayerFactory)
+                node.setTranslateX(targetX);
+                node.setTranslateY(targetY);
+                
+                // Play spring pop-in animation
+                playPasteAnimation(node);
+            }
+        } finally {
+            layerFactory.setAnimationsSuspended(false);
+        }
+        
+        // Record History as ONE action
+        if (historyManager != null && !freshClones.isEmpty()) {
+            String zone = (powerClipManager != null && powerClipManager.isEditing()) 
+                          ? powerClipManager.getCurrentEditingZone() : null;
+            layerManager.setPerformingHistoryAction(true); // Temporarily stop individual recordings
+            LayerActionCommand batchCmd = new LayerActionCommand(
+                    layerManager, new ArrayList<>(freshClones),
+                    LayerActionCommand.ActionType.ADD, zone);
+            historyManager.addCommand(batchCmd);
+            layerManager.setPerformingHistoryAction(false);
+        }
+
+        // Select all pasted items
+        if (!freshClones.isEmpty()) {
+            layerManager.clearSelection();
+            for (Node node : freshClones) {
+                layerManager.selectNode(node);
+            }
+        }
+
+        isCutOperation = false; // Reset after paste
     }
 
     private String getZoneOfNode(Node node) {
@@ -250,88 +317,36 @@ public class GarmentClipboardService {
     private void playCopyAnimation(Node node) {
         if (node == null) return;
         
-        double origScaleX = node.getScaleX();
-        double origScaleY = node.getScaleY();
         double origOpacity = node.getOpacity();
-
-        ParallelTransition pt = new ParallelTransition();
-        
-        if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
-            ScaleTransition st = new ScaleTransition(Duration.millis(120), node);
-            st.setFromX(origScaleX);
-            st.setFromY(origScaleY);
-            st.setToX(origScaleX * 1.06);
-            st.setToY(origScaleY * 1.06);
-            st.setAutoReverse(true);
-            st.setCycleCount(2);
-            pt.getChildren().add(st);
-        }
 
         FadeTransition ft = new FadeTransition(Duration.millis(120), node);
         ft.setFromValue(origOpacity);
         ft.setToValue(Math.max(0.4, origOpacity - 0.3));
         ft.setAutoReverse(true);
         ft.setCycleCount(2);
-        pt.getChildren().add(ft);
-
-        pt.setOnFinished(e -> {
-            if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
-                node.setScaleX(origScaleX);
-                node.setScaleY(origScaleY);
-            }
+        
+        ft.setOnFinished(e -> {
             node.setOpacity(origOpacity);
         });
-        pt.play();
+        ft.play();
     }
 
     private void playPasteAnimation(Node node) {
         if (node == null) return;
 
-        double origScaleX = node.getScaleX();
-        double origScaleY = node.getScaleY();
         double origOpacity = node.getOpacity();
-
-        ParallelTransition pt = new ParallelTransition();
-
-        if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
-            // Start state: small and transparent
-            node.setScaleX(origScaleX * 0.4);
-            node.setScaleY(origScaleY * 0.4);
-
-            ScaleTransition st1 = new ScaleTransition(Duration.millis(140), node);
-            st1.setFromX(origScaleX * 0.4);
-            st1.setFromY(origScaleY * 0.4);
-            st1.setToX(origScaleX * 1.15);
-            st1.setToY(origScaleY * 1.15);
-            st1.setInterpolator(Interpolator.EASE_OUT);
-
-            ScaleTransition st2 = new ScaleTransition(Duration.millis(90), node);
-            st2.setFromX(origScaleX * 1.15);
-            st2.setFromY(origScaleY * 1.15);
-            st2.setToX(origScaleX);
-            st2.setToY(origScaleY);
-            st2.setInterpolator(Interpolator.EASE_IN);
-
-            SequentialTransition scaleSeq = new SequentialTransition(st1, st2);
-            pt.getChildren().add(scaleSeq);
-        }
 
         node.setOpacity(0.0);
 
-        FadeTransition ft = new FadeTransition(Duration.millis(140), node);
+        FadeTransition ft = new FadeTransition(Duration.millis(200), node);
         ft.setFromValue(0.0);
         ft.setToValue(origOpacity);
         ft.setInterpolator(Interpolator.EASE_OUT);
-        pt.getChildren().add(ft);
 
-        pt.setOnFinished(e -> {
-            if (!(node instanceof GroupLayerV2) && !(node instanceof GroupLayer)) {
-                node.setScaleX(origScaleX);
-                node.setScaleY(origScaleY);
-            }
+        ft.setOnFinished(e -> {
             node.setOpacity(origOpacity);
         });
-        pt.play();
+        ft.play();
     }
 
     private void resetOpacityRecursively(Node node, double val) {

@@ -42,7 +42,8 @@ public class PerCharRenderStrategy implements TextRenderStrategy {
         double logicalHeight = ctx.getLogicalHeight();
         double spacing = ctx.getSpacing();
 
-        double scaleX = logicalWidth / Math.max(1, totalTextWidth + (chars.length - 1) * spacing);
+        // Scale characters to fit logical width (no spacing in denominator to avoid feedback loop)
+        double scaleX = logicalWidth / Math.max(1, totalTextWidth);
         double scaleY = logicalHeight / Math.max(1, font.getSize());
 
         // Sync trajectory to logical bounds if it's a primitive
@@ -52,20 +53,40 @@ public class PerCharRenderStrategy implements TextRenderStrategy {
                 trajectory.getControlPoints().set(0, new javafx.geometry.Point2D(-logicalWidth / 2.0, 0));
                 trajectory.getControlPoints().set(1, new javafx.geometry.Point2D(logicalWidth / 2.0, 0));
             } else if (trajectory.getType() == org.example.model.TrajectoryPath.Type.CIRCLE) {
+                scaleX = scaleY; // Use uniform scaling to preserve aspect ratio
                 double radius = Math.min(logicalWidth, logicalHeight) / 2.0;
                 trajectory.getControlPoints().set(0, new javafx.geometry.Point2D(0, 0));
                 trajectory.getControlPoints().set(1, new javafx.geometry.Point2D(radius, 0));
+                
+                double pathLenCircle = 2 * Math.PI * radius;
+                double spanWithUniformScale = totalTextWidth * scaleX + (chars.length - 1) * spacing;
+                
+                if (spanWithUniformScale > pathLenCircle * 0.95) {
+                    // Uniformly squeeze it so it fits the circumference without overlapping
+                    double squeeze = (pathLenCircle * 0.95) / spanWithUniformScale;
+                    scaleX *= squeeze;
+                    scaleY *= squeeze;
+                }
             }
         }
 
-        double currentProgress = 0;
-        double pathLen = trajectory != null ? trajectory.getTotalLength() : logicalWidth;
-        double startT = (pathLen > logicalWidth) ? (pathLen - logicalWidth) / 2.0 / pathLen : 0;
+        // Total span the text occupies in scaled coordinates (chars + spacing)
+        double totalSpan = totalTextWidth * scaleX + (chars.length - 1) * spacing;
+        double pathLen = trajectory != null ? trajectory.getTotalLength() : totalSpan;
+
+        // Center the text block along the path
+        double startOffset = 0;
+        if (totalSpan < pathLen) {
+            startOffset = (pathLen - totalSpan) / 2.0;
+        }
+
+        double currentPos = startOffset;
 
         for (int i = 0; i < chars.length; i++) {
             Group charStack = createCharStack(chars[i], scaleX, scaleY, ctx);
             double cw = charWidths[i] * scaleX;
-            double t = (pathLen > 0) ? startT + (currentProgress + cw / 2.0) / pathLen : 0.5;
+            double charCenter = currentPos + cw / 2.0;
+            double t = (pathLen > 0) ? charCenter / pathLen : 0.5;
             javafx.geometry.Point2D pos;
 
             if (trajectory != null && trajectory.getType() == org.example.model.TrajectoryPath.Type.CIRCLE) {
@@ -85,10 +106,7 @@ public class PerCharRenderStrategy implements TextRenderStrategy {
             if (trajectory != null && trajectory.isAutoRotate()) {
                 double angle;
                 if (trajectory.getType() == org.example.model.TrajectoryPath.Type.CIRCLE) {
-                    double tRad = ((t + 0.75) % 1.0) * 2 * Math.PI;
-                    double tx = -Math.sin(tRad) * (logicalWidth / 2.0);
-                    double ty = Math.cos(tRad) * (logicalHeight / 2.0);
-                    angle = Math.toDegrees(Math.atan2(ty, tx));
+                    angle = Math.toDegrees(Math.atan2(pos.getY(), pos.getX())) + 90;
                 } else {
                     double dt = 0.01;
                     double tNext = Math.min(1.0, t + dt);
@@ -101,7 +119,7 @@ public class PerCharRenderStrategy implements TextRenderStrategy {
                 charStack.setRotate(angle);
             }
             textGroup.getChildren().add(charStack);
-            currentProgress += cw + (spacing * scaleX);
+            currentPos += cw + spacing;
         }
     }
 

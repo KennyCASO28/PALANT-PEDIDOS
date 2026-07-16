@@ -36,7 +36,7 @@ public class ShapeButtonFactory {
         String iconName = (String) picker.getProperties().get("iconName");
         HBox graphic = new HBox(4);
         graphic.setAlignment(Pos.CENTER_LEFT);
-        Node icon = UIFactory.crearIcono(iconName != null ? iconName : "mdi2f-format-color-fill", 16, "#2c3e50");
+        Node icon = UIFactory.crearIcono(iconName != null ? iconName : "mdi2f-format-color-fill", 20, "#2c3e50");
         Node colorRect = uiOrchestrator.createColorGraphic(c);
         graphic.getChildren().addAll(icon, colorRect);
         picker.setGraphic(graphic);
@@ -69,17 +69,18 @@ public class ShapeButtonFactory {
     }
 
     public void configureAsToolButton(ToggleButton btn, String icon, String tooltip, String userData) {
-        btn.setGraphic(UIFactory.crearIcono(icon, 16, "#2c3e50"));
+        btn.setGraphic(UIFactory.crearIcono(icon, 20, "#2c3e50"));
         btn.setTooltip(new Tooltip(tooltip));
         btn.setToggleGroup(getOrCreateToolsGroup());
         if (userData != null) btn.setUserData(userData);
-        btn.setMinSize(28, 28);
+        btn.setMinSize(32, 32);
+        btn.setMaxSize(32, 32);
         btn.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-background-radius: 4; -fx-padding: 4;");
         btn.selectedProperty().addListener((obs, old, val) -> {
             btn.setStyle(val
                 ? "-fx-background-color: #d6eaf8; -fx-cursor: hand; -fx-background-radius: 4; -fx-padding: 4;"
                 : "-fx-background-color: transparent; -fx-cursor: hand; -fx-background-radius: 4; -fx-padding: 4;");
-            btn.setGraphic(UIFactory.crearIcono(icon, 16, val ? "#3498db" : "#2c3e50"));
+            btn.setGraphic(UIFactory.crearIcono(icon, 20, val ? "#3498db" : "#2c3e50"));
         });
     }
 
@@ -114,7 +115,7 @@ public class ShapeButtonFactory {
     public void updateCurrentShapeButton(ToggleButton btnCurrentShape, ShapeType currentShapeType) {
         if (btnCurrentShape != null) {
             btnCurrentShape.setGraphic(UIFactory.crearIcono(
-                getIconForShape(currentShapeType), 16,
+                getIconForShape(currentShapeType), 20,
                 btnCurrentShape.isSelected() ? "#3498db" : "#2c3e50"));
             btnCurrentShape.setTooltip(new Tooltip(
                 "Forma: " + currentShapeType.getDisplayName() + " (Click derecho para cambiar)"));
@@ -123,7 +124,20 @@ public class ShapeButtonFactory {
     }
 
     public void styleToolButton(Button btn) {
-        btn.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-cursor: hand; -fx-padding: 4; -fx-background-insets: 0;");
-        btn.setMinSize(28, 28);
+        btn.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-cursor: hand; -fx-padding: 4; -fx-background-insets: 0; -fx-background-radius: 4;");
+        btn.setMinSize(32, 32);
+        btn.setMaxSize(32, 32);
+        
+        // Add hover effect since these are Buttons, not ToggleButtons
+        btn.setOnMouseEntered(e -> {
+            if (!btn.getStyle().contains("#d6eaf8")) {
+                btn.setStyle("-fx-background-color: #f0f0f0; -fx-cursor: hand; -fx-padding: 4; -fx-background-radius: 4;");
+            }
+        });
+        btn.setOnMouseExited(e -> {
+            if (!btn.getStyle().contains("#d6eaf8")) {
+                btn.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 4; -fx-background-radius: 4;");
+            }
+        });
     }
 }

@@ -135,7 +135,6 @@ public class PrendaOverlayManager {
             overlayStroke.setFill(Color.TRANSPARENT);
             overlayStroke.setStroke(Color.web("#FF3B30")); // Rojo vibrante moderno
             overlayStroke.setStrokeWidth(1.5); // Más delgado y elegante
-            overlayStroke.getStrokeDashArray().setAll(6.0, 4.0); // Punteado más fino
             overlayStroke.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND); // Guiones redondeados
             overlayStroke.setMouseTransparent(true);
             overlayGroup.getChildren().add(overlayStroke);

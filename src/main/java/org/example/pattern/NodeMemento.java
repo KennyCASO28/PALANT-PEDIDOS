@@ -31,8 +31,10 @@ public class NodeMemento {
     private double isx, isy, irot;
     private double shx, shy;
     private double cpx, cpy;
-    private Double logicalWidth = null;
-    private Double logicalHeight = null;
+    private double pivotOffsetX = 0;
+    private double pivotOffsetY = 0;
+    private double logicalWidth = 0;
+    private double logicalHeight = 0;
     private Double visualMinX = null;
     private Double visualMinY = null;
     private boolean visible;
@@ -77,8 +79,8 @@ public class NodeMemento {
             this.irot = sl.getInternalRotation();
             this.shx = sl.getInternalShearX();
             this.shy = sl.getInternalShearY();
-            this.cpx = sl.getInternalPivotX();
-            this.cpy = sl.getInternalPivotY();
+            this.cpx = sl.getCustomPivotX();
+            this.cpy = sl.getCustomPivotY();
             this.logicalWidth = sl.getLogicalWidth();
             this.logicalHeight = sl.getLogicalHeight();
             this.visualMinX = sl.getVisualMinX();
@@ -99,8 +101,8 @@ public class NodeMemento {
             this.irot = il.getInternalRotation();
             this.shx = il.getShearTransform().getX();
             this.shy = il.getShearTransform().getY();
-            this.cpx = il.getRotateTransform().getPivotX();
-            this.cpy = il.getRotateTransform().getPivotY();
+            this.cpx = il.getCustomPivotX();
+            this.cpy = il.getCustomPivotY();
             this.logicalWidth = il.getCurrentWidth();
             this.logicalHeight = il.getCurrentHeight();
         } else if (node instanceof GroupLayer) {
@@ -108,6 +110,10 @@ public class NodeMemento {
             this.isx = gl.getInternalScaleX();
             this.isy = gl.getInternalScaleY();
             this.irot = gl.getInternalRotation();
+            this.shx = gl.getInternalShearX();
+            this.shy = gl.getInternalShearY();
+            this.pivotOffsetX = gl.getCustomPivotX();
+            this.pivotOffsetY = gl.getCustomPivotY();
             this.childMementos = new java.util.ArrayList<>();
             for (Node child : gl.getUserLayers()) {
                 this.childMementos.add(new NodeMemento(child));
@@ -119,6 +125,8 @@ public class NodeMemento {
             this.irot = gl20.getInternalRotation();
             this.shx = gl20.getInternalShearX();
             this.shy = gl20.getInternalShearY();
+            this.pivotOffsetX = gl20.getCustomPivotX();
+            this.pivotOffsetY = gl20.getCustomPivotY();
             this.childMementos = new java.util.ArrayList<>();
             for (Node child : gl20.getUserLayers()) {
                 this.childMementos.add(new NodeMemento(child));
@@ -148,6 +156,17 @@ public class NodeMemento {
 
     public double getTx() { return tx; }
     public double getTy() { return ty; }
+    public double getCpy() { return cpy; }
+    
+    public double getLogicalWidth() { return logicalWidth; }
+    public double getLogicalHeight() { return logicalHeight; }
+
+    public String getActiveZone() { return activeZone; }
+    public double getRotate() { return this.node instanceof GraphicLayer ? irot : rot; }
+    public double getScaleX() { return this.node instanceof GraphicLayer ? isx : sx; }
+    public double getScaleY() { return this.node instanceof GraphicLayer ? isy : sy; }
+    public double getShearX() { return shx; }
+    public double getShearY() { return shy; }
 
     public void overrideTransforms(double x, double y, double sX, double sY, double r,
             Double w, Double h, Double mx, Double my) {
@@ -280,24 +299,44 @@ public class NodeMemento {
             sl.setInternalRotation(irot);
             sl.setInternalShearX(shx);
             sl.setInternalShearY(shy);
-            sl.updatePivot(cpx, cpy);
-            if (logicalWidth != null && logicalHeight != null) {
-                if (visualMinX != null && visualMinY != null) {
-                    sl.setSizeWithOffset(logicalWidth, logicalHeight, visualMinX, visualMinY);
-                } else {
-                    sl.setSize(logicalWidth, logicalHeight);
+            sl.setCustomPivotX(cpx);
+            sl.setCustomPivotY(cpy);
+            if (logicalWidth != 0 && logicalHeight != 0) {
+                boolean sizeChanged = Math.abs(sl.getLogicalWidth() - logicalWidth) > 0.001 || Math.abs(sl.getLogicalHeight() - logicalHeight) > 0.001;
+                boolean offsetChanged = visualMinX != null && visualMinY != null && (Math.abs(sl.getVisualMinX() - visualMinX) > 0.001 || Math.abs(sl.getVisualMinY() - visualMinY) > 0.001);
+                
+                if (sizeChanged || offsetChanged) {
+                    if (visualMinX != null && visualMinY != null) {
+                        sl.setSizeWithOffset(logicalWidth, logicalHeight, visualMinX, visualMinY);
+                    } else {
+                        sl.setSize(logicalWidth, logicalHeight);
+                    }
                 }
             }
-            if (this.svgPathData != null) {
+            if (this.svgPathData != null && !this.svgPathData.equals(sl.getSvgPathData())) {
                 sl.setSvgPathData(this.svgPathData);
             }
             if (this.bezierNodes != null) {
-                java.util.List<org.example.model.BezierNode> restoredNodes = new java.util.ArrayList<>();
-                for (org.example.model.BezierNode bn : this.bezierNodes) {
-                    restoredNodes.add(bn.copy());
+                // Quick length check to avoid full deep comparison overhead if possible
+                boolean nodesChanged = sl.getBezierNodes() == null || sl.getBezierNodes().size() != this.bezierNodes.size();
+                if (!nodesChanged) {
+                    // Deep check if sizes match
+                    for (int i = 0; i < this.bezierNodes.size(); i++) {
+                        if (this.bezierNodes.get(i).anchor.getX() != sl.getBezierNodes().get(i).anchor.getX() ||
+                            this.bezierNodes.get(i).anchor.getY() != sl.getBezierNodes().get(i).anchor.getY()) {
+                            nodesChanged = true;
+                            break;
+                        }
+                    }
                 }
-                sl.setBezierNodes(restoredNodes);
-                sl.refreshPath();
+                if (nodesChanged) {
+                    java.util.List<org.example.model.BezierNode> restoredNodes = new java.util.ArrayList<>();
+                    for (org.example.model.BezierNode bn : this.bezierNodes) {
+                        restoredNodes.add(bn.copy());
+                    }
+                    sl.setBezierNodes(restoredNodes);
+                    sl.refreshPath();
+                }
             }
             if (arcWidth != null) {
                 sl.setArcWidth(arcWidth);
@@ -313,8 +352,9 @@ public class NodeMemento {
             il.setInternalRotation(irot);
             il.getShearTransform().setX(shx);
             il.getShearTransform().setY(shy);
-            il.setCustomPivot(cpx, cpy);
-            if (logicalWidth != null && logicalHeight != null) {
+            il.setCustomPivotX(cpx);
+            il.setCustomPivotY(cpy);
+            if (logicalWidth != 0 && logicalHeight != 0) {
                 il.resize(logicalWidth, logicalHeight);
             }
         } else if (node instanceof GroupLayer) {
@@ -322,6 +362,10 @@ public class NodeMemento {
             gl.setInternalScaleX(isx);
             gl.setInternalScaleY(isy);
             gl.setInternalRotation(irot);
+            gl.setInternalShearX(shx);
+            gl.setInternalShearY(shy);
+            gl.setCustomPivotX(pivotOffsetX);
+            gl.setCustomPivotY(pivotOffsetY);
             if (this.childMementos != null) {
                 for (NodeMemento cm : this.childMementos) {
                     cm.restore();
@@ -333,6 +377,8 @@ public class NodeMemento {
             glv2.setInternalScaleY(isy);
             glv2.setInternalRotation(irot);
             glv2.setInternalShear(shx, shy);
+            glv2.setCustomPivotX(pivotOffsetX);
+            glv2.setCustomPivotY(pivotOffsetY);
             if (this.childMementos != null) {
                 // CRITICAL FIX: We must use addChild() (not raw cm.restore()) to keep
                 // userLayers in sync with contentGroup.getChildren(). If we just call
@@ -367,7 +413,7 @@ public class NodeMemento {
             tl.setShearY(shy);
             tl.setCustomPivotX(cpx);
             tl.setCustomPivotY(cpy);
-            if (logicalWidth != null && logicalHeight != null) {
+            if (logicalWidth != 0 && logicalHeight != 0) {
                 tl.setTextSizeSilently(logicalWidth, logicalHeight);
             }
             if (trajectoryPath != null && tl.getTrajectory() != null) {
@@ -387,6 +433,14 @@ public class NodeMemento {
             SmartZoneContainer container = (SmartZoneContainer) ((Group) p).getParent();
             container.updateItemState(node);
         }
+    }
+
+    public double getInternalScaleX() {
+        return isx;
+    }
+
+    public double getInternalScaleY() {
+        return isy;
     }
 
     private boolean isRootContainer(Group g) {

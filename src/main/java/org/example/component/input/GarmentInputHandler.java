@@ -4,8 +4,13 @@ import javafx.scene.Node;
 
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.image.Image;
 import javafx.scene.input.MouseEvent;
+import javafx.stage.Stage;
 import org.example.component.ImageLayer;
+import org.example.component.BackgroundRemoverDialog;
+import org.example.component.ImageCropperDialog;
+import org.example.component.ImageEditorDialog;
 import org.example.component.PrendaVisualizer;
 import org.example.component.ShapeLayer;
 import org.example.component.TextLayer;
@@ -59,6 +64,29 @@ public class GarmentInputHandler {
         setupBackgroundClick();
         setupKeyboardShortcuts();
         setupToolHandlers(); // New Tool Handlers
+        setupFocusListener();
+    }
+
+    private void setupFocusListener() {
+        java.util.function.Consumer<javafx.stage.Window> attachToWindow = window -> {
+            if (window != null) {
+                window.focusedProperty().addListener((obsFocus, wasFocused, isFocused) -> {
+                    if (!isFocused) {
+                        org.example.component.AbstractGraphicLayer.cleanupGlobalGhosts();
+                    }
+                });
+            }
+        };
+
+        java.util.function.Consumer<javafx.scene.Scene> attachToScene = scene -> {
+            if (scene != null) {
+                attachToWindow.accept(scene.getWindow());
+                scene.windowProperty().addListener((obs, oldW, newW) -> attachToWindow.accept(newW));
+            }
+        };
+
+        attachToScene.accept(visualizer.getScene());
+        visualizer.sceneProperty().addListener((obs, oldS, newS) -> attachToScene.accept(newS));
     }
 
     private void setupToolHandlers() {
@@ -229,6 +257,21 @@ public class GarmentInputHandler {
                 if (e.getCode() == javafx.scene.input.KeyCode.D && hasSelection) {
                     visualizer.copySelectedLayer();
                     visualizer.pasteLayer();
+                    visualizer.requestFocus();
+                    e.consume();
+                    return;
+                }
+
+                // Ctrl + R → Repeat last action (CorelDraw-style)
+                if (e.getCode() == javafx.scene.input.KeyCode.R) {
+                    if (hasSelection) {
+                        for (javafx.scene.Node sel : layerManager.getSelectedNodes()) {
+                            if (sel instanceof org.example.component.GraphicLayer) {
+                                org.example.pattern.RepeatActionRecorder.repeatAction(
+                                    (org.example.component.GraphicLayer) sel);
+                            }
+                        }
+                    }
                     visualizer.requestFocus();
                     e.consume();
                     return;
@@ -482,12 +525,20 @@ public class GarmentInputHandler {
                     if (isControl) {
                         layerManager.toggleSelection(targetToSelect);
                     } else {
-                        // CANCEL ACTIVE TOOLS ON SELECTION CHANGE
-                        if (layerManager.getSelectedNode() != targetToSelect && activeToolCanceler != null) {
-                            activeToolCanceler.run();
+                        // Si el target ya está en una selección múltiple, no deseleccionar los demás.
+                        // Esto permite que el drag handler detecte isMultiDrag y mueva todos juntos.
+                        boolean alreadyInMultiSelection = layerManager.getSelectedNodes().size() > 1
+                                && layerManager.getSelectedNodes().contains(targetToSelect);
+
+                        if (!alreadyInMultiSelection) {
+                            // Click en item diferente -> seleccionar solo este (deselecciona otros)
+                            if (layerManager.getSelectedNode() != targetToSelect && activeToolCanceler != null) {
+                                activeToolCanceler.run();
+                            }
+                            layerManager.selectNode(targetToSelect);
                         }
-                        
-                        layerManager.selectNode(targetToSelect);
+                        // Si alreadyInMultiSelection == true: no tocar la selección,
+                        // el drag handler se encargará de mover todos juntos.
                     }
 
                     // CRITICAL FIX: Only consume if the item is LOCKED.
@@ -937,12 +988,15 @@ public class GarmentInputHandler {
         cropModeItem.setGraphic(UIFactory.crearIcono("mdi2c-crop", 16, "#3498db"));
         cropModeItem.setStyle("-fx-text-fill: #3498db; -fx-font-weight: bold;");
         cropModeItem.setOnAction(ev -> {
-            if (activeToolCanceler != null) {
-                activeToolCanceler.run();
-                activeToolCanceler = null; 
-            }
-            layer.setCropMode(true);
-        });
+              if (activeToolCanceler != null) {
+                  activeToolCanceler.run();
+                  activeToolCanceler = null; 
+              }
+              ImageCropperDialog dialog = new ImageCropperDialog(layer.getImage());
+              dialog.showAndWait().ifPresent(cropped -> {
+                  layer.setImage(cropped);
+              });
+          });
 
         MenuItem autoCropItem = new MenuItem("Auto-Recortar (Eliminar bordes)");
         autoCropItem.setGraphic(UIFactory.crearIcono("mdi2c-crop-free", 16, "#27ae60"));
@@ -957,6 +1011,24 @@ public class GarmentInputHandler {
         cropMenu.getItems().addAll(cropModeItem, autoCropItem, new SeparatorMenuItem(), cropReset);
         menu.getItems().add(cropMenu);
 
+        // Editor de Imagen (Pintar / Borrar)
+        javafx.scene.control.Menu editMenu = new javafx.scene.control.Menu("Editor de Imagen");
+        editMenu.setGraphic(UIFactory.crearIcono("mdi2b-brush", 16, "#9b59b6"));
+
+        MenuItem openEditorItem = new MenuItem("Abrir Editor (Pintar / Borrar)");
+        openEditorItem.setGraphic(UIFactory.crearIcono("mdi2b-brush", 16, "#9b59b6"));
+        openEditorItem.setStyle("-fx-text-fill: #9b59b6; -fx-font-weight: bold;");
+        openEditorItem.setOnAction(ev -> {
+            ImageEditorDialog editor = new ImageEditorDialog(layer.getImage());
+            Stage owner = (Stage) visualizer.getScene().getWindow();
+            Image result = editor.showAndWait(owner);
+            if (result != null) {
+                layer.setImage(result);
+            }
+        });
+        editMenu.getItems().add(openEditorItem);
+        menu.getItems().add(editMenu);
+
         // Eliminación de Fondo
         javafx.scene.control.Menu bgMenu = new javafx.scene.control.Menu("Eliminación de Fondo");
         bgMenu.setGraphic(UIFactory.crearIcono("mdi2e-eraser", 16, "#3498db"));
@@ -966,11 +1038,10 @@ public class GarmentInputHandler {
         removeWhite.setOnAction(ev -> {
             if (activeToolCanceler != null) activeToolCanceler.run();
             if (layer.isProcessing()) return;
-            
-            // CAPTURE ON FX THREAD
+
             layer.editingService().prepareUndoState("Quitar Fondo");
             javafx.scene.image.Image snapshot = layer.snapshotCanvas();
-            
+
             javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
                 @Override protected Void call() throws Exception {
                     layer.removeWhiteBackground(snapshot);
@@ -989,7 +1060,6 @@ public class GarmentInputHandler {
             if (activeToolCanceler != null) activeToolCanceler.run();
             if (layer.isProcessing()) return;
 
-            // CAPTURE ON FX THREAD
             layer.editingService().prepareUndoState("Quitar Fondo");
             javafx.scene.image.Image snapshot = layer.snapshotCanvas();
 
@@ -1005,125 +1075,27 @@ public class GarmentInputHandler {
             new Thread(task).start();
         });
 
-        MenuItem removePoint = new MenuItem("Quitar fondo por zona (Click)");
-        removePoint.setGraphic(UIFactory.crearIcono("mdi2t-target-variant", 16, "#e74c3c"));
-        Tooltip.install(removePoint.getGraphic(), new Tooltip("Selecciona una zona del fondo para eliminarla"));
-        removePoint.setOnAction(ev -> {
+        MenuItem openBgDialog = new MenuItem("Quitar fondo por zona (Click)...");
+        openBgDialog.setGraphic(UIFactory.crearIcono("mdi2t-target-variant", 16, "#e74c3c"));
+        openBgDialog.setOnAction(ev -> {
             if (activeToolCanceler != null) activeToolCanceler.run();
             layer.setRotationMode(false);
             layer.commitIfInCropMode();
-            
-            // ENTER PERSISTENT MAGIC WAND MODE
-            layer.setCursor(Cursor.CROSSHAIR);
-            
-            final Object[] handlers = new Object[2];
-            final javafx.event.EventHandler<MouseEvent> clickHandler = new javafx.event.EventHandler<MouseEvent>() {
-                @Override
-                public void handle(MouseEvent e) {
-                    // CROP HANDLES SAFETY: If clicking a handle, don't consume/process wand
-                    // CROP HANDLES SAFETY: Absolute priority to handles when in crop mode
-                    if (layer.isCropMode()) {
-                        Node target = (Node)e.getTarget();
-                        while (target != null && target != layer) {
-                            if (target.getStyleClass().contains("resize-handle")) {
-                                return; // LET THE HANDLE PROCESS THE CLICK
-                            }
-                            target = target.getParent();
-                        }
-                    }
 
-                    if (e.getButton() == MouseButton.PRIMARY) {
-                        // ALLOW ROTATION MODE TOGGLE: If double click, don't consume/process wand
-                        if (e.getClickCount() >= 2) return;
-
-                        e.consume();
-                        
-                        // DEBOUNCE: Don't process if already working
-                        if (layer.isProcessing()) return;
-
-                        javafx.geometry.Point2D local = layer.getCanvas().sceneToLocal(e.getSceneX(), e.getSceneY());
-                        int tx = (int)local.getX();
-                        int ty = (int)local.getY();
-                        double tol = layer.getMagicWandTolerance();
-
-                        // CAPTURE ON FX THREAD
-                        layer.editingService().prepareUndoState("Quitar Fondo");
-                        javafx.scene.image.Image snapshot = layer.snapshotCanvas();
-
-                        // ASYNC TASK
-                        javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
-                            @Override protected Void call() throws Exception {
-                                layer.removeBackgroundAt(snapshot, tx, ty, tol);
-                                return null;
-                            }
-                        };
-                        
-                        task.setOnRunning(t -> visualizer.setCursor(Cursor.WAIT));
-                        task.setOnSucceeded(t -> visualizer.setCursor(Cursor.CROSSHAIR));
-                        task.setOnFailed(t -> {
-                            visualizer.setCursor(Cursor.CROSSHAIR);
-                            if (task.getException() != null) task.getException().printStackTrace();
-                        });
-
-                        new Thread(task).start();
-
-                    } else if (e.getButton() == MouseButton.SECONDARY) {
-                         e.consume();
-                         finish();
-                    }
-                }
-                
-                private void finish() {
-                    layer.setCursor(Cursor.DEFAULT);
-                    layer.removeEventFilter(MouseEvent.MOUSE_PRESSED, (javafx.event.EventHandler<MouseEvent>)handlers[0]);
-                    visualizer.removeEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, (javafx.event.EventHandler<javafx.scene.input.KeyEvent>)handlers[1]);
-                    activeToolCanceler = null;
-                }
-            };
-
-
-            final javafx.event.EventHandler<javafx.scene.input.KeyEvent> escHandler = k -> {
-                if (k.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
-                    k.consume();
-                    ((javafx.event.EventHandler<MouseEvent>)handlers[0]).handle(new MouseEvent(MouseEvent.MOUSE_PRESSED, 0, 0, 0, 0, MouseButton.SECONDARY, 0, false, false, false, false, false, false, false, false, false, false, null));
-                }
-            };
-            
-            handlers[0] = clickHandler;
-            handlers[1] = escHandler;
-            activeToolCanceler = () -> {
-                layer.setCursor(Cursor.DEFAULT);
-                layer.removeEventFilter(MouseEvent.MOUSE_PRESSED, clickHandler);
-                visualizer.removeEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, escHandler);
-                activeToolCanceler = null;
-            };
-            
-            layer.addEventFilter(MouseEvent.MOUSE_PRESSED, clickHandler);
-            visualizer.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, escHandler);
+            javafx.scene.image.Image snapshot = layer.snapshotCanvas();
+            BackgroundRemoverDialog dialog = new BackgroundRemoverDialog(snapshot);
+            javafx.scene.image.Image result = dialog.showAndWait(
+                (Stage) layer.getScene().getWindow()
+            );
+            if (result != null) {
+                layer.editingService().prepareUndoState("Quitar Fondo");
+                layer.setImage(result);
+                layer.setModified(true);
+                layer.setSnapshotDirty(true);
+            }
         });
 
-        MenuItem manualEraser = new MenuItem("Limpiar con Borrador (Manual)");
-        manualEraser.setGraphic(UIFactory.crearIcono("mdi2e-eraser-variant", 16, "#2980b9"));
-        manualEraser.setOnAction(ev -> {
-             if (activeToolCanceler != null) activeToolCanceler.run();
-             if(visualizer.getShapeManagerController() != null) {
-                 visualizer.getShapeManagerController().getEraserButton().setSelected(true);
-                 visualizer.getShapeManagerController().getEraserButton().fireEvent(new ActionEvent());
-             }
-        });
-
-        bgMenu.getItems().addAll(removeWhite, removeBlack, new SeparatorMenuItem(), removePoint, manualEraser);
-        
-        // --- ADICIÓN: Sliders de Ajuste ---
-        bgMenu.getItems().add(new SeparatorMenuItem());
-        bgMenu.getItems().add(createSliderAdjustmentItem("Tolerancia", layer.getMagicWandTolerance(), 0.05, 0.5, 
-                val -> layer.setMagicWandTolerance(val)));
-        
-        if(visualizer.getShapeManagerController() != null) {
-            bgMenu.getItems().add(createSliderAdjustmentItem("Tamaño Borrador", 
-                    visualizer.getShapeManagerController().getEraserSize(), 1.0, 100.0, 
-                    val -> visualizer.getShapeManagerController().setEraserSize(val)));
-        }
+        bgMenu.getItems().addAll(removeWhite, removeBlack, openBgDialog);
 
         menu.getItems().add(bgMenu);
 
@@ -1659,9 +1631,18 @@ public class GarmentInputHandler {
 
             // If the event bubbles up to here, it wasn't consumed by a layer/handle
             // So we treat it as a background click (deselect)
-            layerManager.clearSelection();
-            visualizer.deselectAllNames();
-            visualizer.clearGlobalSelection();
+            if (!e.isShiftDown() && !e.isControlDown()) {
+                layerManager.clearSelection();
+                visualizer.deselectAllNames();
+                visualizer.clearGlobalSelection();
+            }
+
+            // Prevent rubberband selection if a tool is active
+            org.example.component.helper.ShapeInteractionHelper sh = visualizer.getShapeHelper();
+            if (sh != null && (sh.isEyedropperActive() || sh.isCreatingShape() || sh.isPowerClipPickerActive())) {
+                return;
+            }
+
         });
     }
 

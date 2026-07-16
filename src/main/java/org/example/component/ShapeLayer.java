@@ -25,40 +25,72 @@ import java.util.function.Supplier;
  * Interactive layer for Vector Shapes.
  * Desmonolitized: delegates geometry, transforms, contours, and cloning to specialized managers.
  */
-public class ShapeLayer extends Group implements GraphicLayer {
+public class ShapeLayer extends AbstractGraphicLayer {
+
+    @Override
+    public javafx.geometry.Bounds calculateBounds() {
+        javafx.geometry.Bounds b = contentGroup.getBoundsInLocal();
+        if (b.isEmpty() || b.getWidth() <= 0 || b.getHeight() <= 0) {
+            return new javafx.geometry.BoundingBox(0, 0, 8, 8);
+        }
+        return new javafx.geometry.BoundingBox(
+                b.getMinX(),
+                b.getMinY(),
+                b.getWidth(),
+                b.getHeight()
+        );
+    }
+
+    @Override
+    protected javafx.scene.Node createSilhouetteNode() {
+        if (currentShapeNode instanceof javafx.scene.shape.SVGPath) {
+            javafx.scene.shape.SVGPath p = new javafx.scene.shape.SVGPath();
+            p.setContent(((javafx.scene.shape.SVGPath)currentShapeNode).getContent());
+            return p;
+        } else if (currentShapeNode instanceof javafx.scene.shape.Path) {
+            javafx.scene.shape.Path p = new javafx.scene.shape.Path();
+            p.getElements().addAll(((javafx.scene.shape.Path)currentShapeNode).getElements());
+            return p;
+        } else if (currentShapeNode instanceof javafx.scene.shape.Rectangle) {
+            javafx.scene.shape.Rectangle r = (javafx.scene.shape.Rectangle) currentShapeNode;
+            return new javafx.scene.shape.Rectangle(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+        } else if (currentShapeNode instanceof javafx.scene.shape.Ellipse) {
+            javafx.scene.shape.Ellipse e = (javafx.scene.shape.Ellipse) currentShapeNode;
+            return new javafx.scene.shape.Ellipse(e.getCenterX(), e.getCenterY(), e.getRadiusX(), e.getRadiusY());
+        }
+        javafx.geometry.Bounds b = calculateBounds();
+        return new javafx.scene.shape.Rectangle(b.getMinX(), b.getMinY(), b.getWidth(), b.getHeight());
+    }
+
+    @Override
+    public void multiplyShear(double sx, double sy) {
+        setInternalShearX(getInternalShearX() + sx);
+        setInternalShearY(getInternalShearY() + sy);
+    }
 
     // --- Core Delegates ---
     private final ShapeLayerState state = new ShapeLayerState();
-    private final ShapeTransformManager transformManager;
     private final ShapeLayerOrchestrator orchestrator;
-    private PrendaVisualizer visualizer;
-
+    
     // --- UI Components ---
     private final Group shapeGroup = new Group();
-    private final Group contentGroup = new Group();
-    private final Group contourGroup = new Group();
+        private final Group contourGroup = new Group();
     private final Group handlesGroup = new Group();
     private Shape currentShapeNode;
     public Shape getCurrentShapeNode() { return currentShapeNode; }
 
     // --- Transforms ---
-    private final Rotate rotateTransform = new Rotate();
-    private final Scale scaleTransform = new Scale();
-    private final Shear shearTransform = new Shear();
+    // (Utilizamos rotateTransform, scaleTransform y shearTransform heredados de AbstractGraphicLayer)
 
     // --- State Management ---
-    private final ShapeSelectionOverlaySupport.OverlayNodes overlayNodes;
-    private final ShapeInteractionHandler interactionHandler;
     private final ShapeStyleOrchestrator styleOrchestrator;
 
     // UI Transient State
-    private boolean isSelected = false;
-    private boolean isRotationMode = false;
+        private boolean isRotationMode = false;
     private boolean isBeingEdited = false;
     private boolean isNodeEditing = false;
     private boolean isArcEditingMode = false;
-    private boolean isGrouped = false;
-    private double customPivotX = -1;
+        private double customPivotX = -1;
     private double customPivotY = -1;
 
     // Undo Buffer
@@ -82,81 +114,80 @@ public class ShapeLayer extends Group implements GraphicLayer {
         this.state.strokeColor = stroke;
         this.state.strokeWidth = strokeWidth;
 
-        this.transformManager = new ShapeTransformManager(this, rotateTransform, scaleTransform, shearTransform);
         this.orchestrator = new ShapeLayerOrchestrator(this);
 
         initializeUI();
-        this.overlayNodes = ShapeSelectionOverlaySupport.createOverlayNodes(shearTransform, handlesGroup);
-        this.interactionHandler = new ShapeInteractionHandler(this, overlayNodes);
         this.styleOrchestrator = new ShapeStyleOrchestrator(this, contourGroup);
 
-        this.interactionHandler.init();
         render();
     }
 
     // --- Package-private accessors for managers ---
-    public ShapeTransformManager getTransformManager() { return transformManager; }
     public ShapeLayerOrchestrator getOrchestrator() { return orchestrator; }
 
     private void initializeUI() {
-        this.setPickOnBounds(false); // Hitbox should be the actual geometry, not the rectangular bounding box
+        this.setPickOnBounds(false); 
         this.shapeGroup.setPickOnBounds(false);
         this.contentGroup.setPickOnBounds(false);
         this.contourGroup.setPickOnBounds(false);
-        this.handlesGroup.setManaged(false);
-        this.getChildren().addAll(contourGroup, shapeGroup, contentGroup, handlesGroup);
-        this.getTransforms().addAll(rotateTransform, scaleTransform);
+        // Add specific children to contentGroup instead of this directly to inherit transforms
+        this.contentGroup.getChildren().addAll(contourGroup, shapeGroup);
     }
 
     // --- GraphicLayer Implementation ---
-    @Override public boolean isSelected() { return isSelected; }
-    @Override public void setLocked(boolean l) { this.state.isUserLocked = l; refreshLockState(); }
-    @Override public void setUserLocked(boolean l) { this.state.isUserLocked = l; refreshLockState(); }
-    @Override public void setSystemLocked(boolean l) { this.state.isLocked = l; refreshLockState(); }
-    @Override public boolean isLocked() { return state.isLocked || state.isUserLocked; }
-    @Override public boolean isUserLocked() { return state.isUserLocked; }
-    @Override public void setRotationMode(boolean b) { this.isRotationMode = b; updateVisuals(); }
-    @Override public boolean isRotationMode() { return isRotationMode; }
-    @Override public void setVisualizer(PrendaVisualizer v) { this.visualizer = v; }
-    @Override public PrendaVisualizer getVisualizer() { return visualizer; }
-    @Override public String getActiveZone() { return state.activeZone; }
-    @Override public void setActiveZone(String z) { this.state.activeZone = z; setSystemLocked(z != null); }
-    @Override public Node getNode() { return this; }
-    @Override public void render() { renderShape(); }
 
-    @Override public double getCustomPivotX() { return customPivotX; }
-    @Override public void setCustomPivotX(double x) { customPivotX = x; }
-    @Override public double getCustomPivotY() { return customPivotY; }
-    @Override public void setCustomPivotY(double y) { customPivotY = y; }
 
-    @Override
-    public void recordUndoState() {
-        this.undoStartX = getTranslateX(); this.undoStartY = getTranslateY();
-        this.undoStartScaleX = transformManager.getInternalScaleX();
-        this.undoStartScaleY = transformManager.getInternalScaleY();
-        this.undoStartRotate = transformManager.getInternalRotation();
-    }
 
-    @Override
-    public void updateVisuals() {
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
-        ShapeSelectionOverlaySupport.updateVisuals(overlayNodes,
-            new ShapeSelectionOverlaySupport.VisualState(
-                state.width, state.height, state.visualMinX, state.visualMinY,
-                isNodeEditing, isRotationMode, isArcEditingMode, isLocked(),
-                state.type, state.arcWidth, customPivotX, customPivotY,
-                rotateTransform, scaleTransform, shearTransform, viewportScale));
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // --- Transforms (delegated to ShapeTransformManager) ---
-    @Override public double getInternalRotation() { return transformManager.getInternalRotation(); }
-    @Override public void setInternalRotation(double a) { transformManager.setInternalRotation(a); }
-    @Override public double getInternalScaleX() { return transformManager.getInternalScaleX(); }
-    @Override public void setInternalScaleX(double s) { transformManager.setInternalScaleX(s); }
-    @Override public double getInternalScaleY() { return transformManager.getInternalScaleY(); }
-    @Override public void setInternalScaleY(double s) { transformManager.setInternalScaleY(s); }
-    public void setInternalShearX(double x) { transformManager.setInternalShearX(x); }
-    public void setInternalShearY(double y) { transformManager.setInternalShearY(y); }
+
+    // --- Transforms ---
+
+    @Override
+    public void setInternalScaleX(double s) {
+        // ShapeLayer uses geometric scaling (setSize) for magnitude to prevent stroke distortion.
+        // scaleTransform is only used for mirroring.
+        double sign = Math.signum(s);
+        super.setInternalScaleX(sign == 0 ? 1 : sign);
+    }
+
+    @Override
+    public void setInternalScaleY(double s) {
+        double sign = Math.signum(s);
+        super.setInternalScaleY(sign == 0 ? 1 : sign);
+    }
+
+    @Override
+    public void setInternalRotation(double angle) {
+        super.setInternalRotation(angle);
+    }
+
+    public void setInternalShearX(double x) {
+        super.setInternalShearX(x);
+    }
+    public void setInternalShearY(double y) {
+        super.setInternalShearY(y);
+    }
 
     // --- Geometry Management ---
     public double getWidth() { return state.width; }
@@ -174,33 +205,26 @@ public class ShapeLayer extends Group implements GraphicLayer {
     public void setStrokeType(javafx.scene.shape.StrokeType t) { this.state.strokeType = t; renderShape(); }
 
     public void updatePivot(double lx, double ly) {
-        Point2D parentBefore = localToParent(0, 0);
         double pxLocal = lx - state.visualMinX;
         double pyLocal = ly - state.visualMinY;
         double cx = state.width / 2.0;
         double cy = state.height / 2.0;
-        if (Math.sqrt(Math.pow(pxLocal - cx, 2) + Math.pow(pyLocal - cy, 2)) < 15) {
-            customPivotX = -1; customPivotY = -1;
-            if (overlayNodes != null && overlayNodes.pivotHandle() != null) {
-                overlayNodes.pivotHandle().setScaleX(1.4);
-                overlayNodes.pivotHandle().setScaleY(1.4);
-            }
+        
+        Point2D centerScene = localToScene(cx + state.visualMinX, cy + state.visualMinY);
+        Point2D pScene = localToScene(lx, ly);
+        double distScene = pScene.distance(centerScene);
+        double SNAP_RADIUS_SCENE = 10.0; // 10 physical screen pixels
+
+        if (distScene <= SNAP_RADIUS_SCENE) {
+            updatePivotWithCompensation(0, 0);
         } else {
-            customPivotX = pxLocal; customPivotY = pyLocal;
-            if (overlayNodes != null && overlayNodes.pivotHandle() != null) {
-                overlayNodes.pivotHandle().setScaleX(1.0);
-                overlayNodes.pivotHandle().setScaleY(1.0);
-            }
+            updatePivotWithCompensation(pxLocal - cx, pyLocal - cy);
         }
-        updateVisuals();
-        Point2D parentAfter = localToParent(0, 0);
-        setTranslateX(getTranslateX() + (parentBefore.getX() - parentAfter.getX()));
-        setTranslateY(getTranslateY() + (parentBefore.getY() - parentAfter.getY()));
     }
 
     // --- Rendering Logic (delegated to ShapeGeometryEngine) ---
     public void renderShape() {
-        if ((shearTransform.getX() != 0 || shearTransform.getY() != 0) && state.type != ShapeType.CUSTOM_PATH) {
+        if ((getInternalShearX() != 0 || getInternalShearY() != 0) && state.type != ShapeType.CUSTOM_PATH) {
             convertPrimitiveToPath();
         }
 
@@ -222,9 +246,10 @@ public class ShapeLayer extends Group implements GraphicLayer {
         }
 
         updateFill();
+        // Do not pass shearTransform to ShapeGeometryEngine anymore! It is handled by contentGroup!
         ShapeGeometryEngine.applyGeometry(shape, state.type, state.bezierNodes,
                 state.width, state.height, state.visualMinX, state.visualMinY,
-                state.arcWidth, state.arcHeight, state.svgPathData, shearTransform);
+                state.arcWidth, state.arcHeight, state.svgPathData, null);
 
         shape.setStroke(state.strokeColor != null ? state.strokeColor : Color.TRANSPARENT);
         shape.setStrokeWidth(Math.max(0.001, state.strokeWidth));
@@ -268,16 +293,28 @@ public class ShapeLayer extends Group implements GraphicLayer {
     }
 
     public void setSizeWithOffset(Double w, Double h, Double ox, Double oy) {
-        transformManager.setSizeWithOffset(w, h, ox, oy);
+        if (w != null) state.width = w;
+        if (h != null) state.height = h;
+        if (ox != null) state.visualMinX = ox;
+        if (oy != null) state.visualMinY = oy;
+        refreshShapeVisuals();
     }
 
     public void multiplyScale(double rx, double ry) {
-        transformManager.multiplyScale(rx, ry, state.width, state.height);
+        if (rx < 0 || ry < 0) {
+            double signX = Math.signum(rx);
+            double signY = Math.signum(ry);
+            setInternalScaleX(getInternalScaleX() * signX);
+            setInternalScaleY(getInternalScaleY() * signY);
+            rx = Math.abs(rx);
+            ry = Math.abs(ry);
+        }
+        double newW = state.width * rx;
+        double newH = state.height * ry;
+        setSize(newW, newH);
     }
 
-    public void multiplyShear(double sx, double sy) {
-        transformManager.multiplyShear(sx, sy);
-    }
+    
 
     public void convertPrimitiveToPath() {
         ShapePathSupport.PathConversionResult res = ShapePathSupport.convertPrimitiveToPath(
@@ -293,22 +330,26 @@ public class ShapeLayer extends Group implements GraphicLayer {
 
     public void resetTransforms() {
         org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-        transformManager.resetTransforms();
+        setInternalRotation(0);
+        setInternalScaleX(1);
+        setInternalScaleY(1);
+        setInternalShearX(0);
+        setInternalShearY(0);
         org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
         }
     }
 
     private void refreshLockState() {
         boolean effective = isLocked();
+        boolean showHandles = isSelected() && !isNodeEditing && !isArcEditingMode;
+        
         if (effective && !isBeingEdited) {
-            if (!isSelected) handlesGroup.setVisible(false);
-            else handlesGroup.setVisible(true);
+            handlesGroup.setVisible(showHandles);
             shapeGroup.setCursor(Cursor.DEFAULT);
         } else {
-            if (isSelected) handlesGroup.setVisible(true);
-            else handlesGroup.setVisible(false);
+            handlesGroup.setVisible(showHandles);
             shapeGroup.setCursor(Cursor.MOVE);
         }
         updateVisuals();
@@ -361,8 +402,6 @@ public class ShapeLayer extends Group implements GraphicLayer {
     public boolean isBeingEdited() { return isBeingEdited; }
     public void setIsNodeEditing(boolean b) { this.isNodeEditing = b; setSelected(isSelected); updateVisuals(); }
     public boolean isNodeEditing() { return isNodeEditing; }
-    public boolean isGrouped() { return isGrouped; }
-    public void setGrouped(boolean g) { this.isGrouped = g; }
 
     // --- Compatibility Methods ---
     public Group getShapeGroup() { return shapeGroup; }
@@ -378,8 +417,7 @@ public class ShapeLayer extends Group implements GraphicLayer {
 
     public double getInternalPivotX() { return rotateTransform.getPivotX(); }
     public double getInternalPivotY() { return rotateTransform.getPivotY(); }
-    public double getInternalShearX() { return transformManager.getInternalShearX(); }
-    public double getInternalShearY() { return transformManager.getInternalShearY(); }
+
 
     public Point2D getStableCenter() {
         Bounds b = getBoundsInLocal();
@@ -408,12 +446,7 @@ public class ShapeLayer extends Group implements GraphicLayer {
     public List<ShapeLayer> separateContours() { return orchestrator.separateContours(); }
 
     // --- Selection & Lifecycle ---
-    @Override
-    public void setSelected(boolean s) {
-        this.isSelected = s;
-        handlesGroup.setVisible(s && !isNodeEditing); // Mostrar handles aunque esté bloqueado (Ctrl+Click)
-        updateVisuals();
-    }
+
 
     public void removeFromParent() {
         if (getParent() instanceof Group g) g.getChildren().remove(this);
@@ -462,13 +495,16 @@ public class ShapeLayer extends Group implements GraphicLayer {
         clone.setVisualizer(visualizer);
         clone.renderShape();
 
+        // Copy pivot offset before copying translations, so the compensation gets overwritten by the exact translation
+        clone.updatePivotWithCompensation(getCustomPivotX(), getCustomPivotY());
+
         clone.setTranslateX(getTranslateX());
         clone.setTranslateY(getTranslateY());
-        clone.transformManager.setInternalRotation(transformManager.getInternalRotation());
-        clone.transformManager.setInternalScaleX(transformManager.getInternalScaleX());
-        clone.transformManager.setInternalScaleY(transformManager.getInternalScaleY());
-        clone.setInternalShearX(transformManager.getInternalShearX());
-        clone.setInternalShearY(transformManager.getInternalShearY());
+        clone.setInternalRotation(getInternalRotation());
+        clone.setInternalScaleX(getInternalScaleX());
+        clone.setInternalScaleY(getInternalScaleY());
+        clone.setInternalShearX(getInternalShearX());
+        clone.setInternalShearY(getInternalShearY());
 
         if (state.contourSteps > 0) {
             clone.applyContour(state.contourSteps, state.contourDistance, state.contourColor);
@@ -488,8 +524,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
             int oldIdx = g.getChildren().indexOf(this);
             toFront(); 
             int newIdx = g.getChildren().indexOf(this);
-            if (oldIdx != newIdx && visualizer != null && visualizer.getHistoryManager() != null) {
-                visualizer.getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(visualizer.getUserLayerManager(), this, oldIdx, newIdx));
+            if (oldIdx != newIdx && getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+                getVisualizer().getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(getVisualizer().getUserLayerManager(), this, oldIdx, newIdx));
             }
         }
     }
@@ -498,8 +534,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
             int oldIdx = g.getChildren().indexOf(this);
             toBack(); 
             int newIdx = g.getChildren().indexOf(this);
-            if (oldIdx != newIdx && visualizer != null && visualizer.getHistoryManager() != null) {
-                visualizer.getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(visualizer.getUserLayerManager(), this, oldIdx, newIdx));
+            if (oldIdx != newIdx && getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+                getVisualizer().getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(getVisualizer().getUserLayerManager(), this, oldIdx, newIdx));
             }
         }
     }
@@ -509,8 +545,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
             if (idx < g.getChildren().size() - 1) {
                 g.getChildren().remove(this);
                 g.getChildren().add(idx + 1, this);
-                if (visualizer != null && visualizer.getHistoryManager() != null) {
-                    visualizer.getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(visualizer.getUserLayerManager(), this, idx, idx + 1));
+                if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+                    getVisualizer().getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(getVisualizer().getUserLayerManager(), this, idx, idx + 1));
                 }
             }
         }
@@ -521,8 +557,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
             if (idx > 0) {
                 g.getChildren().remove(this);
                 g.getChildren().add(idx - 1, this);
-                if (visualizer != null && visualizer.getHistoryManager() != null) {
-                    visualizer.getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(visualizer.getUserLayerManager(), this, idx, idx - 1));
+                if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+                    getVisualizer().getHistoryManager().addCommand(new org.example.pattern.ZOrderCommand(getVisualizer().getUserLayerManager(), this, idx, idx - 1));
                 }
             }
         }
@@ -530,32 +566,16 @@ public class ShapeLayer extends Group implements GraphicLayer {
 
     public ShapeLayer createClone() { return orchestrator.createClone(); }
 
-    // --- Flip (delegated) ---
-    public void flipHorizontal() { 
-        org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-        transformManager.flipHorizontal(); 
-        org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
-        }
-    }
-    public void flipVertical() { 
-        org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-        transformManager.flipVertical(); 
-        org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
-        }
-    }
+    // --- Flip ---
 
     public void insertIntoClip(Node n) { contentGroup.getChildren().add(n); }
     public boolean hasMoved() { return getTranslateX() != 0 || getTranslateY() != 0; }
     public void rotateBy(double d) { 
         org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-        transformManager.rotateBy(d); 
+        setInternalRotation(getInternalRotation() + d);
         org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
         }
     }
 
@@ -593,8 +613,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
         this.state.contourColor = color;
         renderContour();
 
-        if (visualizer != null && visualizer.getHistoryManager() != null && (!java.util.Objects.equals(oldColor, color) || oldSteps != steps || oldDist != dist)) {
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && (!java.util.Objects.equals(oldColor, color) || oldSteps != steps || oldDist != dist)) {
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.PropertyChangeCommand<>(
                 "Aplicar Contorno",
                 new Object[]{oldSteps, oldDist, oldColor},
                 new Object[]{steps, dist, color},
@@ -625,8 +645,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
         this.state.transparencyEndAlpha = end;
         updateFill();
 
-        if (visualizer != null && visualizer.getHistoryManager() != null && (oldEnabled != enabled || oldAngle != angle || oldStart != start || oldEnd != end)) {
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && (oldEnabled != enabled || oldAngle != angle || oldStart != start || oldEnd != end)) {
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.PropertyChangeCommand<>(
                 "Aplicar Transparencia",
                 new Object[]{oldEnabled, oldAngle, oldStart, oldEnd},
                 new Object[]{enabled, angle, start, end},
@@ -646,8 +666,8 @@ public class ShapeLayer extends Group implements GraphicLayer {
     public void recordResizeUndo(double ow, double oh, double omx, double omy,
                                   double nw, double nh, double nmx, double nmy,
                                   double otx, double oty, double ntx, double nty) {
-        if (visualizer != null)
-            visualizer.getHistoryManager().addCommand(
+        if (getVisualizer() != null)
+            getVisualizer().getHistoryManager().addCommand(
                 new org.example.pattern.TransformCommand(this,
                     otx, oty, getInternalScaleX(), getInternalScaleY(), getInternalRotation(),
                     ow, oh, omx, omy, ntx, nty, getInternalScaleX(), getInternalScaleY(),

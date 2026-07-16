@@ -209,31 +209,29 @@ public class BezierInteractionService {
             Point2D anchorScene = editingLayer.shapeLocalToScene(n.anchor);
             Point2D anchorLocal = visualizer.getContentGroup().sceneToLocal(anchorScene);
 
-            Rectangle rect = new Rectangle(anchorLocal.getX() - 3.0, anchorLocal.getY() - 3.0, 6, 6);
-            rect.setArcWidth(1);
-            rect.setArcHeight(1);
-            rect.setFill(selectedBezierNodes.contains(n) ? Color.RED : Color.web("#0078D7"));
-            rect.setStroke(Color.WHITE);
-            rect.setStrokeWidth(1.5);
-            rect.setCursor(Cursor.HAND);
-            rect.setUserData(new Object[] { n, "ANCHOR", nodeIndex });
+            Circle anchorNode = new Circle(anchorLocal.getX(), anchorLocal.getY(), 4.0);
+            anchorNode.setFill(selectedBezierNodes.contains(n) ? Color.RED : Color.web("#0078D7"));
+            anchorNode.setStroke(Color.WHITE);
+            anchorNode.setStrokeWidth(1.5);
+            anchorNode.setCursor(Cursor.HAND);
+            anchorNode.setUserData(new Object[] { n, "ANCHOR", nodeIndex });
 
-            rect.setOnMouseEntered(ev -> {
-                rect.setEffect(new javafx.scene.effect.DropShadow(4, Color.color(0, 0, 0, 0.4)));
-                if (!selectedBezierNodes.contains(nodeRef)) rect.setFill(Color.web("#006CC2"));
+            anchorNode.setOnMouseEntered(ev -> {
+                anchorNode.setEffect(new javafx.scene.effect.DropShadow(4, Color.color(0, 0, 0, 0.4)));
+                if (!selectedBezierNodes.contains(nodeRef)) anchorNode.setFill(Color.web("#006CC2"));
             });
-            rect.setOnMouseExited(ev -> {
-                rect.setEffect(null);
-                rect.setFill(selectedBezierNodes.contains(nodeRef) ? Color.RED : Color.web("#0078D7"));
+            anchorNode.setOnMouseExited(ev -> {
+                anchorNode.setEffect(null);
+                anchorNode.setFill(selectedBezierNodes.contains(nodeRef) ? Color.RED : Color.web("#0078D7"));
             });
 
             Rectangle hitBoxAnchor = new Rectangle(anchorLocal.getX() - 7.0, anchorLocal.getY() - 7.0, 14, 14);
             hitBoxAnchor.setFill(Color.TRANSPARENT);
             hitBoxAnchor.setCursor(Cursor.HAND);
-            hitBoxAnchor.setUserData(rect.getUserData());
+            hitBoxAnchor.setUserData(anchorNode.getUserData());
             
-            hitBoxAnchor.setOnMouseEntered(rect.getOnMouseEntered());
-            hitBoxAnchor.setOnMouseExited(rect.getOnMouseExited());
+            hitBoxAnchor.setOnMouseEntered(anchorNode.getOnMouseEntered());
+            hitBoxAnchor.setOnMouseExited(anchorNode.getOnMouseExited());
 
             hitBoxAnchor.setOnMousePressed(e -> {
                 if (!e.isShiftDown()) {
@@ -268,7 +266,7 @@ public class BezierInteractionService {
             });
 
             setupNodeContextMenu(hitBoxAnchor, nodeRef);
-            handleGroup.getChildren().add(rect);
+            handleGroup.getChildren().add(anchorNode);
             handleGroup.getChildren().add(hitBoxAnchor);
 
             int idx = i;
@@ -347,15 +345,16 @@ public class BezierInteractionService {
             Point2D anchorLocal = visualizer.getContentGroup().sceneToLocal(anchorScene);
             
             if ("ANCHOR".equals(type)) {
-                Rectangle r = (Rectangle) child;
-                if (r.getWidth() > 10) {
+                if (child instanceof Rectangle) {
                     // It's the hitbox
+                    Rectangle r = (Rectangle) child;
                     r.setX(anchorLocal.getX() - 7.0);
                     r.setY(anchorLocal.getY() - 7.0);
-                } else {
-                    r.setX(anchorLocal.getX() - 3.0);
-                    r.setY(anchorLocal.getY() - 3.0);
-                    r.setFill(selectedBezierNodes.contains(n) ? Color.RED : Color.web("#0078D7"));
+                } else if (child instanceof Circle) {
+                    Circle c = (Circle) child;
+                    c.setCenterX(anchorLocal.getX());
+                    c.setCenterY(anchorLocal.getY());
+                    c.setFill(selectedBezierNodes.contains(n) ? Color.RED : Color.web("#0078D7"));
                 }
             } else if (child == marqueeRect) {
                 // ignore marqueeRect
@@ -654,10 +653,45 @@ public class BezierInteractionService {
                 
                 if (e.getTarget() instanceof Circle || e.getTarget() instanceof Rectangle) return;
 
-                if (isDoubleClick || isRightClick) {
+                if (isDoubleClick) {
                     Point2D pScene = new Point2D(e.getSceneX(), e.getSceneY());
                     Point2D pLayer = editingLayer.sceneToLocal(pScene);
-                    tryInsertNode(pLayer.getX(), pLayer.getY());
+                    tryInsertNode(pLayer.getX(), pLayer.getY(), false);
+                    e.consume();
+                } else if (isRightClick) {
+                    // Mostrar menú contextual para elegir tipo de punto
+                    Point2D pScene = new Point2D(e.getSceneX(), e.getSceneY());
+                    if (bezierNodes == null || bezierNodes.size() < 2) return;
+                    Point2D pLayer = editingLayer.sceneToLocal(pScene);
+                    double threshold = 10.0;
+                    int bestSegment = -1;
+                    double bestT = -1;
+                    double minDistance = Double.MAX_VALUE;
+                    for (int i = 0; i < bezierNodes.size() - 1; i++) {
+                        BezierNode bn1 = bezierNodes.get(i);
+                        BezierNode bn2 = bezierNodes.get(i + 1);
+                        if (bn2.isMoveTo) continue;
+                        for (int step = 0; step <= 50; step++) {
+                            double tt = step / 50.0;
+                            Point2D onCurve = org.example.utils.GeometryUtility.evalCubicBezier(
+                                    bn1.anchor, bn1.control2, bn2.control1, bn2.anchor, tt);
+                            double d = onCurve.distance(pLayer);
+                            if (d < minDistance) { minDistance = d; bestSegment = i; bestT = tt; }
+                        }
+                    }
+                    if (minDistance >= threshold || bestSegment == -1) { e.consume(); return; }
+                    final int segIdx = bestSegment;
+                    final double tVal = bestT;
+                    ContextMenu cm = new ContextMenu();
+                    MenuItem addLine = new MenuItem("A\u00f1adir punto lineal");
+                    addLine.setOnAction(ev -> insertNodeAt(segIdx, tVal, true));
+                    MenuItem addCurve = new MenuItem("A\u00f1adir punto curvo");
+                    addCurve.setOnAction(ev -> insertNodeAt(segIdx, tVal, false));
+                    cm.getItems().addAll(addLine, addCurve);
+                    cm.show(editingLayer, e.getScreenX(), e.getScreenY());
+                    if (activeNodeMenu != null) activeNodeMenu.hide();
+                    activeNodeMenu = cm;
+                    cm.setOnHidden(ev -> { if (activeNodeMenu == cm) activeNodeMenu = null; });
                     e.consume();
                 } else if (isSingleClick) {
                     marqueeStartScene = new Point2D(e.getSceneX(), e.getSceneY());
@@ -667,7 +701,6 @@ public class BezierInteractionService {
                         marqueeRect.setFill(Color.web("#3498db", 0.15));
                         marqueeRect.setStroke(Color.web("#2980b9"));
                         marqueeRect.setStrokeWidth(1.0);
-                        marqueeRect.getStrokeDashArray().addAll(5.0, 5.0);
                         marqueeRect.setMouseTransparent(true);
                     }
                     if (!handleGroup.getChildren().contains(marqueeRect)) {
@@ -693,7 +726,7 @@ public class BezierInteractionService {
         };
     }
 
-    private void tryInsertNode(double localX, double localY) {
+    private void tryInsertNode(double localX, double localY, boolean isLinear) {
         if (bezierNodes == null || bezierNodes.size() < 2) return;
         Point2D p = new Point2D(localX, localY);
         double threshold = 10.0;
@@ -712,10 +745,10 @@ public class BezierInteractionService {
                 if (d < minDistance) { minDistance = d; bestSegment = i; bestT = t; }
             }
         }
-        if (minDistance < threshold && bestSegment != -1) insertNodeAt(bestSegment, bestT);
+        if (minDistance < threshold && bestSegment != -1) insertNodeAt(bestSegment, bestT, isLinear);
     }
 
-    private void insertNodeAt(int segmentIndex, double t) {
+    private void insertNodeAt(int segmentIndex, double t, boolean isLinear) {
         List<BezierNode> nodesBefore = new ArrayList<>();
         if (bezierNodes != null) { for (BezierNode n : bezierNodes) nodesBefore.add(n.copy()); }
 
@@ -727,7 +760,17 @@ public class BezierInteractionService {
         Point2D r0 = lerp(q0, q1, t); Point2D r1 = lerp(q1, q2, t);
         Point2D s0 = lerp(r0, r1, t);
 
-        BezierNode newNode = new BezierNode(s0, r0, r1);
+        BezierNode newNode;
+        if (isLinear) {
+            // Punto lineal: ambos controles en el ancla, segmento tipo LINE
+            newNode = new BezierNode(s0, s0, s0);
+            newNode.segmentType = BezierNode.SegmentType.LINE;
+            // Ajustar segmento anterior a LINE también
+            n1.segmentType = BezierNode.SegmentType.LINE;
+        } else {
+            newNode = new BezierNode(s0, r0, r1);
+            newNode.segmentType = BezierNode.SegmentType.CURVE;
+        }
         n1.control2 = q0; n2.control1 = q2;
         bezierNodes.add(segmentIndex + 1, newNode);
 

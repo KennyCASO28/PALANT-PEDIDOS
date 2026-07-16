@@ -59,12 +59,10 @@ public final class ShapeGeometryEngine {
         } else if (shape instanceof Polygon p) {
             ShapePathSupport.updatePolygonPoints(p, type, null, width, height, visualMinX, visualMinY);
         } else if (shape instanceof SVGPath svg) {
-            double shX = shearTransform.getX();
-            double shY = shearTransform.getY();
-            if (shX != 0 || shY != 0) {
+            if (shearTransform != null && (shearTransform.getX() != 0 || shearTransform.getY() != 0)) {
                 double px = shearTransform.getPivotX();
                 double py = shearTransform.getPivotY();
-                svg.setContent(buildShearedSvgPath(bezierNodes, true, shX, shY, px, py));
+                svg.setContent(buildShearedSvgPath(bezierNodes, true, shearTransform.getX(), shearTransform.getY(), px, py));
             } else {
                 if (svgPathData != null) svg.setContent(svgPathData);
             }

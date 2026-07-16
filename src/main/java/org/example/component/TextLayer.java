@@ -2,6 +2,7 @@ package org.example.component;
 
 import javafx.geometry.Bounds;
 import javafx.geometry.Point2D;
+import javafx.geometry.VPos;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -39,7 +40,7 @@ import java.util.function.Supplier;
  * Professional Text Layer Component.
  * Optimized for high-performance rendering and consistent interaction.
  */
-public class TextLayer extends Group implements GraphicLayer {
+public class TextLayer extends AbstractGraphicLayer {
 
     private final Group textGroup = new Group();
     private final Group strokeGroup = new Group();
@@ -48,22 +49,22 @@ public class TextLayer extends Group implements GraphicLayer {
         return textGroup;
     }
 
-    private final Rectangle border = new Rectangle();
-    private final Group handlesGroup = new Group();
+    
+    
     private final Group trajectoryEditingGroup = new Group();
     private InlineTextEditor inlineEditor;
 
     // Interactive Handles
-    private final StackPane nw, ne, sw, se;
-    private final StackPane n, s, e, w;
-    private final StackPane rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight;
-    private final StackPane shearTop, shearBottom, shearLeft, shearRight;
-    private final Group pivotHandle;
+    
+    
+    
+    
+    
 
     // Transforms
-    private final Rotate rotateTransform = new Rotate();
-    private final Scale scaleTransform = new Scale();
-    private final Shear shearTransform = new Shear();
+    
+    
+    
 
     // Clipboard Static State
     private static TextLayer clipboardLayer = null;
@@ -89,17 +90,18 @@ public class TextLayer extends Group implements GraphicLayer {
     private double spacing = 0;
 
     // State
-    private boolean isSelected = false;
-    private boolean isRotationMode = false;
-    private double customPivotX = -1, customPivotY = -1;
-    private boolean isLocked = false;
-    private boolean isUserLocked = false;
+    
+    
+    
+    
+    
     private boolean isTrajectoryEditMode = false;
+    private boolean verticalLayout = false;
     private boolean isUpdating = false;
     private boolean isBeingEdited = false;
     private boolean isInitialized = false;
     private boolean isDraggingTrajectoryHandle = false;
-    private String activeZone;
+    
 
     // Contour
     private int contourSteps = 0;
@@ -116,10 +118,59 @@ public class TextLayer extends Group implements GraphicLayer {
     private Supplier<List<String>> availableZonesSupplier;
     private Runnable pasteHandler;
     private final List<Runnable> visualChangeListeners = new ArrayList<>();
-    private org.example.component.PrendaVisualizer visualizer;
+    
 
     // Tooltip for hover
     private final Tooltip hoverTooltip = new Tooltip();
+
+    
+    @Override
+    public Bounds calculateBounds() {
+        return new javafx.geometry.BoundingBox(-logicalWidth / 2.0, -logicalHeight / 2.0, logicalWidth, logicalHeight);
+    }
+
+    private Group cloneGroup(Group source) {
+        Group clone = new Group();
+        clone.getTransforms().addAll(source.getTransforms());
+        clone.setTranslateX(source.getTranslateX());
+        clone.setTranslateY(source.getTranslateY());
+        clone.setLayoutX(source.getLayoutX());
+        clone.setLayoutY(source.getLayoutY());
+
+        for (Node child : source.getChildren()) {
+            if (child instanceof Text) {
+                Text t = (Text) child;
+                Text cloneText = new Text(t.getText());
+                cloneText.setFont(t.getFont());
+                cloneText.setX(t.getX());
+                cloneText.setY(t.getY());
+                cloneText.setTextOrigin(t.getTextOrigin());
+                cloneText.setBoundsType(t.getBoundsType());
+                cloneText.setTranslateX(t.getTranslateX());
+                cloneText.setTranslateY(t.getTranslateY());
+                cloneText.setRotate(t.getRotate());
+                cloneText.getTransforms().addAll(t.getTransforms());
+                clone.getChildren().add(cloneText);
+            } else if (child instanceof Group) {
+                clone.getChildren().add(cloneGroup((Group) child));
+            }
+        }
+        return clone;
+    }
+
+    @Override
+    protected javafx.scene.Node createSilhouetteNode() {
+        if (textGroup != null) {
+            return cloneGroup(textGroup);
+        }
+        return new javafx.scene.shape.Rectangle(-logicalWidth / 2.0, -logicalHeight / 2.0, logicalWidth, logicalHeight);
+    }
+    
+    @Override
+    public void multiplyShear(double sx, double sy) {
+        setInternalShearX(getInternalShearX() + sx);
+        setInternalShearY(getInternalShearY() + sy);
+    }
 
     public TextLayer(String text) {
         this(text, Font.font("Arial", FontWeight.BOLD, 24), Color.BLACK);
@@ -139,68 +190,33 @@ public class TextLayer extends Group implements GraphicLayer {
             this.isItalic = style.contains("italic");
         }
 
-        // Initialize Handles
-        int hSize = 4; // Standardized square handle size
-        int iSize = 12; // Standardized icon handle size
-        // Set icon to null to remove "?" icons - clean squares look more professional
-        this.nw = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.NW_RESIZE);
-        this.ne = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.NE_RESIZE);
-        this.sw = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.SW_RESIZE);
-        this.se = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.SE_RESIZE);
-        this.n = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.V_RESIZE);
-        this.s = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.V_RESIZE);
-        this.e = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.H_RESIZE);
-        this.w = UIFactory.crearSquareHandle(null, hSize, "#0047AB", "#fff", Cursor.H_RESIZE);
-
-        this.rotTopLeft = UIFactory.crearIconHandle("mdi2r-rotate-right", iSize, "#e67e22", Cursor.HAND);
-        this.rotTopRight = UIFactory.crearIconHandle("mdi2r-rotate-right", iSize, "#e67e22", Cursor.HAND);
-        this.rotBottomLeft = UIFactory.crearIconHandle("mdi2r-rotate-right", iSize, "#e67e22", Cursor.HAND);
-        this.rotBottomRight = UIFactory.crearIconHandle("mdi2r-rotate-right", iSize, "#e67e22", Cursor.HAND);
-
-        this.shearTop = UIFactory.crearIconHandle("mdi2a-arrow-expand-horizontal", iSize, "#16a085", Cursor.H_RESIZE);
-        this.shearBottom = UIFactory.crearIconHandle("mdi2a-arrow-expand-horizontal", iSize, "#16a085",
-                Cursor.H_RESIZE);
-        this.shearLeft = UIFactory.crearIconHandle("mdi2a-arrow-expand-vertical", iSize, "#16a085", Cursor.V_RESIZE);
-        this.shearRight = UIFactory.crearIconHandle("mdi2a-arrow-expand-vertical", iSize, "#16a085", Cursor.V_RESIZE);
-
-        this.pivotHandle = UIFactory.crearPivotHandle();
-
         // Setup Transforms
-        this.getTransforms().addAll(rotateTransform, scaleTransform, shearTransform);
+        
 
-        // Styling Border
-        border.setFill(null);
-        border.setStroke(Color.web("#0047AB"));
-        border.setStrokeWidth(1);
-        border.getStrokeDashArray().addAll(4.0, 4.0);
-        border.setVisible(false);
+        
+        
 
         // Assembly
-        handlesGroup.getChildren().addAll(nw, ne, sw, se, n, s, e, w,
-                rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight,
-                shearTop, shearBottom, shearLeft, shearRight,
-                pivotHandle);
+        
 
-        // Reset all layouts to ensure TranslateX/Y is the only driver
-        handlesGroup.getChildren().forEach(node -> {
-            node.setLayoutX(0);
-            node.setLayoutY(0);
-        });
+         
+        
 
-        handlesGroup.setVisible(false);
+        
         trajectoryEditingGroup.setPickOnBounds(false);
+        contentGroup.setPickOnBounds(false);
 
-        this.getChildren().addAll(strokeGroup, textGroup, border, handlesGroup, trajectoryEditingGroup);
+        contentGroup.getChildren().addAll(strokeGroup, textGroup, trajectoryEditingGroup);
 
         // Ensure Group picking is reliable
         this.setPickOnBounds(false);
-        textGroup.setPickOnBounds(true);
+        textGroup.setPickOnBounds(false);
         border.setMouseTransparent(true); // Don't block character selection
 
         // Initialize hover tooltip
         updateHoverTooltip();
         this.setOnMouseEntered(e -> {
-            if (!isSelected) {
+            if (!isSelected()) {
                 updateHoverTooltip();
             }
         });
@@ -211,7 +227,7 @@ public class TextLayer extends Group implements GraphicLayer {
     }
 
     private void updateHoverTooltip() {
-        String zoneInfo = (activeZone != null && !activeZone.isEmpty()) ? "\nZona: " + activeZone : "";
+        String zoneInfo = (getActiveZone() != null && !getActiveZone().isEmpty()) ? "\nZona: " + getActiveZone() : "";
         String display = (textContent != null && !textContent.isEmpty()) ? textContent : "(Vacío)";
         hoverTooltip.setText("Texto: \"" + display + "\"" + zoneInfo);
         Tooltip.install(this, hoverTooltip);
@@ -220,205 +236,16 @@ public class TextLayer extends Group implements GraphicLayer {
     private void initInteraction() {
         this.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
             if (e.getClickCount() == 2 && e.getButton() == MouseButton.PRIMARY) {
-                // Double-click on text content starts inline editing
-                if (!isHandle(e.getTarget()) && !isLocked()) {
+                if (!isLocked()) {
                     startInlineEdit();
                     e.consume();
                 }
             }
         });
-
-        setupResizeHandle(nw, -1, -1);
-        setupResizeHandle(ne, 1, -1);
-        setupResizeHandle(sw, -1, 1);
-        setupResizeHandle(se, 1, 1);
-        setupResizeHandle(n, 0, -1);
-        setupResizeHandle(s, 0, 1);
-        setupResizeHandle(e, 1, 0);
-        setupResizeHandle(w, -1, 0);
-
-        setupRotationHandler();
-        setupShearHandlers();
-        setupPivotHandler();
-        final double[] start = new double[2];
-        final NodeMemento[] dragStartMemento = new NodeMemento[1];
-        this.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
-            if (isLocked() || isHandle(e.getTarget()))
-                return;
-            if (onSelectionRequested != null)
-                onSelectionRequested.accept(e);
-
-            Point2D localMouse = getParent().sceneToLocal(e.getSceneX(), e.getSceneY());
-            start[0] = localMouse.getX() - getTranslateX();
-            start[1] = localMouse.getY() - getTranslateY();
-            dragStartMemento[0] = new NodeMemento(this);
-            setCursor(Cursor.MOVE);
-            e.consume();
-        });
-
-        this.addEventHandler(MouseEvent.MOUSE_DRAGGED, e -> {
-            if (isLocked() || isHandle(e.getTarget()))
-                return;
-            Point2D localMouse = getParent().sceneToLocal(e.getSceneX(), e.getSceneY());
-            double newX = localMouse.getX() - start[0];
-            double newY = localMouse.getY() - start[1];
-            double dx = newX - getTranslateX();
-            double dy = newY - getTranslateY();
-            setTranslateX(newX);
-            setTranslateY(newY);
-            if (onDragHandler != null)
-                onDragHandler.accept(dx, dy);
-            e.consume();
-        });
-
-        this.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> {
-            setCursor(Cursor.DEFAULT);
-            recordTransformUndo(dragStartMemento[0]);
-            dragStartMemento[0] = null;
-        });
-
-        // --- LAYER HOVER FEEDBACK ---
-        this.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> {
-            if (!isSelected && !isLocked()) {
-                border.setVisible(true);
-                border.setStroke(Color.web("#3498db", 0.5));
-                border.setStrokeWidth(1.5);
-                border.getStrokeDashArray().setAll(5.0, 5.0);
-            }
-        });
-        this.addEventHandler(MouseEvent.MOUSE_EXITED, e -> {
-            if (!isSelected) {
-                border.setVisible(false);
-                border.setStroke(Color.web("#0047AB"));
-                border.setStrokeWidth(1.0);
-                border.getStrokeDashArray().clear();
-            }
-        });
     }
 
-    private void setupResizeHandle(Node handle, int sx, int sy) {
-        final double[] initialDim = new double[2];
-        final double[] initialMouse = new double[2];
-        final double[] initialScale = new double[2];
-        final Point2D[] anchor = new Point2D[1];
-        final NodeMemento[] startMemento = new NodeMemento[1];
 
-        handle.setOnMousePressed(e -> {
-            if (isLocked())
-                return;
-            startMemento[0] = new NodeMemento(this);
-            initialDim[0] = logicalWidth;
-            initialDim[1] = logicalHeight;
-            initialScale[0] = scaleTransform.getX();
-            initialScale[1] = scaleTransform.getY();
 
-            // Use parent space coordinates to account for workspace zoom
-            Point2D parentMouse = visualizer.getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
-            initialMouse[0] = parentMouse.getX();
-            initialMouse[1] = parentMouse.getY();
-
-            // Anchor at the opposite side of the dragged handle (centered logic)
-            double ax = -sx * (logicalWidth / 2.0);
-            double ay = -sy * (logicalHeight / 2.0);
-            anchor[0] = localToParent(ax, ay);
-            e.consume();
-        });
-
-        handle.setOnMouseDragged(e -> {
-            if (isLocked())
-                return;
-
-            Point2D parentMouse = visualizer.getContentGroup().sceneToLocal(e.getSceneX(), e.getSceneY());
-            double dx = parentMouse.getX() - initialMouse[0];
-            double dy = parentMouse.getY() - initialMouse[1];
-
-            // Convert parent delta to local delta taking rotation into account
-            double rad = Math.toRadians(rotateTransform.getAngle());
-            // Standard projection for screen space (Y-down)
-            double localDx = (dx * Math.cos(-rad) + dy * Math.sin(-rad)) * sx;
-            double localDy = (-dx * Math.sin(-rad) + dy * Math.cos(-rad)) * sy;
-
-            // Adjust by scale to avoid aggressive jumping
-            double curSx = Math.abs(initialScale[0]);
-            double curSy = Math.abs(initialScale[1]);
-            localDx /= (curSx > 0.01 ? curSx : 1.0);
-            localDy /= (curSy > 0.01 ? curSy : 1.0);
-
-double proposedW = initialDim[0] + localDx;
-            double proposedH = initialDim[1] + localDy;
-
-            boolean flipX = proposedW < 0;
-            boolean flipY = proposedH < 0;
-
-            double newW = Math.max(20, Math.abs(proposedW));
-            double newH = Math.max(10, Math.abs(proposedH));
-
-            double factorX = newW / Math.max(1, logicalWidth);
-            double factorY = newH / Math.max(1, logicalHeight);
-
-            logicalWidth = newW;
-            logicalHeight = newH;
-
-            // REAL FLIP: Mirror in SCREEN coordinates
-            boolean isCornerHandle = (sx != 0 && sy != 0);
-            boolean isLeftHandle = (sx == -1);
-            boolean isRightHandle = (sx == 1);
-            boolean isTopHandle = (sy == -1);
-            boolean isBottomHandle = (sy == 1);
-
-            double currentRotation = rotateTransform.getAngle();
-            double newScaleX = initialScale[0];
-            double newScaleY = initialScale[1];
-
-            // Check if we crossed zero (flipping from positive to negative scale means flip occurred)
-            boolean crossedFlipX = (initialScale[0] > 0 && flipX) || (initialScale[0] < 0 && !flipX);
-            boolean crossedFlipY = (initialScale[1] > 0 && flipY) || (initialScale[1] < 0 && !flipY);
-
-            // Apply true mirror flip using rotation transformation
-            if (crossedFlipX && (isLeftHandle || isRightHandle)) {
-                double newRot = -currentRotation;
-                rotateTransform.setAngle(newRot);
-                newScaleX = Math.abs(initialScale[0]);
-            } else if (crossedFlipY && (isTopHandle || isBottomHandle)) {
-                double newRot = 180 + currentRotation;
-                rotateTransform.setAngle(normalizeAngle(newRot));
-                newScaleY = Math.abs(initialScale[1]);
-            } else if (crossedFlipX || crossedFlipY) {
-                double newRot = currentRotation;
-                if (crossedFlipX) newRot = -newRot;
-                if (crossedFlipY) newRot = 180 + newRot;
-                rotateTransform.setAngle(normalizeAngle(newRot));
-                if (crossedFlipX) newScaleX = Math.abs(initialScale[0]);
-                if (crossedFlipY) newScaleY = Math.abs(initialScale[1]);
-            }
-
-            setInternalScaleX(newScaleX);
-            setInternalScaleY(newScaleY);
-
-            if (trajectory != null) {
-                trajectory.scalePoints(factorX, factorY);
-            }
-
-            renderText();
-
-            // Re-align based on the opposite anchor to keep that point fixed
-            double ax = -sx * (logicalWidth / 2.0);
-            double ay = -sy * (logicalHeight / 2.0);
-            Point2D currentAnchor = localToParent(ax, ay);
-
-            if (anchor[0] != null && currentAnchor != null) {
-                setTranslateX(getTranslateX() + (anchor[0].getX() - currentAnchor.getX()));
-                setTranslateY(getTranslateY() + (anchor[0].getY() - currentAnchor.getY()));
-            }
-            e.consume();
-        });
-
-        handle.setOnMouseReleased(e -> {
-            recordTransformUndo(startMemento[0]);
-            startMemento[0] = null;
-            e.consume();
-        });
-    }
 
     public void renderText() {
         if (isUpdating)
@@ -426,6 +253,16 @@ double proposedW = initialDim[0] + localDx;
         isUpdating = true;
         textGroup.getChildren().clear();
         strokeGroup.getChildren().clear();
+        
+        // Reset transforms that may have been applied by other layout modes
+        textGroup.setScaleX(1.0);
+        textGroup.setScaleY(1.0);
+        textGroup.setTranslateX(0);
+        textGroup.setTranslateY(0);
+        strokeGroup.setScaleX(1.0);
+        strokeGroup.setScaleY(1.0);
+        strokeGroup.setTranslateX(0);
+        strokeGroup.setTranslateY(0);
         if (textContent == null || textContent.isEmpty()) {
             isUpdating = false;
             return;
@@ -439,6 +276,62 @@ double proposedW = initialDim[0] + localDx;
                 isBold, isItalic, trajectory, logicalWidth, logicalHeight, spacing,
                 textAlignment, fontSize, dropShadowColor, 0, 0, dropShadowEnabled ? 10 : 0, false, textColor,
                 textColor);
+
+        // Vertical layout: characters top-to-bottom
+        if (verticalLayout) {
+            char[] chars = textContent.toCharArray();
+            Font useFont = font;
+            double totalTextHeight = 0;
+            double maxCharWidth = 0;
+            double[] charHeights = new double[chars.length];
+            double[] charWidths = new double[chars.length];
+            for (int i = 0; i < chars.length; i++) {
+                Text t = new Text(String.valueOf(chars[i]));
+                t.setFont(useFont);
+                Bounds tb = t.getLayoutBounds();
+                charWidths[i] = tb.getWidth();
+                charHeights[i] = tb.getHeight();
+                totalTextHeight += charHeights[i];
+                if (charWidths[i] > maxCharWidth) maxCharWidth = charWidths[i];
+            }
+            double scaleY = logicalHeight / Math.max(1, totalTextHeight + (chars.length - 1) * spacing);
+            double scaleX = logicalWidth / Math.max(1, maxCharWidth);
+            double startY = -(totalTextHeight * scaleY + (chars.length - 1) * spacing) / 2.0;
+            for (int i = 0; i < chars.length; i++) {
+                Text txt = new Text(String.valueOf(chars[i]));
+                txt.setFont(useFont);
+                txt.setFill(textColor);
+                txt.setTextOrigin(VPos.CENTER);
+                txt.getTransforms().add(new Scale(scaleX, scaleY, 0, 0));
+                txt.setTranslateY(startY + charHeights[i] * scaleY / 2.0);
+                txt.setTranslateX(- (charWidths[i] * scaleX) / 2.0);
+                textGroup.getChildren().add(txt);
+                startY += charHeights[i] * scaleY + spacing;
+            }
+            
+            if (strokeWidth > 0 && strokeColor != null && !strokeColor.equals(Color.TRANSPARENT)) {
+                for (Node child : textGroup.getChildren()) {
+                    if (child instanceof Text textNode) {
+                        Path fillPath = getPristinePath(textNode);
+                        if (fillPath != null) {
+                            Transform localToParent = textNode.getLocalToParentTransform();
+                            Path strokePath = org.example.component.helper.VectorBooleanHelper.transformPath(fillPath, localToParent);
+                            strokePath.setFill(Color.TRANSPARENT);
+                            strokePath.setStroke(strokeColor);
+                            strokePath.setStrokeWidth(strokeWidth);
+                            strokePath.setStrokeType(StrokeType.OUTSIDE);
+                            strokePath.setStrokeLineJoin(StrokeLineJoin.ROUND);
+                            strokePath.setStrokeLineCap(StrokeLineCap.ROUND);
+                            strokeGroup.getChildren().add(strokePath);
+                        }
+                    }
+                }
+            }
+            invalidateBounds();
+            if (isInitialized) notifyVisualChange();
+            isUpdating = false;
+            return;
+        }
 
         // Select optimal strategy based on trajectory type
         TextRenderStrategy strategy;
@@ -536,7 +429,10 @@ double proposedW = initialDim[0] + localDx;
             textGroup.setEffect(null);
         }
 
-        updateUI();
+        if (isTrajectoryEditMode) {
+            renderCurveGuide();
+        }
+        invalidateBounds();
         if (isInitialized)
             notifyVisualChange();
         isUpdating = false;
@@ -590,88 +486,7 @@ double proposedW = initialDim[0] + localDx;
         return g;
     }
 
-    private void updateUI() {
-        double base_w = logicalWidth;
-        double base_h = logicalHeight;
-        double base_x = -base_w / 2.0;
-        double base_y = -base_h / 2.0;
 
-        border.setX(0); // Use translation for consistent alignment
-        border.setY(0);
-        border.setWidth(base_w);
-        border.setHeight(base_h);
-
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null)
-                ? visualizer.getViewportController().getFinalScale()
-                : 1.0;
-        double sx = Math.abs(scaleTransform.getX()) * viewportScale;
-        double sy = Math.abs(scaleTransform.getY()) * viewportScale;
-        double maxScale = Math.max(sx, sy);
-        border.setStrokeWidth((maxScale > 0) ? 1.0 / maxScale : 1.0);
-
-        place(border, base_x, base_y);
-
-        boolean showRotate = isSelected && isRotationMode && !isLocked;
-        boolean showResize = isSelected && !isRotationMode && !isLocked;
-
-        handlesGroup.getChildren().forEach(n -> n.setVisible(false));
-        if (showResize) {
-            nw.setVisible(true);
-            ne.setVisible(true);
-            sw.setVisible(true);
-            se.setVisible(true);
-            n.setVisible(true);
-            s.setVisible(true);
-            e.setVisible(true);
-            w.setVisible(true);
-
-            place(nw, base_x, base_y);
-            place(ne, base_x + base_w, base_y);
-            place(sw, base_x, base_y + base_h);
-            place(se, base_x + base_w, base_y + base_h);
-            place(n, 0, base_y);
-            place(s, 0, base_y + base_h);
-            place(e, base_x + base_w, 0);
-            place(w, base_x, 0);
-        } else if (showRotate) {
-            rotTopLeft.setVisible(true);
-            rotTopRight.setVisible(true);
-            rotBottomLeft.setVisible(true);
-            rotBottomRight.setVisible(true);
-            shearTop.setVisible(true);
-            shearBottom.setVisible(true);
-            shearLeft.setVisible(true);
-            shearRight.setVisible(true);
-            pivotHandle.setVisible(true);
-
-            place(rotTopLeft, base_x, base_y);
-            place(rotTopRight, base_x + base_w, base_y);
-            place(rotBottomLeft, base_x, base_y + base_h);
-            place(rotBottomRight, base_x + base_w, base_y + base_h);
-            place(shearTop, 0, base_y);
-            place(shearBottom, 0, base_y + base_h);
-            place(shearLeft, base_x, 0);
-            place(shearRight, base_x + base_w, 0);
-            positionNode(pivotHandle, rotateTransform.getPivotX(), rotateTransform.getPivotY());
-        }
-
-        if (!isRotationMode) {
-            setPivotSmoothly(base_x + base_w / 2, base_y + base_h / 2);
-        } else if (customPivotX != -1) {
-            setPivotSmoothly(customPivotX, customPivotY);
-        }
-
-        // Preserve handles during drag to avoid event interruption and 'blind editing'
-        if (!isDraggingTrajectoryHandle) {
-            trajectoryEditingGroup.getChildren().clear();
-            trajectoryEditingGroup.setVisible(isTrajectoryEditMode);
-            if (isSelected && isTrajectoryEditMode)
-                renderTrajectoryHandles();
-        } else {
-            // Update the guide line points in real-time during drag
-            renderCurveGuide();
-        }
-    }
 
     private void renderCurveGuide() {
         // Find existing polyline and update it
@@ -732,11 +547,11 @@ double proposedW = initialDim[0] + localDx;
             });
             h.setOnMouseReleased(e -> {
                 isDraggingTrajectoryHandle = false;
-                if (trajectorySnapshot != null && visualizer.getHistoryManager() != null) {
-                    visualizer.getHistoryManager().addCommand(
+                if (trajectorySnapshot != null && getVisualizer().getHistoryManager() != null) {
+                    getVisualizer().getHistoryManager().addCommand(
                             new org.example.pattern.TrajectoryCommand(this, trajectorySnapshot, trajectory));
                 }
-                updateUI(); // Final refresh
+                invalidateBounds(); // Final refresh
                 e.consume();
             });
             h.setOnMouseDragged(e -> {
@@ -756,122 +571,19 @@ double proposedW = initialDim[0] + localDx;
         }
     }
 
-    private void setupRotationHandler() {
-        final double[] startAngle = new double[1];
-        final double[] initialAngle = new double[1];
-        final NodeMemento[] startMemento = new NodeMemento[1];
-        for (Node h : new Node[] { rotTopLeft, rotTopRight, rotBottomLeft, rotBottomRight }) {
-            h.setOnMousePressed(e -> {
-                if (isLocked())
-                    return;
-                startMemento[0] = new NodeMemento(this);
-                // Get pivot in scene coordinates to measure angle correctly
-                Point2D pivotScene = localToScene(rotateTransform.getPivotX(), rotateTransform.getPivotY());
-                startAngle[0] = Math
-                        .toDegrees(Math.atan2(e.getSceneY() - pivotScene.getY(), e.getSceneX() - pivotScene.getX()));
-                initialAngle[0] = rotateTransform.getAngle();
-                e.consume();
-            });
-            h.setOnMouseDragged(e -> {
-                Point2D pivotScene = localToScene(rotateTransform.getPivotX(), rotateTransform.getPivotY());
-                double curr = Math
-                        .toDegrees(Math.atan2(e.getSceneY() - pivotScene.getY(), e.getSceneX() - pivotScene.getX()));
-                double diff = curr - startAngle[0];
-                double newAngle = initialAngle[0] + diff;
-                rotateTransform.setAngle(newAngle);
-                if (visualizer != null && visualizer.getShapeManagerController() != null) {
-                    visualizer.getShapeManagerController().updateAngleUI(newAngle);
-                }
-                e.consume();
-            });
-            h.setOnMouseReleased(e -> {
-                recordTransformUndo(startMemento[0]);
-                startMemento[0] = null;
-                e.consume();
-            });
-        }
-    }
 
-    private void setupShearHandlers() {
-        final double[] start = new double[2];
-        final double[] initS = new double[2];
-        final NodeMemento[] startMemento = new NodeMemento[1];
-        for (Node h : new Node[] { shearTop, shearBottom }) {
-            h.setOnMousePressed(e -> {
-                if (isLocked())
-                    return;
-                startMemento[0] = new NodeMemento(this);
-                start[0] = e.getSceneX();
-                initS[0] = shearTransform.getX();
-                e.consume();
-            });
-            h.setOnMouseDragged(e -> {
-                if (isLocked())
-                    return;
-                shearTransform.setX(initS[0] + (e.getSceneX() - start[0]) / 100.0);
-                e.consume();
-            });
-            h.setOnMouseReleased(e -> {
-                recordTransformUndo(startMemento[0]);
-                startMemento[0] = null;
-                e.consume();
-            });
-        }
-        for (Node h : new Node[] { shearLeft, shearRight }) {
-            h.setOnMousePressed(e -> {
-                if (isLocked())
-                    return;
-                startMemento[0] = new NodeMemento(this);
-                start[1] = e.getSceneY();
-                initS[1] = shearTransform.getY();
-                e.consume();
-            });
-            h.setOnMouseDragged(e -> {
-                if (isLocked())
-                    return;
-                shearTransform.setY(initS[1] + (e.getSceneY() - start[1]) / 100.0);
-                e.consume();
-            });
-            h.setOnMouseReleased(e -> {
-                recordTransformUndo(startMemento[0]);
-                startMemento[0] = null;
-                e.consume();
-            });
-        }
-    }
 
-    private void setupPivotHandler() {
-        final NodeMemento[] startMemento = new NodeMemento[1];
-        pivotHandle.setOnMousePressed(e -> {
-            if (isLocked())
-                return;
-            startMemento[0] = new NodeMemento(this);
-            e.consume();
-        });
-        pivotHandle.setOnMouseDragged(e -> {
-            if (isLocked())
-                return;
-            Point2D local = sceneToLocal(e.getSceneX(), e.getSceneY());
-            customPivotX = local.getX();
-            customPivotY = local.getY();
-            setPivotSmoothly(customPivotX, customPivotY);
-            updateUI();
-            e.consume();
-        });
-        pivotHandle.setOnMouseReleased(e -> {
-            recordTransformUndo(startMemento[0]);
-            startMemento[0] = null;
-            e.consume();
-        });
-    }
+
+
+
 
     private void recordTransformUndo(NodeMemento before) {
-        if (before == null || visualizer == null || visualizer.getHistoryManager() == null)
+        if (before == null || getVisualizer() == null || getVisualizer().getHistoryManager() == null)
             return;
 
         NodeMemento after = new NodeMemento(this);
         if (!before.isEquivalentTo(after)) {
-            visualizer.getHistoryManager().addCommand(new TransformCommand(this, before, after, activeZone));
+            getVisualizer().getHistoryManager().addCommand(new TransformCommand(this, before, after, getActiveZone()));
         }
     }
 
@@ -879,70 +591,11 @@ double proposedW = initialDim[0] + localDx;
      * Updates the pivot of all transforms without moving the node visually.
      * This prevents the "jumping" effect when entering/exiting rotation mode.
      */
-    private void setPivotSmoothly(double nx, double ny) {
-        if (nx == rotateTransform.getPivotX() && ny == rotateTransform.getPivotY())
-            return;
 
-        // Capture current visual position of local (0,0) in parent coordinates
-        Point2D oldPos = localToParent(0, 0);
 
-        // Update pivots for all active transforms
-        rotateTransform.setPivotX(nx);
-        rotateTransform.setPivotY(ny);
-        scaleTransform.setPivotX(nx);
-        scaleTransform.setPivotY(ny);
-        shearTransform.setPivotX(nx);
-        shearTransform.setPivotY(ny);
 
-        // Capture new visual position of local (0,0) after pivot change
-        Point2D newPos = localToParent(0, 0);
 
-        // Compensate translation to keep the node exactly where it was
-        setTranslateX(getTranslateX() + (oldPos.getX() - newPos.getX()));
-        setTranslateY(getTranslateY() + (oldPos.getY() - newPos.getY()));
-    }
 
-    private void place(javafx.scene.Node n, double x, double y) {
-        // UIFactory handles are 24x24 StackPanes. To center them on (x,y), we offset by
-        // 6.0
-        double offset = (n instanceof javafx.scene.layout.StackPane) ? 6.0 : 0.0;
-
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null)
-                ? visualizer.getViewportController().getFinalScale()
-                : 1.0;
-        double sx = Math.abs(scaleTransform.getX()) * viewportScale;
-        double sy = Math.abs(scaleTransform.getY()) * viewportScale;
-
-        // Anti-scale handles
-        if (n != border && sx > 0 && sy > 0) {
-            n.setScaleX(1.0 / sx);
-            n.setScaleY(1.0 / sy);
-            // Adjust offset for scale to keep them perfectly centered
-            offset = offset / sx;
-        }
-
-        n.setTranslateX(x - offset);
-        n.setTranslateY(y - offset);
-    }
-
-    private void positionNode(Node n, double x, double y) {
-        double offset = (n instanceof javafx.scene.layout.StackPane) ? 6.0 : 0.0;
-
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null)
-                ? visualizer.getViewportController().getFinalScale()
-                : 1.0;
-        double sx = Math.abs(scaleTransform.getX()) * viewportScale;
-        double sy = Math.abs(scaleTransform.getY()) * viewportScale;
-
-        if (n != border && sx > 0 && sy > 0) {
-            n.setScaleX(1.0 / sx);
-            n.setScaleY(1.0 / sy);
-            offset = offset / sx;
-        }
-
-        n.setTranslateX(x - offset);
-        n.setTranslateY(y - offset);
-    }
 
     private boolean isHandle(Object t) {
         if (!(t instanceof Node))
@@ -961,8 +614,8 @@ double proposedW = initialDim[0] + localDx;
         String old = this.textContent;
         this.textContent = t;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null && !old.equals(t)) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && !old.equals(t)) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Texto", old, t, val -> this.textContent = val, this::renderText));
         }
     }
@@ -979,8 +632,8 @@ double proposedW = initialDim[0] + localDx;
                 isItalic ? FontPosture.ITALIC : FontPosture.REGULAR,
                 f.getSize());
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null && !old.equals(this.font)) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && !old.equals(this.font)) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Fuente", old, this.font, val -> {
                         this.font = val;
                         this.renderText();
@@ -994,9 +647,9 @@ double proposedW = initialDim[0] + localDx;
         Font oldFont = this.font;
         this.isBold = bold;
         updateStyledFont();
-        if (visualizer != null && visualizer.getHistoryManager() != null && oldFont != this.font) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && oldFont != this.font) {
             Font finalOldFont = oldFont;
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Negrita", finalOldFont, this.font, val -> {
                         this.font = val;
                         this.isBold = (val.getStyle().contains("bold"));
@@ -1011,9 +664,9 @@ double proposedW = initialDim[0] + localDx;
         Font oldFont = this.font;
         this.isItalic = italic;
         updateStyledFont();
-        if (visualizer != null && visualizer.getHistoryManager() != null && oldFont != this.font) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && oldFont != this.font) {
             Font finalOldFont = oldFont;
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Cursiva", finalOldFont, this.font, val -> {
                         this.font = val;
                         this.isItalic = (val.getStyle().contains("italic"));
@@ -1049,8 +702,8 @@ double proposedW = initialDim[0] + localDx;
         Color old = this.textColor;
         this.textColor = c;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null && !old.equals(c)) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && !old.equals(c)) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Color de Texto", old, c, val -> {
                         this.textColor = val;
                         this.renderText();
@@ -1062,14 +715,23 @@ double proposedW = initialDim[0] + localDx;
         return spacing;
     }
 
+    public boolean isVerticalLayout() {
+        return verticalLayout;
+    }
+
+    public void setVerticalLayout(boolean vl) {
+        this.verticalLayout = vl;
+        renderText();
+    }
+
     public void setSpacing(double s) {
         if (this.spacing == s)
             return;
         double old = this.spacing;
         this.spacing = s;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Espaciado", old, s, val -> {
                         this.spacing = val;
                         this.renderText();
@@ -1085,8 +747,8 @@ double proposedW = initialDim[0] + localDx;
         Color old = this.strokeColor;
         this.strokeColor = c;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null && !old.equals(c)) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && !old.equals(c)) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Color de Contorno", old, c, val -> {
                         this.strokeColor = val;
                         this.renderText();
@@ -1113,8 +775,8 @@ double proposedW = initialDim[0] + localDx;
         javafx.scene.text.TextAlignment old = this.textAlignment;
         this.textAlignment = ta;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Alineación", old, ta, val -> {
                         this.textAlignment = val;
                         this.renderText();
@@ -1132,8 +794,8 @@ double proposedW = initialDim[0] + localDx;
         boolean old = this.dropShadowEnabled;
         this.dropShadowEnabled = enabled;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Sombra", old, enabled, val -> {
                         this.dropShadowEnabled = val;
                         this.renderText();
@@ -1149,8 +811,8 @@ double proposedW = initialDim[0] + localDx;
         Color old = this.dropShadowColor;
         this.dropShadowColor = c;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null && !old.equals(c)) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null && !old.equals(c)) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Color de Sombra", old, c, val -> {
                         this.dropShadowColor = val;
                         this.renderText();
@@ -1166,9 +828,9 @@ double proposedW = initialDim[0] + localDx;
         this.logicalWidth = 300.0 * (scaleFactor / 100.0);
         this.logicalHeight = 100.0 * (scaleFactor / 100.0);
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
             // Use a composite-like approach: restore both w and h together
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Cambiar Tamaño de Texto", oldW, this.logicalWidth, val -> {
                         this.logicalWidth = val;
                         this.logicalHeight = oldH * (val / oldW);
@@ -1226,8 +888,8 @@ double proposedW = initialDim[0] + localDx;
     public void setTrajectoryType(TrajectoryPath.Type t) {
         TrajectoryPath before = trajectory.copy();
         trajectory.setType(t);
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(
                     new org.example.pattern.TrajectoryCommand(this, before, trajectory));
         }
         renderText();
@@ -1249,8 +911,8 @@ double proposedW = initialDim[0] + localDx;
         this.logicalWidth = w;
         this.logicalHeight = h;
         renderText();
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
-            visualizer.getHistoryManager().addCommand(new PropertyChangeCommand<>(
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
+            getVisualizer().getHistoryManager().addCommand(new PropertyChangeCommand<>(
                     "Redimensionar Texto", oldW, w, val -> {
                         this.logicalWidth = val;
                         this.logicalHeight = oldH * (val / oldW);
@@ -1328,10 +990,10 @@ double proposedW = initialDim[0] + localDx;
                         // Update text content and push a single undo command for the full edit
                         this.textContent = newText;
                         renderText();
-                        if (visualizer != null && visualizer.getHistoryManager() != null) {
+                        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
                             final String capturedBefore = textBefore;
                             final String capturedAfter = newText;
-                            visualizer.getHistoryManager().addCommand(
+                            getVisualizer().getHistoryManager().addCommand(
                                 new org.example.pattern.PropertyChangeCommand<>(
                                     "Editar Texto",
                                     capturedBefore,
@@ -1361,77 +1023,56 @@ double proposedW = initialDim[0] + localDx;
 
     public void setTrajectoryEditMode(boolean en) {
         this.isTrajectoryEditMode = en;
-        updateUI();
+        trajectoryEditingGroup.getChildren().clear();
+        if (en) {
+            renderTrajectoryHandles();
+        }
+        trajectoryEditingGroup.setVisible(en);
+        invalidateBounds();
     }
 
     public boolean getTrajectoryEditMode() {
         return isTrajectoryEditMode;
     }
 
-    public double getInternalRotation() {
-        return rotateTransform.getAngle();
-    }
 
-    public void setInternalRotation(double r) {
-        rotateTransform.setAngle(r);
-    }
 
-    public double getInternalScaleX() {
-        return scaleTransform.getX();
-    }
 
-    public void setInternalScaleX(double s) {
-        scaleTransform.setX(s);
-    }
 
-    public double getInternalScaleY() {
-        return scaleTransform.getY();
-    }
 
-    public void setInternalScaleY(double s) {
-        scaleTransform.setY(s);
-    }
+
+
+
+
+
+
 
     public double getShearX() {
-        return shearTransform.getX();
+        return getInternalShearX();
     }
 
     public void setShearX(double x) {
-        shearTransform.setX(x);
+        setInternalShearX(x);
     }
 
     public double getShearY() {
-        return shearTransform.getY();
+        return getInternalShearY();
     }
 
     public void setShearY(double y) {
-        shearTransform.setY(y);
+        setInternalShearY(y);
     }
 
-    public double getCustomPivotX() {
-        return rotateTransform.getPivotX();
-    }
 
-    public double getCustomPivotY() {
-        return rotateTransform.getPivotY();
-    }
 
-    public void setCustomPivotX(double x) {
-        rotateTransform.setPivotX(x);
-        scaleTransform.setPivotX(x);
-        shearTransform.setPivotX(x);
-        this.customPivotX = x;
-    }
 
-    public void setCustomPivotY(double y) {
-        rotateTransform.setPivotY(y);
-        scaleTransform.setPivotY(y);
-        shearTransform.setPivotY(y);
-        this.customPivotY = y;
-    }
+
+
+
+
 
     public void addRotation(double angle) {
-        rotateTransform.setAngle(rotateTransform.getAngle() + angle);
+        setInternalRotation(getInternalRotation() + angle);
     }
 
     public Point2D getStableCenter() {
@@ -1451,6 +1092,8 @@ double proposedW = initialDim[0] + localDx;
         logicalWidth *= rx;
         logicalHeight *= ry;
         renderText();
+        invalidateBounds();
+        updateSelectionOverlay();
     }
 
     public void scale(double factor) {
@@ -1488,37 +1131,37 @@ double proposedW = initialDim[0] + localDx;
 
     public void cutToClipboard() {
         copyToClipboard();
-        if (visualizer != null)
-            visualizer.getLayerManager().removeLayer(this);
+        if (getVisualizer() != null)
+            getVisualizer().getLayerManager().removeLayer(this);
     }
 
     public void flipHorizontal() {
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            double currentRotation = rotateTransform.getAngle();
-            setInternalScaleX(scaleTransform.getX() * -1);
-            rotateTransform.setAngle(-currentRotation);
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
-                    new org.example.pattern.NodeMemento(this), activeZone));
+            double currentRotation = getInternalRotation();
+            setInternalScaleX(getInternalScaleX() * -1);
+            setInternalRotation(-currentRotation);
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
+                    new org.example.pattern.NodeMemento(this), getActiveZone()));
         } else {
-            double currentRotation = rotateTransform.getAngle();
-            setInternalScaleX(scaleTransform.getX() * -1);
-            rotateTransform.setAngle(-currentRotation);
+            double currentRotation = getInternalRotation();
+            setInternalScaleX(getInternalScaleX() * -1);
+            setInternalRotation(-currentRotation);
         }
     }
 
     public void flipVertical() {
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            double currentRotation = rotateTransform.getAngle();
-            setInternalScaleY(scaleTransform.getY() * -1);
-            rotateTransform.setAngle(normalizeAngle(180 + currentRotation));
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
-                    new org.example.pattern.NodeMemento(this), activeZone));
+            double currentRotation = getInternalRotation();
+            setInternalScaleY(getInternalScaleY() * -1);
+            setInternalRotation(normalizeAngle(180 + currentRotation));
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before,
+                    new org.example.pattern.NodeMemento(this), getActiveZone()));
         } else {
-            double currentRotation = rotateTransform.getAngle();
-            setInternalScaleY(scaleTransform.getY() * -1);
-            rotateTransform.setAngle(normalizeAngle(180 + currentRotation));
+            double currentRotation = getInternalRotation();
+            setInternalScaleY(getInternalScaleY() * -1);
+            setInternalRotation(normalizeAngle(180 + currentRotation));
         }
     }
 
@@ -1618,115 +1261,60 @@ double proposedW = initialDim[0] + localDx;
 
     public TextLayer createClone() {
         TextLayer clone = new TextLayer(textContent, font, textColor);
+        clone.updatePivotWithCompensation(getCustomPivotX(), getCustomPivotY());
         clone.setTranslateX(getTranslateX());
         clone.setTranslateY(getTranslateY());
         clone.setTrajectoryType(trajectory.getType());
         clone.setTextSize(logicalWidth, logicalHeight);
         clone.setInternalRotation(getInternalRotation());
-        clone.setCustomPivotX(getCustomPivotX());
-        clone.setCustomPivotY(getCustomPivotY());
         clone.setInternalScaleX(getInternalScaleX());
         clone.setInternalScaleY(getInternalScaleY());
         clone.setInternalShearX(getInternalShearX());
         clone.setInternalShearY(getInternalShearY());
-        clone.setActiveZone(activeZone);
+        clone.setActiveZone(getActiveZone());
         return clone;
     }
 
     // --- GraphicLayer Implementation ---
-    @Override
-    public void setSelected(boolean sel) {
-        this.isSelected = sel;
-        border.setVisible(sel);
-        handlesGroup.setVisible(sel);
-        updateUI();
-    }
 
-    @Override
-    public boolean isSelected() {
-        return isSelected;
-    }
 
-    @Override
-    public void setLocked(boolean l) {
-        setUserLocked(l);
-    }
 
-    @Override
-    public void setUserLocked(boolean l) {
-        this.isUserLocked = l;
-        updateUI();
-    }
 
-    @Override
-    public void setSystemLocked(boolean l) {
-        this.isLocked = l;
-        updateUI();
-    }
 
-    @Override
-    public boolean isLocked() {
-        return isLocked || isUserLocked;
-    }
 
-    @Override
-    public boolean isUserLocked() {
-        return isUserLocked;
-    }
 
-    @Override
-    public void setVisualizer(PrendaVisualizer v) {
-        this.visualizer = v;
-    }
 
-    @Override
-    public PrendaVisualizer getVisualizer() {
-        return visualizer;
-    }
 
-    @Override
-    public String getActiveZone() {
-        return activeZone;
-    }
 
-    @Override
-    public void setActiveZone(String z) {
-        this.activeZone = z;
-        setSystemLocked(z != null);
-    }
 
-    @Override
-    public void updateVisuals() {
-        updateUI();
-    }
+
+
+
+
+
+
+
+
+
+
+
+
 
     @Override
     public void render() {
         renderText();
     }
 
-    @Override public double getInternalShearX() { return shearTransform.getX(); }
-    @Override public void setInternalShearX(double s) { shearTransform.setX(s); }
-    @Override public double getInternalShearY() { return shearTransform.getY(); }
-    @Override public void setInternalShearY(double s) { shearTransform.setY(s); }
 
-    @Override
-    public void recordUndoState() {
-        /* Future memento integration */ }
 
-    @Override
-    public void setRotationMode(boolean active) {
-        this.isRotationMode = active;
-        updateUI();
-    }
 
-    @Override
-    public boolean isRotationMode() {
-        return isRotationMode;
-    }
 
-    @Override
-    public Node getNode() {
-        return this;
-    }
+
+
+
+
+
+
+
+
 }

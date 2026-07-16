@@ -366,22 +366,22 @@ public class FichaTecnicaManager {
 
                         if (firstManArq != null) {
                             qState.setGenero(org.example.model.TipoGenero.HOMBRE);
-                            // Respect roster sleeve type for this specific gender's sketch
-                            if ("LARGA".equalsIgnoreCase(firstManArq.getTipoMangaArquero())) {
-                                qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
-                            } else {
-                                qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
-                            }
+                            // Respetamos el largo de manga del diseño del arquero
+                            // if ("LARGA".equalsIgnoreCase(firstManArq.getTipoMangaArquero())) {
+                            //     qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
+                            // } else {
+                            //     qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
+                            // }
                             arqSketchHombre = controller.prendaVisualizer.takeSafeSnapshot(true, 1.0);
                         }
                         if (firstWomanArq != null) {
                             qState.setGenero(org.example.model.TipoGenero.MUJER);
-                            // Respect roster sleeve type for this specific gender's sketch
-                            if ("LARGA".equalsIgnoreCase(firstWomanArq.getTipoMangaArquero())) {
-                                qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
-                            } else {
-                                qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
-                            }
+                            // Respetamos el largo de manga del diseño del arquero
+                            // if ("LARGA".equalsIgnoreCase(firstWomanArq.getTipoMangaArquero())) {
+                            //     qState.setLargo(org.example.model.TipoLargo.MANGA_LARGA);
+                            // } else {
+                            //     qState.setLargo(org.example.model.TipoLargo.MANGA_CORTA);
+                            // }
                             arqSketchMujer = controller.prendaVisualizer.takeSafeSnapshot(true, 1.0);
                         }
                     }

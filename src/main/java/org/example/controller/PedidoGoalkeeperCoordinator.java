@@ -437,7 +437,8 @@ final class PedidoGoalkeeperCoordinator {
                 config.setCurrentGenero(TipoGenero.valueOf(player.getGenero().toUpperCase()));
             } catch (Exception ignored) {}
         }
-        config.setCurrentLargo(resolveSleeveLength(player));
+        // NO sobreescribir el largo de manga del arquero con el de la tabla. Respetamos su diseño.
+        // config.setCurrentLargo(resolveSleeveLength(player));
 
         if (player.getColorArquero() != null) {
             applyReferenceColorToConfig(config, colorToHex(player.getColorArquero()), player.isIncludeBottom(), player.isIncludeSocks());
@@ -459,6 +460,70 @@ final class PedidoGoalkeeperCoordinator {
                 }
             });
         }
+    }
+
+    /**
+     * Reinicia el diseño del arquero y lo vuelve a sincronizar desde el diseño de campo.
+     * Útil para forzar la actualización del boceto en la ficha técnica.
+     */
+    void resetAndSyncFromPlayer(DetallePedido player) {
+        if (player == null || !player.isEsArquero()) return;
+
+        String designId = player.getArqueroDesignId();
+        if (designId == null) return;
+
+        GoalkeeperDesignDTO design = controller.disenosArquero.get(designId);
+        if (design != null && design.getGarmentConfig() != null && controller.disenoCampoConfig != null) {
+            // Solo refrescar colores desde el diseño de campo, sin reemplazar
+            // el diseño completo del arquero (preserva acolchado, cortes, etc.)
+            if (controller.disenoCampoConfig.getColors() != null) {
+                if (design.getGarmentConfig().getColors() == null) {
+                    design.getGarmentConfig().setColors(new java.util.HashMap<>());
+                }
+                design.getGarmentConfig().getColors().putAll(controller.disenoCampoConfig.getColors());
+            }
+            // Refrescar color de referencia desde la tabla
+            if (player.getColorArquero() != null) {
+                applyReferenceColorToConfig(
+                    design.getGarmentConfig(),
+                    colorToHex(player.getColorArquero()),
+                    player.isIncludeBottom(),
+                    player.isIncludeSocks()
+                );
+            }
+        } else {
+            // Si no existe diseño, crearlo desde cero
+            syncDesignFromPlayer(player);
+        }
+        
+        controller.fichaDirty = true;
+        controller.markProjectDirty();
+        
+        // Si estamos en la pestaña de Ficha Técnica, regenerar inmediatamente
+        if (controller.mainTabPane != null 
+                && controller.mainTabPane.getSelectionModel().getSelectedItem() == controller.getFichaTecnicaManager().tabFicha) {
+            controller.getFichaTecnicaManager().generarFichaTecnica();
+        }
+        
+        if (controller.editandoDisenoArquero && designId.equals(controller.arqueroActivoDesignId) && controller.prendaVisualizer != null) {
+            Platform.runLater(() -> {
+                boolean prevSwitching = controller.switchingDesignMode;
+                controller.switchingDesignMode = true;
+                try {
+                    GoalkeeperDesignDTO updatedDesign = controller.disenosArquero.get(designId);
+                    if (updatedDesign != null && updatedDesign.getGarmentConfig() != null) {
+                        controller.restaurarDisenoSilencioso(true, updatedDesign.getGarmentConfig(), updatedDesign.getLayers());
+                        if (controller.prendaDelegate != null) {
+                            controller.prendaDelegate.restoreFromState(updatedDesign.getGarmentConfig());
+                        }
+                    }
+                } finally {
+                    controller.switchingDesignMode = prevSwitching;
+                }
+            });
+        }
+        
+        System.out.println("[GoalkeeperDesign] Colors refreshed from player for designId: " + designId);
     }
 
     /**

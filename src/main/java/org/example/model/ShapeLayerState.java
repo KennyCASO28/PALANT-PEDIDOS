@@ -12,8 +12,8 @@ import java.util.List;
 public class ShapeLayerState {
     // Basic Geometry
     public ShapeType type = ShapeType.RECTANGLE;
-    public double width = 100;
-    public double height = 100;
+    public double width = 170;
+    public double height = 170;
     public double visualMinX = 0;
     public double visualMinY = 0;
     public double arcWidth = 0;

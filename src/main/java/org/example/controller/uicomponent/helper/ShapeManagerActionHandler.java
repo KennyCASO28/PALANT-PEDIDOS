@@ -67,6 +67,39 @@ public class ShapeManagerActionHandler {
         }
     }
 
+    public <T> void recordNodePropertyChange(String name, Function<Node, T> getter,
+                                             BiConsumer<Node, T> setter, T newValue) {
+        if (visualizer.getLayerManager() == null) return;
+        Set<Node> selection = visualizer.getLayerManager().getSelectedNodes();
+        if (selection.isEmpty()) {
+            ShapeLayer active = controller.getActiveShapeLayer();
+            if (active != null) {
+                T oldValue = getter.apply(active);
+                if (!Objects.equals(oldValue, newValue)) {
+                    PropertyChangeCommand<T> cmd = new PropertyChangeCommand<>(name, oldValue, newValue, val -> setter.accept(active, val));
+                    visualizer.getHistoryManager().addCommand(cmd);
+                    setter.accept(active, newValue);
+                }
+            }
+            return;
+        }
+
+        CompositeCommand composite = new CompositeCommand(name);
+        for (Node node : selection) {
+            T oldValue = getter.apply(node);
+            if (!Objects.equals(oldValue, newValue)) {
+                composite.addCommand(new PropertyChangeCommand<>(name, oldValue, newValue, val -> setter.accept(node, val)));
+            }
+        }
+        
+        if (!composite.isEmpty()) {
+            visualizer.getHistoryManager().addCommand(composite);
+            for (Node node : selection) {
+                setter.accept(node, newValue);
+            }
+        }
+    }
+
     private <T> void collectPropertyCommandsRecursive(Node node, String name,
                                                        Function<ShapeLayer, T> getter, BiConsumer<ShapeLayer, T> setter,
                                                        T newValue, CompositeCommand composite) {

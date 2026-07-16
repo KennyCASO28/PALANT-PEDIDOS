@@ -85,9 +85,9 @@ public class ShapeCreationService {
         cancelShapeCreation();
 
         ShapeLayer layer = new ShapeLayer(type, fill, stroke, strokeWidth);
-        layer.setSize(100, 100);
-        layer.setTranslateX(200);
-        layer.setTranslateY(200);
+        layer.setSize(123, 123);
+        layer.setTranslateX(250);
+        layer.setTranslateY(250);
 
         visualizer.getLayerFactory().addShapeLayer(layer);
 
@@ -163,7 +163,6 @@ public class ShapeCreationService {
                         creationPreviewPath.setStrokeWidth(1.2);
                         creationPreviewPath.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
                         creationPreviewPath.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
-                        creationPreviewPath.getStrokeDashArray().addAll(6d, 4d);
 
                         handleGroup = new Group();
                         visualizer.getContentGroup().getChildren().addAll(creationPreviewPath, handleGroup);

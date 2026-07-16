@@ -32,7 +32,6 @@ public class MarqueeSelectionHandler {
         marqueeRect.setFill(Color.web("#3498db", 0.15));
         marqueeRect.setStroke(Color.web("#2980b9"));
         marqueeRect.setStrokeWidth(1.0);
-        marqueeRect.getStrokeDashArray().addAll(5.0, 5.0);
         marqueeRect.setStrokeType(StrokeType.INSIDE);
         marqueeRect.setVisible(false);
         marqueeRect.setMouseTransparent(true);
@@ -58,6 +57,12 @@ public class MarqueeSelectionHandler {
         // Check if the target is the background pane (designAreaStack or guideLayer)
         Node target = (Node) event.getTarget();
         if (target != visualizer.getUiOrchestrator().getDesignAreaStack() && target != visualizer.getGuideLayer()) {
+            return;
+        }
+
+        // Do not trigger marquee selection if the user is currently drawing or editing a shape
+        if (visualizer.getShapeHelper() != null && 
+           (visualizer.getShapeHelper().isCreatingShape() || visualizer.getShapeHelper().isNodeEditing())) {
             return;
         }
 

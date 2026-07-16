@@ -54,6 +54,16 @@ public class ViewportController {
     private double lastX, lastY;
     private boolean panningEnabled = true;
 
+    // Zoom follows cursor mode
+    private boolean zoomFollowsCursor = true;
+    private double zoomAnchorSceneX = -1;
+    private double zoomAnchorSceneY = -1;
+    private double zoomBeforeScale = 1.0;
+    private double layoutOffsetX_old = 0;
+    private double layoutOffsetY_old = 0;
+    private double translateX_old = 0;
+    private double translateY_old = 0;
+
     public void setPanningEnabled(boolean enabled) {
         this.panningEnabled = enabled;
         if (!enabled) {
@@ -70,6 +80,14 @@ public class ViewportController {
 
     public boolean isPanningEnabled() {
         return panningEnabled;
+    }
+
+    public void setZoomFollowsCursor(boolean follows) {
+        this.zoomFollowsCursor = follows;
+    }
+
+    public boolean isZoomFollowsCursor() {
+        return zoomFollowsCursor;
     }
 
     public double getFinalScale() {
@@ -168,6 +186,20 @@ public class ViewportController {
 
                 double delta = event.getDeltaY();
                 double scaleChange = (delta > 0) ? 1.1 : 0.9;
+
+                // Cursor-aware zoom: solo si la pantalla está desbloqueada (panningEnabled)
+                if (panningEnabled) {
+                    zoomAnchorSceneX = event.getSceneX();
+                    zoomAnchorSceneY = event.getSceneY();
+                    zoomBeforeScale = finalScale;
+                    layoutOffsetX_old = layoutOffsetX;
+                    layoutOffsetY_old = layoutOffsetY;
+                    translateX_old = translateX;
+                    translateY_old = translateY;
+                } else {
+                    zoomAnchorSceneX = -1;
+                    zoomAnchorSceneY = -1;
+                }
 
                 zoomFactor = zoomFactor * scaleChange;
 
@@ -414,7 +446,24 @@ public class ViewportController {
             double layoutOffsetX = viewportCenterX - (pivotX + (contentCenterX - pivotX) * finalScale);
             double layoutOffsetY = viewportCenterY - (pivotY + (contentCenterY - pivotY) * finalScale);
 
-            // --- 5. Apply Transforms ---
+            // --- 5. Ajuste por zoom hacia el cursor ---
+            if (panningEnabled && zoomAnchorSceneX >= 0 && zoomBeforeScale > 0) {
+                // Punto del contenido que estaba bajo el ratón ANTES del zoom
+                double oldEffectiveX = zoomAnchorSceneX;
+                double oldEffectiveY = zoomAnchorSceneY;
+                // Convertir a coordenadas de contenido antes del zoom
+                double contentX = (oldEffectiveX - layoutOffsetX_old - translateX_old) / zoomBeforeScale;
+                double contentY = (oldEffectiveY - layoutOffsetY_old - translateY_old) / zoomBeforeScale;
+                // Dónde debería estar ese punto después del zoom
+                double expectedScreenX = contentX * finalScale + layoutOffsetX + translateX;
+                double expectedScreenY = contentY * finalScale + layoutOffsetY + translateY;
+                // Ajustar translate para que coincida
+                translateX += (oldEffectiveX - expectedScreenX);
+                translateY += (oldEffectiveY - expectedScreenY);
+                zoomAnchorSceneX = -1;
+            }
+
+            // --- 6. Apply Transforms ---
             contentGroup.setScaleX(finalScale);
             contentGroup.setScaleY(finalScale);
 

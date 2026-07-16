@@ -62,6 +62,20 @@ public class KeyboardShortcutManager {
                 saveAsAction
             );
         }
+
+        // Ctrl + R: Repeat Last Action
+        scene.getAccelerators().put(
+            KeyCombination.valueOf("Shortcut+R"),
+            () -> {
+                if (visualizer != null && visualizer.getLayerManager() != null) {
+                    for (javafx.scene.Node node : visualizer.getLayerManager().getSelectedNodes()) {
+                        if (node instanceof org.example.component.GraphicLayer) {
+                            org.example.pattern.RepeatActionRecorder.repeatAction((org.example.component.GraphicLayer) node);
+                        }
+                    }
+                }
+            }
+        );
     }
 
     /**

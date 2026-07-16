@@ -19,6 +19,7 @@ import org.example.model.ImageLayerState;
 import org.example.model.TipoEscudo;
 import org.example.pattern.ICommand;
 import org.example.pattern.PropertyChangeCommand;
+import org.example.pattern.RepeatActionRecorder;
 import org.example.utils.GeometryUtility;
 
 import java.util.List;
@@ -30,10 +31,25 @@ import java.util.function.Supplier;
  * Coordinated Image Layer.
  * Modularized version that delegates logic to Specialized Handlers.
  */
-public class ImageLayer extends Group implements GraphicLayer {
+public class ImageLayer extends AbstractGraphicLayer {
+
+    @Override
+    public javafx.geometry.Bounds calculateBounds() {
+        return new javafx.geometry.BoundingBox(0, 0, getLogicalWidth(), getLogicalHeight());
+    }
+
+    @Override
+    protected javafx.scene.Node createSilhouetteNode() {
+        return new javafx.scene.shape.Rectangle(0, 0, getLogicalWidth(), getLogicalHeight());
+    }
+
+    @Override
+    public void multiplyShear(double sx, double sy) {
+        setInternalShearX(getInternalShearX() + sx);
+        setInternalShearY(getInternalShearY() + sy);
+    }
 
     private final ImageLayerState state;
-    private final ImageInteractionHandler interactionHandler;
     private final ImageEffectOrchestrator effectOrchestrator;
     private final ImageEditingService editingService;
 
@@ -41,19 +57,14 @@ public class ImageLayer extends Group implements GraphicLayer {
     private final GraphicsContext gc = canvas.getGraphicsContext2D();
 
     // Transforms
-    private final Rotate rotateTransform = new Rotate();
-    private final Scale scaleTransform = new Scale();
     private final Scale inverseScaleTransform = new Scale();
-    private final Shear shearTransform = new Shear();
     private final Scale canvasScaleTransform = new Scale();
 
-    private PrendaVisualizer visualizer;
-
+    
     // Undo State Helper
     private double undoStartX, undoStartY, undoStartScaleX, undoStartScaleY, undoStartRotate;
     private boolean isBeingEditedField = false;
-    private boolean isSelected = false;
-
+    
     // Callbacks
     private Consumer<Boolean> onSelectionChanged;
     private Consumer<String> powerClipHandler;
@@ -71,11 +82,9 @@ public class ImageLayer extends Group implements GraphicLayer {
 
         this.editingService = new ImageEditingService(this, canvas);
         this.effectOrchestrator = new ImageEffectOrchestrator(this, state);
-        this.interactionHandler = new ImageInteractionHandler(this, state);
 
         setupCanvas(image);
         setupUI();
-        interactionHandler.init();
         
         applyLockStyle();
     }
@@ -95,261 +104,74 @@ public class ImageLayer extends Group implements GraphicLayer {
         canvas.getTransforms().add(canvasScaleTransform);
         canvas.setEffect(effectOrchestrator.getEffect());
         canvas.setPickOnBounds(true);
-        this.getChildren().add(canvas);
         updateCanvasScale();
     }
 
     private void setupUI() {
         this.setDepthTest(javafx.scene.DepthTest.DISABLE);
         this.setCache(false);
-        this.getTransforms().addAll(rotateTransform, scaleTransform, shearTransform);
+        this.setPickOnBounds(true);
         
-        ImageInteractionHandler.OverlayNodes n = interactionHandler.getOverlay();
-        this.getChildren().add(n.border);
-        this.getChildren().add(n.handlesGroup);
-        
-        // Register inverse scale to all handles
-        registerInverseScale(n);
+        // Add canvas to contentGroup so it inherits transforms correctly from AbstractGraphicLayer
+        contentGroup.getChildren().add(canvas);
         
         updateVisuals();
-    }
-
-    private void registerInverseScale(ImageInteractionHandler.OverlayNodes n) {
-        n.topLeft.getTransforms().add(inverseScaleTransform);
-        n.topRight.getTransforms().add(inverseScaleTransform);
-        n.bottomLeft.getTransforms().add(inverseScaleTransform);
-        n.bottomRight.getTransforms().add(inverseScaleTransform);
-        n.top.getTransforms().add(inverseScaleTransform);
-        n.bottom.getTransforms().add(inverseScaleTransform);
-        n.left.getTransforms().add(inverseScaleTransform);
-        n.right.getTransforms().add(inverseScaleTransform);
-        n.rotTopLeft.getTransforms().add(inverseScaleTransform);
-        n.rotTopRight.getTransforms().add(inverseScaleTransform);
-        n.rotBottomLeft.getTransforms().add(inverseScaleTransform);
-        n.rotBottomRight.getTransforms().add(inverseScaleTransform);
-        n.shearTop.getTransforms().add(inverseScaleTransform);
-        n.shearBottom.getTransforms().add(inverseScaleTransform);
-        n.shearLeft.getTransforms().add(inverseScaleTransform);
-        n.shearRight.getTransforms().add(inverseScaleTransform);
-        n.pivotHandle.getTransforms().add(inverseScaleTransform);
     }
 
     // --- GraphicLayer Implementation ---
 
-    @Override
-    public void setSelected(boolean s) {
-        this.isSelected = s;
-        if (!s) setCropMode(false);
-        
-        interactionHandler.getOverlay().border.setVisible(s);
-        interactionHandler.getOverlay().handlesGroup.setVisible(s); // Mostrar handles aunque esté bloqueado
 
-        if (s) {
-            this.getChildren().remove(interactionHandler.getOverlay().handlesGroup);
-            this.getChildren().add(interactionHandler.getOverlay().handlesGroup);
-        }
 
-        if (onSelectionChanged != null) onSelectionChanged.accept(s);
-        applyLockStyle();
-        updateVisuals();
-    }
 
-    @Override
-    public boolean isSelected() { return isSelected; }
 
-    @Override
-    public void setLocked(boolean l) { setUserLocked(l); }
 
-    @Override
-    public void setRotationMode(boolean b) {
-        state.isRotationMode = b;
-        updateVisuals();
-    }
+
+
 
     public void toggleRotationMode() {
         if (state.isCropMode) return; // Prevent rotation while cropping
         setRotationMode(!state.isRotationMode);
     }
 
-    @Override
-    public void setUserLocked(boolean l) { 
-        state.isUserLocked = l;
-        applyLockStyle();
-    }
 
-    @Override
-    public void setSystemLocked(boolean l) {
-        state.isLocked = l;
-        applyLockStyle();
-    }
+
+
 
     private void applyLockStyle() {
         boolean locked = isLocked();
-        interactionHandler.getOverlay().handlesGroup.setVisible(isSelected() && !locked);
         canvas.setCursor(locked ? Cursor.DEFAULT : Cursor.MOVE);
     }
 
-    @Override
-    public boolean isLocked() { return state.isLocked || state.isUserLocked; }
+
+
+
 
     @Override
-    public boolean isRotationMode() { return state.isRotationMode; }
-
-    @Override
-    public boolean isUserLocked() { return state.isUserLocked; }
-
-    @Override
-    public void setVisualizer(PrendaVisualizer v) { this.visualizer = v; }
-
-    @Override
-    public PrendaVisualizer getVisualizer() { return visualizer; }
-
-    @Override
-    public String getActiveZone() { return state.activeZone; }
-
-    @Override
-    public void setActiveZone(String z) {
-        state.activeZone = z;
-        setSystemLocked(z != null);
+    public void setGrouped(boolean grouped) {
+        state.isGrouped = grouped;
+        if (grouped) {
+            setSelected(false);
+        }
     }
 
     @Override
-    public void updateVisuals() {
-        double vw = state.width;
-        double vh = state.height;
-
-        double hx = state.isCropMode ? state.cropX : 0;
-        double hy = state.isCropMode ? state.cropY : 0;
-        double hw = state.isCropMode ? state.cropW : vw;
-        double hh = state.isCropMode ? state.cropH : vh;
-
-        interactionHandler.getOverlay().border.setX(hx);
-        interactionHandler.getOverlay().border.setY(hy);
-        interactionHandler.getOverlay().border.setWidth(hw);
-        interactionHandler.getOverlay().border.setHeight(hh);
-        interactionHandler.getOverlay().border.setVisible(isSelected() || state.isCropMode);
-        
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
-        interactionHandler.getOverlay().border.setStrokeWidth(1.0 / viewportScale);
-
-        // Position handles
-        ImageInteractionHandler.OverlayNodes n = interactionHandler.getOverlay();
-        
-        // DISABLE HANDLES INTERFERENCE DURING DRAWING (Avoid "Magnet" effect)
-        DrawingToolContext ctx = visualizer != null ? visualizer.getDrawingToolContext() : null;
-        boolean drawingToolActive = ctx != null && (ctx.isBrushActive() || ctx.isEraserActive());
-        n.handlesGroup.setMouseTransparent(drawingToolActive);
-        n.handlesGroup.setOpacity(drawingToolActive ? 0.3 : 1.0); // Visual feedback
-        
-        boolean small = hw < 20 || hh < 20;
-        boolean ultraSmall = hw < 10 || hh < 10;
-        boolean selected = isSelected();
-
-        // 1. Logic for corners
-        n.topLeft.setVisible(!ultraSmall && selected);
-        n.topRight.setVisible(!ultraSmall && selected);
-        n.bottomLeft.setVisible(!ultraSmall && selected);
-        n.bottomRight.setVisible(selected); // Always keep at least one for resizing
-
-        positionHandle(n.topLeft, hx, hy);
-        positionHandle(n.topRight, hx + hw, hy);
-        positionHandle(n.bottomLeft, hx, hy + hh);
-        positionHandle(n.bottomRight, hx + hw, hy + hh);
-
-        // 2. Logic for Mid-handles (already implemented, now with UltraSmall check)
-        n.top.setVisible(!small && !ultraSmall && selected);
-        n.right.setVisible(!small && !ultraSmall && selected);
-        n.bottom.setVisible(!small && !ultraSmall && selected);
-        n.left.setVisible(!small && !ultraSmall && selected);
-        
-        positionHandle(n.top, hx + hw / 2, hy);
-        positionHandle(n.right, hx + hw, hy + hh / 2);
-        positionHandle(n.bottom, hx + hw / 2, hy + hh);
-        positionHandle(n.left, hx, hy + hh / 2);
-
-        boolean showRotate = state.isRotationMode;
-        // In UltraSmall, common rotation handles can also be annoying, but keep them if user forced mode
-        n.rotTopLeft.setVisible(showRotate && !ultraSmall);
-        n.rotTopRight.setVisible(showRotate && !ultraSmall);
-        n.rotBottomLeft.setVisible(showRotate && !ultraSmall);
-        n.rotBottomRight.setVisible(showRotate); // Keep one
-        positionHandle(n.rotTopLeft, hx, hy);
-        positionHandle(n.rotTopRight, hx + hw, hy);
-        positionHandle(n.rotBottomLeft, hx, hy + hh);
-        positionHandle(n.rotBottomRight, hx + hw, hy + hh);
-
-        n.shearTop.setVisible(showRotate);
-        n.shearBottom.setVisible(showRotate);
-        n.shearLeft.setVisible(showRotate);
-        n.shearRight.setVisible(showRotate);
-        positionHandle(n.shearTop, hx + hw / 2, hy);
-        positionHandle(n.shearBottom, hx + hw / 2, hy + hh);
-        positionHandle(n.shearLeft, hx, hy + hh / 2);
-        positionHandle(n.shearRight, hx + hw, hy + hh / 2);
-
-        if (showRotate) {
-            n.pivotHandle.setVisible(true);
-            double pivotX = (state.pivotX == -1) ? vw / 2 : state.pivotX;
-            double pivotY = (state.pivotY == -1) ? vh / 2 : state.pivotY;
-            n.pivotHandle.setLayoutX(pivotX - 5);
-            n.pivotHandle.setLayoutY(pivotY - 5);
-
-            rotateTransform.setPivotX(pivotX);
-            rotateTransform.setPivotY(pivotY);
-            scaleTransform.setPivotX(pivotX);
-            scaleTransform.setPivotY(pivotY);
-            shearTransform.setPivotX(pivotX);
-            shearTransform.setPivotY(pivotY);
-        } else {
-            n.pivotHandle.setVisible(false);
-            rotateTransform.setPivotX(vw / 2);
-            rotateTransform.setPivotY(vh / 2);
-            scaleTransform.setPivotX(vw / 2);
-            scaleTransform.setPivotY(vh / 2);
-            shearTransform.setPivotX(vw / 2);
-        }
-        if (state.isCropMode) {
-            n.cropOverlay.setX(state.cropX);
-            n.cropOverlay.setY(state.cropY);
-            n.cropOverlay.setWidth(state.cropW);
-            n.cropOverlay.setHeight(state.cropH);
-            n.cropOverlay.setVisible(true);
-        } else {
-            n.cropOverlay.setVisible(false);
-        }
-
-        // UPDATE INVERSE SCALE FOR HANDLES (Scale Neutrality)
-        // viewportScale already computed above
-        viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
-        double sx = Math.abs(scaleTransform.getX()) * viewportScale;
-        double sy = Math.abs(scaleTransform.getY()) * viewportScale;
-        if (sx > 0 && sy > 0) {
-            inverseScaleTransform.setX(1.0 / sx);
-            inverseScaleTransform.setY(1.0 / sy);
-        }
-        
-        applyAntiShearToAll();
+    public boolean isGrouped() {
+        return state.isGrouped;
     }
+
+
+
+
+
+
+
+
+
+
+
+
 
     private void applyAntiShearToAll() {
-        ImageInteractionHandler.OverlayNodes n = interactionHandler.getOverlay();
-        GeometryUtility.applyAntiShear(n.topLeft, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.topRight, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.bottomLeft, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.bottomRight, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.top, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.bottom, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.left, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.right, shearTransform, 2, 2);
-        GeometryUtility.applyAntiShear(n.rotTopLeft, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.rotTopRight, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.rotBottomLeft, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.rotBottomRight, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.shearTop, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.shearBottom, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.shearLeft, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.shearRight, shearTransform, 5, 5);
-        GeometryUtility.applyAntiShear(n.pivotHandle, shearTransform, 5, 5);
     }
 
     private void positionHandle(Node n, double x, double y) {
@@ -360,9 +182,9 @@ public class ImageLayer extends Group implements GraphicLayer {
         // Wait, NO. Layout is in parent units. 
         // If we want to move it 4 screen pixels to the left:
         // OffsetInParent = 4 / parentScale.
-        double viewportScale = (visualizer != null && visualizer.getViewportController() != null) ? visualizer.getViewportController().getFinalScale() : 1.0;
-        double sx = Math.abs(scaleTransform.getX()) * viewportScale;
-        double sy = Math.abs(scaleTransform.getY()) * viewportScale;
+        double viewportScale = (getVisualizer() != null && getVisualizer().getViewportController() != null) ? getVisualizer().getViewportController().getFinalScale() : 1.0;
+        double sx = Math.abs(getInternalScaleX()) * viewportScale;
+        double sy = Math.abs(getInternalScaleY()) * viewportScale;
         double offsetX = (sx > 0) ? (6.0 / sx) : 6.0;
         double offsetY = (sy > 0) ? (6.0 / sy) : 6.0;
         
@@ -370,41 +192,21 @@ public class ImageLayer extends Group implements GraphicLayer {
         n.setLayoutY(y - offsetY);
     }
 
-    @Override
-    public void render() { updateVisuals(); }
 
-    @Override
-    public Node getNode() { return this; }
 
-    @Override
-    public void recordUndoState() {
-        undoStartX = getTranslateX();
-        undoStartY = getTranslateY();
-        undoStartScaleX = getScaleX();
-        undoStartScaleY = getScaleY();
-        undoStartRotate = getRotate();
-    }
+
+
+
     
     public void recordUndoStateContent(String actionName) {
         editingService.prepareUndoState(actionName);
     }
 
-    @Override
-    public double getInternalRotation() { return rotateTransform.getAngle(); }
-    @Override
-    public void setInternalRotation(double angle) { rotateTransform.setAngle(angle); updateVisuals(); }
-    @Override
-    public void setInternalScaleX(double s) { 
-        scaleTransform.setX(s); 
-        updateVisuals(); 
-    }
-    @Override
-    public double getInternalScaleY() { return scaleTransform.getY(); }
-    @Override
-    public void setInternalScaleY(double s) { 
-        scaleTransform.setY(s); 
-        updateVisuals(); 
-    }
+
+
+
+
+
 
     // --- Image API ---
 
@@ -479,18 +281,54 @@ public class ImageLayer extends Group implements GraphicLayer {
 
     public void setModified(boolean b) { state.isModified = b; }
     public void setSnapshotDirty(boolean b) { state.snapshotDirty = b; }
-    public void setCustomPivot(double x, double y) { state.pivotX = x; state.pivotY = y; }
+    public void setCustomPivot(double x, double y) { 
+        state.pivotX = x; 
+        state.pivotY = y; 
+        if (x == -1 && y == -1) {
+            setCustomPivotX(0);
+            setCustomPivotY(0);
+        } else {
+            setCustomPivotX(x - getWidth() / 2.0);
+            setCustomPivotY(y - getHeight() / 2.0);
+        }
+    }
     public Rotate getRotateTransform() { return rotateTransform; }
     public Shear getShearTransform() { return shearTransform; }
     
+    @Override
+    public double getInternalRotation() { return rotateTransform.getAngle(); }
+    @Override
+    public void setInternalRotation(double angle) {
+        rotateTransform.setAngle(angle);
+        super.setInternalRotation(angle);
+    }
+    @Override
+    public void setInternalScaleX(double s) { 
+        scaleTransform.setX(s); 
+        updateVisuals(); 
+    }
+    @Override
+    public double getInternalScaleY() { return scaleTransform.getY(); }
+    @Override
+    public void setInternalScaleY(double s) { 
+        scaleTransform.setY(s); 
+        updateVisuals(); 
+    }
+    
     @Override public double getInternalShearX() { return shearTransform.getX(); }
-    @Override public void setInternalShearX(double s) { shearTransform.setX(s); }
+    @Override public void setInternalShearX(double s) {
+        shearTransform.setX(s);
+        super.setInternalShearX(s);
+    }
     @Override public double getInternalShearY() { return shearTransform.getY(); }
-    @Override public void setInternalShearY(double s) { shearTransform.setY(s); }
-    @Override public double getCustomPivotX() { return state.pivotX; }
-    @Override public void setCustomPivotX(double x) { state.pivotX = x; }
-    @Override public double getCustomPivotY() { return state.pivotY; }
-    @Override public void setCustomPivotY(double y) { state.pivotY = y; }
+    @Override public void setInternalShearY(double s) {
+        shearTransform.setY(s);
+        super.setInternalShearY(s);
+    }
+
+
+
+
     public Canvas getCanvas() { return canvas; }
     public ImageEditingService editingService() { return editingService; }
     public boolean isProcessing() { return editingService.isProcessing(); }
@@ -501,7 +339,6 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void setCropMode(boolean b) {
         state.isCropMode = b;
         if (b) setRotationMode(false); // Exclusivity
-        interactionHandler.getOverlay().cropOverlay.setVisible(b);
         if (b) {
             state.cropX = 0; state.cropY = 0;
             state.cropW = state.width; state.cropH = state.height;
@@ -535,9 +372,9 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void resetTransforms() {
         setTranslateX(250); setTranslateY(250); // Default reset pos
         setRotate(0); setScaleX(1); setScaleY(1);
-        rotateTransform.setAngle(0);
-        scaleTransform.setX(1); scaleTransform.setY(1);
-        shearTransform.setX(0); shearTransform.setY(0);
+        setInternalRotation(0);
+        setInternalScaleX(1); setInternalScaleY(1);
+        setInternalShearX(0); setInternalShearY(0);
         updateVisuals();
     }
 
@@ -569,50 +406,44 @@ public class ImageLayer extends Group implements GraphicLayer {
     public void applyAdjustmentsToPixels() { effectOrchestrator.applyAdjustmentsToPixels(); }
 
     public void flipHorizontal() {
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            double currentRotation = getInternalRotation();
-            setInternalScaleX(scaleTransform.getX() * -1);
-            setInternalRotation(-currentRotation);
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
+            setInternalScaleX(getInternalScaleX() * -1);
+            org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, state.activeZone));
+            org.example.pattern.RepeatActionRecorder.recordTransform(before, after, false);
         } else {
-            double currentRotation = getInternalRotation();
-            setInternalScaleX(scaleTransform.getX() * -1);
-            setInternalRotation(-currentRotation);
+            setInternalScaleX(getInternalScaleX() * -1);
         }
     }
 
     public void flipVertical() {
-        if (visualizer != null && visualizer.getHistoryManager() != null) {
+        if (getVisualizer() != null && getVisualizer().getHistoryManager() != null) {
             org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
-            double currentRotation = getInternalRotation();
-            setInternalScaleY(scaleTransform.getY() * -1);
-            setInternalRotation(normalizeAngle(180 + currentRotation));
-            visualizer.getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, new org.example.pattern.NodeMemento(this), state.activeZone));
+            setInternalScaleY(getInternalScaleY() * -1);
+            org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
+            getVisualizer().getHistoryManager().addCommand(new org.example.pattern.TransformCommand(this, before, after, state.activeZone));
+            org.example.pattern.RepeatActionRecorder.recordTransform(before, after, false);
         } else {
-            double currentRotation = getInternalRotation();
-            setInternalScaleY(scaleTransform.getY() * -1);
-            setInternalRotation(normalizeAngle(180 + currentRotation));
+            setInternalScaleY(getInternalScaleY() * -1);
         }
     }
 
-    private double normalizeAngle(double angle) {
-        while (angle > 180) angle -= 360;
-        while (angle <= -180) angle += 360;
-        return angle;
-    }
-
     public void multiplyScale(double sx, double sy) {
-        scaleTransform.setX(scaleTransform.getX() * sx);
-        scaleTransform.setY(scaleTransform.getY() * sy);
+        double currentVisW = state.width * Math.abs(getInternalScaleX());
+        double currentVisH = state.height * Math.abs(getInternalScaleY());
+        state.width = currentVisW * Math.abs(sx);
+        state.height = currentVisH * Math.abs(sy);
+        setInternalScaleX(Math.signum(getInternalScaleX() * sx));
+        setInternalScaleY(Math.signum(getInternalScaleY() * sy));
+        updateCanvasScale();
         updateVisuals();
     }
 
-    @Override
-    public double getInternalScaleX() { return scaleTransform.getX(); }
+
 
     public void addRotation(double angle) {
-        rotateTransform.setAngle(rotateTransform.getAngle() + angle);
+        setInternalRotation(getInternalRotation() + angle);
         updateVisuals();
     }
 
@@ -640,12 +471,11 @@ public class ImageLayer extends Group implements GraphicLayer {
 
     public boolean isPartOfLayer(Node node) {
         if (node == this || node == canvas) return true;
-        Group handles = interactionHandler.getOverlay().handlesGroup;
         
         // Búsqueda recursiva: el clic puede ser en un hijo del manejador (ej: hitArea)
         Node temp = node;
         while (temp != null) {
-            if (temp == handles) return true;
+            if (temp == this) return true;
             temp = temp.getParent();
         }
         return false;

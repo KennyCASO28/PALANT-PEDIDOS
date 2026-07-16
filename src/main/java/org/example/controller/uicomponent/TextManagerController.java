@@ -10,9 +10,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import org.example.component.TextLayer;
-import org.example.model.TrajectoryPath;
 import org.example.utils.UIFactory;
-import org.example.pattern.PropertyChangeCommand;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.BiConsumer;
@@ -28,8 +26,6 @@ public class TextManagerController {
     private TextField textField;
     private ComboBox<String> fontSelector;
     private MenuButton textColorPicker; // Changed from ColorPicker to MenuButton
-    private FlowPane trajectoryPresets;
-    private ToggleButton editTrajectoryBtn;
     private FlowPane galleryContainer;
     private Slider spacingSlider;
     private MenuButton strokeColorPicker;
@@ -190,9 +186,23 @@ public class TextManagerController {
         HBox.setHgrow(shadowColorPicker, Priority.ALWAYS);
         shadowClrRow.getChildren().addAll(dropShadowCheck, shadowColorPicker);
 
-        colorGrp.getChildren().addAll(textClrRow, strokeClrRow, shadowClrRow);
+        VBox strokeBox = new VBox(2);
+        HBox strokeLblBox = new HBox();
+        Label lblStrokeWidth = new Label("ANCHO DE BORDE:");
+        lblStrokeWidth.setStyle("-fx-font-weight: bold; -fx-text-fill: #64748b; -fx-font-size: 10px;");
+        Label valStroke = new Label("0.0");
+        valStroke.setStyle("-fx-text-fill: #3b82f6; -fx-font-size: 10px; -fx-font-weight: bold;");
+        Region sp3 = new Region();
+        HBox.setHgrow(sp3, Priority.ALWAYS);
+        strokeLblBox.getChildren().addAll(lblStrokeWidth, sp3, valStroke);
+        strokeWidthSlider = new Slider(0, 6, 0);
+        strokeWidthSlider.valueProperty()
+                .addListener((obs, old, val) -> valStroke.setText(String.format("%.1f", val.doubleValue())));
+        strokeBox.getChildren().addAll(strokeLblBox, strokeWidthSlider);
 
-        // Sliders
+        colorGrp.getChildren().addAll(textClrRow, strokeClrRow, strokeBox);
+
+        // Sliders (Removed Sombra, Tamaño de fuente, Separación, Grosor contorno as requested)
         VBox sliderGrp = new VBox(8);
 
         VBox fontSizeBox = new VBox(2);
@@ -223,42 +233,29 @@ public class TextManagerController {
                 .addListener((obs, old, val) -> valSpacing.setText(String.format("%.1f", val.doubleValue())));
         spacingBox.getChildren().addAll(spacingLblBox, spacingSlider);
 
-        VBox strokeBox = new VBox(2);
-        HBox strokeLblBox = new HBox();
-        Label lblStrokeWidth = new Label("GROSOR CONTORNO:");
-        lblStrokeWidth.setStyle("-fx-font-weight: bold; -fx-text-fill: #64748b; -fx-font-size: 10px;");
-        Label valStroke = new Label("0.0");
-        valStroke.setStyle("-fx-text-fill: #3b82f6; -fx-font-size: 10px; -fx-font-weight: bold;");
-        Region sp3 = new Region();
-        HBox.setHgrow(sp3, Priority.ALWAYS);
-        strokeLblBox.getChildren().addAll(lblStrokeWidth, sp3, valStroke);
-        strokeWidthSlider = new Slider(0, 6, 0);
-        strokeWidthSlider.valueProperty()
-                .addListener((obs, old, val) -> valStroke.setText(String.format("%.1f", val.doubleValue())));
-        strokeBox.getChildren().addAll(strokeLblBox, strokeWidthSlider);
+        sliderGrp.getChildren().addAll(fontSizeBox, spacingBox);
 
-        sliderGrp.getChildren().addAll(fontSizeBox, spacingBox, strokeBox);
-
-        propBox.getChildren().addAll(inputGrp, fontGrp, colorGrp, sliderGrp);
+        propBox.getChildren().addAll(inputGrp, fontGrp, colorGrp);
         VBox propCard = UIFactory.crearSeccionTarjeta("PROPIEDADES", "mdi2f-format-list-bulleted-type", propBox);
 
-        // --- 2. TRAYECTORIA (4-Column Layout) ---
+        // --- 2. TRAYECTORIA ---
         VBox trajBox = new VBox(10);
-        trajectoryPresets = new FlowPane(8, 8);
-        trajectoryPresets.setAlignment(Pos.CENTER);
-        trajectoryPresets.setPrefWrapLength(320); // Control width for grid feel
 
-        editTrajectoryBtn = new ToggleButton("Ajustar Curva en Diseño");
-        editTrajectoryBtn.setGraphic(UIFactory.crearIcono("mdi2v-vector-selection", 18, "white"));
-        // Remove 'shadow' line by setting insets to 0 and using a flat color
-        editTrajectoryBtn.setStyle(
-                "-fx-background-color: #3b82f6; -fx-background-insets: 0; -fx-background-radius: 8; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8;");
-        editTrajectoryBtn.setMaxWidth(Double.MAX_VALUE);
+        Button btnOpenTrajectory = new Button("Forma de Texto");
+        btnOpenTrajectory.setGraphic(UIFactory.crearIcono("mdi2f-format-text-variant-outline", 20, "white"));
+        btnOpenTrajectory.setStyle(
+                "-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 10; -fx-background-radius: 8; -fx-font-size: 14px;");
+        btnOpenTrajectory.setMaxWidth(Double.MAX_VALUE);
+        btnOpenTrajectory.setOnAction(e -> {
+            if (activeTextLayer != null) {
+                new org.example.component.TextTrajectoryDialog(activeTextLayer).show();
+            }
+        });
 
         Button btnConvertToVector = new Button("Convertir a Curvas");
-        btnConvertToVector.setGraphic(UIFactory.crearIcono("mdi2v-vector-curve", 16, "white"));
+        btnConvertToVector.setGraphic(UIFactory.crearIcono("mdi2v-vector-curve", 20, "white"));
         btnConvertToVector.setStyle(
-                "-fx-background-color: #f59e0b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8; -fx-background-radius: 8;");
+                "-fx-background-color: #f59e0b; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 10; -fx-background-radius: 8; -fx-font-size: 14px;");
         btnConvertToVector.setMaxWidth(Double.MAX_VALUE);
         btnConvertToVector.setOnAction(e -> {
             if (activeTextLayer != null && visualizer != null) {
@@ -307,7 +304,7 @@ public class TextManagerController {
             }
         });
 
-        trajBox.getChildren().addAll(trajectoryPresets, editTrajectoryBtn, btnConvertToVector);
+        trajBox.getChildren().addAll(btnOpenTrajectory, btnConvertToVector);
         VBox trajCard = UIFactory.crearSeccionTarjeta("FORMA Y TRAYECTORIA", "mdi2v-vector-curve", trajBox);
 
         // --- 3. GALLERY ---
@@ -435,22 +432,6 @@ public class TextManagerController {
             }
         });
 
-        // Presets with TOOLTIPS explaining each trajectory type
-        addPreset("Recto", TrajectoryPath.Type.STRAIGHT, "mdi2f-format-variant",
-                "Texto en línea recta, ideal para nombres delanteros");
-        addPreset("Arco", TrajectoryPath.Type.ARC, "mdi2v-vector-curve",
-                "Texto curvo hacia arriba, común en dorsales deportivos");
-        addPreset("Círculo", TrajectoryPath.Type.CIRCLE, "mdi2o-orbit", "Texto distribuido en un círculo completo");
-        addPreset("Onda", TrajectoryPath.Type.WAVE, "mdi2s-sine-wave", "Texto con trayectoria ondulada decorativa");
-        addPreset("Libre", TrajectoryPath.Type.BEZIER, "mdi2g-gesture-tap", "Texto con curva de Bézier personalizable");
-
-        // Edit Toggle
-        editTrajectoryBtn.setOnAction(e -> {
-            if (activeTextLayer != null) {
-                activeTextLayer.setTrajectoryEditMode(editTrajectoryBtn.isSelected());
-            }
-        });
-
         // Selection Listener
         visualizer.getLayerManager().addSelectionListener(node -> {
             if (node instanceof TextLayer) {
@@ -494,79 +475,6 @@ public class TextManagerController {
         textField.selectAll();
     }
 
-    private void addPreset(String name, TrajectoryPath.Type type, String iconName, String tooltip) {
-        Button btn = new Button(name);
-        btn.setGraphic(UIFactory.crearIcono(iconName, 14, "#475569"));
-        btn.setUserData(type); // Store type for easy matching
-
-        // Add tooltip explaining the trajectory type
-        if (tooltip != null && !tooltip.isEmpty()) {
-            javafx.scene.control.Tooltip tt = new javafx.scene.control.Tooltip(tooltip);
-            tt.setMaxWidth(250);
-            tt.setWrapText(true);
-            javafx.scene.control.Tooltip.install(btn, tt);
-        }
-
-        btn.setStyle(
-                "-fx-background-color: white; -fx-border-color: #cbd5e1; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 10; -fx-text-fill: #475569;");
-
-        btn.setOnMouseEntered(e -> {
-            if (!isCurrentType(btn)) {
-                btn.setStyle(
-                        "-fx-background-color: #f1f5f9; -fx-border-color: #94a3b8; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 10; -fx-text-fill: #475569;");
-            }
-        });
-
-        btn.setOnMouseExited(e -> updatePresetStyle(btn));
-
-        btn.setOnAction(e -> {
-            applyTrajectory(type);
-            updateAllPresetStyles();
-        });
-        trajectoryPresets.getChildren().add(btn);
-    }
-
-    private boolean isCurrentType(Button btn) {
-        if (activeTextLayer == null)
-            return false;
-        return btn.getUserData() == activeTextLayer.getTrajectory().getType();
-    }
-
-    private void updateAllPresetStyles() {
-        trajectoryPresets.getChildren().forEach(node -> {
-            if (node instanceof Button)
-                updatePresetStyle((Button) node);
-        });
-    }
-
-    private void updatePresetStyle(Button btn) {
-        if (isCurrentType(btn)) {
-            btn.setStyle(
-                    "-fx-background-color: #eff6ff; -fx-border-color: #3b82f6; -fx-border-width: 2; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 11px; -fx-font-weight: 900; -fx-cursor: hand; -fx-padding: 5 9; -fx-text-fill: #2563eb;");
-        } else {
-            btn.setStyle(
-                    "-fx-background-color: white; -fx-border-color: #cbd5e1; -fx-border-width: 1; -fx-border-radius: 6; -fx-background-radius: 6; -fx-font-size: 11px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 10; -fx-text-fill: #475569;");
-        }
-    }
-
-    private void applyTrajectory(TrajectoryPath.Type type) {
-        if (activeTextLayer == null)
-            return;
-        TrajectoryPath.Type old = activeTextLayer.getTrajectory().getType();
-        if (old != type) {
-            PropertyChangeCommand<TrajectoryPath.Type> cmd = new PropertyChangeCommand<>("Cambiar Trayectoria", old,
-                    type, t -> activeTextLayer.setTrajectoryType(t));
-            visualizer.getHistoryManager().addCommand(cmd);
-            activeTextLayer.setTrajectoryType(type);
-
-            // Auto-enable edit mode for non-straight trajectories
-            if (type != TrajectoryPath.Type.STRAIGHT) {
-                activeTextLayer.setTrajectoryEditMode(true);
-                editTrajectoryBtn.setSelected(true);
-            }
-        }
-    }
-
     private void loadLayerSettings(TextLayer layer) {
         if (isUpdatingUI)
             return;
@@ -605,14 +513,11 @@ public class TextManagerController {
             // clamp scale between 10 and 200 just for the slider
             scale = Math.max(10, Math.min(200, scale));
             fontSizeSlider.setValue(scale);
-
-            editTrajectoryBtn.setSelected(layer.getTrajectoryEditMode());
         } else {
             textField.clear();
         }
         isUpdatingUI = false;
         updateGalleryVisuals();
-        updateAllPresetStyles();
     }
 
     public void updateGalleryVisuals() {

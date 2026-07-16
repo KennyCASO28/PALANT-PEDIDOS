@@ -70,20 +70,20 @@ public final class ShapeSelectionOverlaySupport {
     }
 
     public static StackPane createRotationHandle(Shear shearTransform) {
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 4, "#e8a020",
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 8, "#e8a020",
                 Cursor.HAND);
         return handle;
     }
     public static StackPane createShearHandle(Cursor cursor, boolean horizontal, Shear shearTransform) {
         String iconName = horizontal ? "mdi2a-arrow-left-right" : "mdi2a-arrow-up-down";
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 4, "#16a085", cursor);
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle(iconName, 8, "#16a085", cursor);
         handle.setVisible(false);
         return handle;
     }
     public static StackPane createArcHandle(Shear shearTransform) {
         StackPane handle = new StackPane();
         handle.setPrefSize(16, 16);
-        javafx.scene.shape.Rectangle rect = new javafx.scene.shape.Rectangle(4, 4, javafx.scene.paint.Color.BLACK);
+        javafx.scene.shape.Rectangle rect = new javafx.scene.shape.Rectangle(8, 8, javafx.scene.paint.Color.BLACK);
         rect.setStroke(javafx.scene.paint.Color.WHITE);
         rect.setStrokeWidth(1.2);
         rect.setArcWidth(2); 
@@ -93,7 +93,7 @@ public final class ShapeSelectionOverlaySupport {
         return handle;
     }
     public static StackPane createArcRotationHandle(Shear shearTransform) {
-        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 4, "#9b59b6",
+        StackPane handle = org.example.utils.UIFactory.crearIconHandle("mdi2r-rotate-right", 8, "#9b59b6",
                 Cursor.HAND);
         return handle;
     }
@@ -101,6 +101,11 @@ public final class ShapeSelectionOverlaySupport {
     public static void updateVisuals(OverlayNodes nodes, VisualState state) {
         if (nodes == null) return;
 
+        double handleOffset = 2; // Selection nodes offset
+        double transformHandleOffset = 4;
+
+        double rs = 4;
+        double rOffset = 15; // Distance outward for rotation handles
         double width = state.width();
         double height = state.height();
         double visualMinX = state.visualMinX();
@@ -127,25 +132,32 @@ public final class ShapeSelectionOverlaySupport {
         double selectionHandleOffset = 6.0;
         positionSelectionHandles(nodes, pTL, pTR, pBL, pBR, selectionHandleOffset);
 
-        // transformHandleOffset must be 2.0 because createRotationHandle uses size 4
-        double transformHandleOffset = 2.0;
+        // transformHandleOffset must be 4.0 because createRotationHandle uses size 8
+        transformHandleOffset = 4.0;
         positionTransformHandles(nodes, pTL, pTR, pBL, pBR, transformHandleOffset);
 
         nodes.border().setStroke(Color.web("#0047AB"));
+        
+        // ALWAYS position the pivot handle
+        double pivotX = state.customPivotX() != -1 ? (width / 2.0 + state.customPivotX()) : width / 2.0;
+        double pivotY = state.customPivotY() != -1 ? (height / 2.0 + state.customPivotY()) : height / 2.0;
+        nodes.pivotHandle().setLayoutX(visualMinX + pivotX - 5);
+        nodes.pivotHandle().setLayoutY(visualMinY + pivotY - 5);
+
         if (state.isRotationMode()) {
             setSelectionHandlesVisible(nodes, false);
             setRotationHandlesVisible(nodes, true);
             setArcHandlesVisible(nodes, false);
-
-            double pivotX = state.customPivotX() != -1 ? state.customPivotX() : width / 2.0;
-            double pivotY = state.customPivotY() != -1 ? state.customPivotY() : height / 2.0;
-
-            // pivotHandle is placed at un-sheared coords right now
-            nodes.pivotHandle().setLayoutX(visualMinX + pivotX - 5);
-            nodes.pivotHandle().setLayoutY(visualMinY + pivotY - 5);
+            nodes.border().setVisible(true);
         } else if (state.isArcEditingMode() || state.isNodeEditing()) {
             setSelectionHandlesVisible(nodes, false);
             setRotationHandlesVisible(nodes, false);
+
+            if (state.isNodeEditing()) {
+                nodes.border().setVisible(false);
+            } else {
+                nodes.border().setVisible(true);
+            }
 
             if (state.type() == ShapeType.RECTANGLE) {
                 setArcHandlesVisible(nodes, true);
@@ -170,7 +182,9 @@ public final class ShapeSelectionOverlaySupport {
             // Normal resize mode
             setSelectionHandlesVisible(nodes, true);
             setRotationHandlesVisible(nodes, false);
+            nodes.pivotHandle().setVisible(true); // <--- Ensure pivot is visible
             setArcHandlesVisible(nodes, false);
+            nodes.border().setVisible(true);
         }
 
         applyAntiScale(nodes, state.scaleTransform().getX(), state.scaleTransform().getY(), state.viewportScale());
@@ -391,8 +405,9 @@ public final class ShapeSelectionOverlaySupport {
             double customPivotY) {
         double defaultPivotX = visualMinX + width / 2;
         double defaultPivotY = visualMinY + height / 2;
-        double pivotX = customPivotX != -1 ? visualMinX + customPivotX : defaultPivotX;
-        double pivotY = customPivotY != -1 ? visualMinY + customPivotY : defaultPivotY;
+        // customPivotX and Y are offsets from the center of the bounds!
+        double pivotX = defaultPivotX + customPivotX;
+        double pivotY = defaultPivotY + customPivotY;
 
         // STABILITY FILTER: Prevent tiny floating point variations from causing
         // jitter/zooms
@@ -403,14 +418,12 @@ public final class ShapeSelectionOverlaySupport {
         }
 
         // Shear and Scale pivots should respect custom pivot if set
-        double shearScalePivotX = customPivotX != -1 ? visualMinX + customPivotX : defaultPivotX;
-        double shearScalePivotY = customPivotY != -1 ? visualMinY + customPivotY : defaultPivotY;
-        if (Math.abs(shearTransform.getPivotX() - shearScalePivotX) > 0.001
-                || Math.abs(shearTransform.getPivotY() - shearScalePivotY) > 0.001) {
-            shearTransform.setPivotX(shearScalePivotX);
-            shearTransform.setPivotY(shearScalePivotY);
-            scaleTransform.setPivotX(shearScalePivotX);
-            scaleTransform.setPivotY(shearScalePivotY);
+        if (Math.abs(shearTransform.getPivotX() - pivotX) > 0.001
+                || Math.abs(shearTransform.getPivotY() - pivotY) > 0.001) {
+            shearTransform.setPivotX(pivotX);
+            shearTransform.setPivotY(pivotY);
+            scaleTransform.setPivotX(pivotX);
+            scaleTransform.setPivotY(pivotY);
         }
     }
 

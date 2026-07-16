@@ -98,27 +98,21 @@ public class StateMapper {
         // 1. Order Details
         project.setOrderDetails(mapRoster(roster));
 
-        // 2. Garment Config & Layers
+        // 2. Sync UI to Active State before saving
         boolean wasArq = visualizer.isEditandoArquero();
-        
-        try {
-            // Force player mode to accurately extract player's active layer group
-            if (wasArq) {
-                visualizer.setActiveDesign(false);
-            }
-            
-            project.setGarmentConfig(extractGarmentConfig(visualizer, visualizer.getCamisetaState(), visualizer.getCamisetaColorManager()));
-            project.setLayers(mapLayers(visualizer.getUserLayerGroup().getChildren()));
-            
-            // Force goalie mode to accurately extract goalie's active layer group
-            visualizer.setActiveDesign(true);
-            project.setArqueroGarmentConfig(extractGarmentConfig(visualizer, visualizer.getArqueroState(), visualizer.getArqueroColorManager()));
-            project.setArqueroLayers(visualizer.getArqueroState().getUserLayers());
-            
-        } finally {
-            // Restore original view mode
-            visualizer.setActiveDesign(wasArq);
+        List<LayerDTO> currentUiLayers = mapLayers(visualizer.getUserLayerGroup().getChildren());
+        if (wasArq) {
+            visualizer.getArqueroState().setUserLayers(currentUiLayers);
+        } else {
+            visualizer.getCamisetaState().setUserLayers(currentUiLayers);
         }
+
+        // 3. Extract Garment Config & Layers directly from States without swapping UI
+        project.setGarmentConfig(extractGarmentConfig(visualizer, visualizer.getCamisetaState(), visualizer.getCamisetaColorManager()));
+        project.setLayers(extractUserLayers(visualizer.getCamisetaState()));
+        
+        project.setArqueroGarmentConfig(extractGarmentConfig(visualizer, visualizer.getArqueroState(), visualizer.getArqueroColorManager()));
+        project.setArqueroLayers(extractUserLayers(visualizer.getArqueroState()));
 
         // 4. Goalie Personalization Flag
         project.setArqueroPersonalizado(visualizer.isArqueroDisenoPersonalizado());
@@ -760,13 +754,13 @@ public class StateMapper {
 
                 if (dto.getActiveZone() != null) {
                     visualizer.getPowerClipManager().restoreToContainer(node, dto.getActiveZone());
-                    node.setTranslateX(dto.getX());
-                    node.setTranslateY(dto.getY());
+                    node.setTranslateX(node.getTranslateX() + dto.getX());
+                    node.setTranslateY(node.getTranslateY() + dto.getY());
                     visualizer.getLayerManager().addLayerToContainer(node, (javafx.scene.Group) node.getParent(), false);
                 } else {
                     visualizer.getLayerManager().addLayerToContainer(node, parent, false);
-                    node.setTranslateX(dto.getX());
-                    node.setTranslateY(dto.getY());
+                    node.setTranslateX(node.getTranslateX() + dto.getX());
+                    node.setTranslateY(node.getTranslateY() + dto.getY());
                 }
             }
         }
@@ -867,8 +861,8 @@ public class StateMapper {
                     try {
                         Node childNode = createNodeFromDTO(childDto, visualizer);
                         if (childNode != null) {
-                            childNode.setTranslateX(childDto.getX());
-                            childNode.setTranslateY(childDto.getY());
+                            childNode.setTranslateX(childNode.getTranslateX() + childDto.getX());
+                            childNode.setTranslateY(childNode.getTranslateY() + childDto.getY());
                             gl.addChild(childNode);
                         }
                     } catch (Exception ex) {

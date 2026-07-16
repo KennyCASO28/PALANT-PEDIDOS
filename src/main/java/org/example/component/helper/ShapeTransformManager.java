@@ -9,6 +9,7 @@ import javafx.scene.transform.Scale;
 import javafx.scene.transform.Shear;
 import org.example.model.BezierNode;
 import org.example.pattern.NodeMemento;
+import org.example.pattern.RepeatActionRecorder;
 import org.example.pattern.TransformCommand;
 import org.example.component.ShapeLayer;
 
@@ -81,25 +82,54 @@ public class ShapeTransformManager {
 
     public void flipHorizontal() {
         NodeMemento before = new NodeMemento(layer);
-        double currentRotation = getInternalRotation();
+        // Centro VISUAL: incluye transforms de contentGroup (flip, rotación)
+        javafx.geometry.Bounds b = layer.calculateBounds();
+        double cx = b.getMinX() + b.getWidth() / 2.0;
+        double cy = b.getMinY() + b.getHeight() / 2.0;
+        javafx.geometry.Point2D centerBefore = layer.getContentGroup().localToScene(cx, cy);
+
         setInternalScaleX(scaleTransform.getX() * -1);
-        double newRot = -currentRotation;
-        setInternalRotation(newRot);
-        if (layer.getVisualizer() != null && layer.getVisualizer().getShapeManagerController() != null) {
-            layer.getVisualizer().getShapeManagerController().updateAngleUI(newRot);
+        layer.setInternalScaleX(scaleTransform.getX());
+
+        b = layer.calculateBounds();
+        cx = b.getMinX() + b.getWidth() / 2.0;
+        cy = b.getMinY() + b.getHeight() / 2.0;
+        javafx.geometry.Point2D centerAfter = layer.getContentGroup().localToScene(cx, cy);
+        if (layer.getParent() != null) {
+            javafx.geometry.Point2D pBefore = layer.getParent().sceneToLocal(centerBefore);
+            javafx.geometry.Point2D pAfter = layer.getParent().sceneToLocal(centerAfter);
+            if (pBefore != null && pAfter != null) {
+                layer.setTranslateX(layer.getTranslateX() + (pBefore.getX() - pAfter.getX()));
+                layer.setTranslateY(layer.getTranslateY() + (pBefore.getY() - pAfter.getY()));
+            }
         }
+
         addTransformUndo(before);
     }
 
     public void flipVertical() {
         NodeMemento before = new NodeMemento(layer);
-        double currentRotation = getInternalRotation();
+        javafx.geometry.Bounds b = layer.calculateBounds();
+        double cx = b.getMinX() + b.getWidth() / 2.0;
+        double cy = b.getMinY() + b.getHeight() / 2.0;
+        javafx.geometry.Point2D centerBefore = layer.getContentGroup().localToScene(cx, cy);
+
         setInternalScaleY(scaleTransform.getY() * -1);
-        double newRot = normalizeAngle(180 + currentRotation);
-        setInternalRotation(newRot);
-        if (layer.getVisualizer() != null && layer.getVisualizer().getShapeManagerController() != null) {
-            layer.getVisualizer().getShapeManagerController().updateAngleUI(newRot);
+        layer.setInternalScaleY(scaleTransform.getY());
+
+        b = layer.calculateBounds();
+        cx = b.getMinX() + b.getWidth() / 2.0;
+        cy = b.getMinY() + b.getHeight() / 2.0;
+        javafx.geometry.Point2D centerAfter = layer.getContentGroup().localToScene(cx, cy);
+        if (layer.getParent() != null) {
+            javafx.geometry.Point2D pBefore = layer.getParent().sceneToLocal(centerBefore);
+            javafx.geometry.Point2D pAfter = layer.getParent().sceneToLocal(centerAfter);
+            if (pBefore != null && pAfter != null) {
+                layer.setTranslateX(layer.getTranslateX() + (pBefore.getX() - pAfter.getX()));
+                layer.setTranslateY(layer.getTranslateY() + (pBefore.getY() - pAfter.getY()));
+            }
         }
+
         addTransformUndo(before);
     }
 
@@ -197,8 +227,10 @@ public class ShapeTransformManager {
 
     private void addTransformUndo(NodeMemento before) {
         if (layer.getVisualizer() != null) {
+            org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(layer);
             layer.getVisualizer().getHistoryManager().addCommand(new TransformCommand(layer, 
-                before, new NodeMemento(layer), layer.getState().activeZone));
+                before, after, layer.getState().activeZone));
+            RepeatActionRecorder.recordTransform(before, after, false);
         }
     }
 }

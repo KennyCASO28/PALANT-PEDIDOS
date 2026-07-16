@@ -276,31 +276,21 @@ public class UIFactory {
     public static javafx.scene.Group crearPivotHandle() {
         javafx.scene.Group pane = new javafx.scene.Group();
 
-        // White halo for contrast on both light and dark backgrounds
-        Circle halo = new Circle(5);
-        halo.setFill(Color.rgb(255, 255, 255, 0.55));
-        halo.setStroke(Color.TRANSPARENT);
+        // A small solid white circle with a crisp dark border
+        Circle ring = new Circle(3.5);
+        ring.setFill(Color.WHITE);
+        ring.setStroke(Color.rgb(30, 30, 30));
+        ring.setStrokeWidth(1.0);
 
-        // Outer ring — radius 5 so natural pref size = 10px (exact for -5 offset)
-        Circle ring = new Circle(5);
-        ring.setFill(Color.TRANSPARENT);
-        ring.setStroke(Color.rgb(0, 0, 0, 0.80));
-        ring.setStrokeWidth(1.2);
+        // A tiny dark dot in the exact center
+        Circle dot = new Circle(1.0);
+        dot.setFill(Color.rgb(30, 30, 30));
 
-        // Center dot
-        Circle dot = new Circle(1.5);
-        dot.setFill(Color.rgb(0, 0, 0, 0.80));
+        // Transparent hit area to make clicking easier
+        Circle hitArea = new Circle(12.0);
+        hitArea.setFill(Color.TRANSPARENT);
 
-        // Group places children at (0,0) by default which is the center of the circles
-        // We set their centers exactly to 5,5 locally so the Group is exactly 10x10
-        halo.setCenterX(5);
-        halo.setCenterY(5);
-        ring.setCenterX(5);
-        ring.setCenterY(5);
-        dot.setCenterX(5);
-        dot.setCenterY(5);
-
-        pane.getChildren().addAll(halo, ring, dot);
+        pane.getChildren().addAll(hitArea, ring, dot);
         pane.setCursor(Cursor.MOVE);
         pane.setEffect(new DropShadow(4, 0, 1, Color.rgb(0, 0, 0, 0.35)));
 

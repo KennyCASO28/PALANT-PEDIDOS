@@ -63,25 +63,32 @@ public class InlineTextEditor {
         double lw = layer.getLogicalWidth();
         double lh = layer.getLogicalHeight();
 
-        textField.setLayoutX(-lw / 2.0);
-        textField.setLayoutY(-lh / 2.0);
-        textField.setPrefWidth(lw);
-        textField.setPrefHeight(lh);
-        textField.setMinWidth(lw);
-        textField.setMinHeight(lh);
+        // We add generous padding (20px) so the JavaFX TextField internal metrics
+        // do not force the font to shrink to fit the tight logical bounds.
+        textField.setLayoutX(-lw / 2.0 - 10);
+        textField.setLayoutY(-lh / 2.0 - 10);
+        textField.setPrefWidth(lw + 20);
+        textField.setPrefHeight(lh + 20);
+        textField.setMinWidth(lw + 20);
+        textField.setMinHeight(lh + 20);
 
         // ----------------------------------------------------------------
         // STYLE: completely transparent so only the text cursor is visible.
         // ----------------------------------------------------------------
         Font layerFont = layer.getFont();
         textField.setFont(layerFont);
+        // The text is scaled by the render strategies to fill the logical dimensions.
+        // Therefore, the visual font size is exactly the logical height of the layer.
+        double visualFontSize = layer.getLogicalHeight();
+        if (visualFontSize < 10) visualFontSize = 10;
+
         textField.setStyle(
             "-fx-background-color: transparent;" +
             "-fx-border-color: transparent;"     +
             "-fx-border-width: 0;"               +
             "-fx-background-insets: 0;"          +
             "-fx-padding: 0 0 0 0;"              +
-            "-fx-font-size: " + layerFont.getSize() + "px;" +
+            "-fx-font-size: " + visualFontSize + "px;" +
             "-fx-text-fill: " + toWebColor(layer.getTextColor()) + ";" +
             "-fx-alignment: center;"
         );

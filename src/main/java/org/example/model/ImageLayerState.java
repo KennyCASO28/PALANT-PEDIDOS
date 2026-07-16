@@ -29,6 +29,7 @@ public class ImageLayerState {
     public double saturation = 0;
 
     // Locking & Visibility
+    public boolean isGrouped = false;
     public boolean isLocked = false;
     public boolean isUserLocked = false;
     public String activeZone = null;

@@ -855,8 +855,8 @@ public class UserLayerManager {
                 // If the child is a GroupLayer or GroupLayerV2, its internal transforms are applied
                 // to its contentGroup. We must start concatenation from contentGroup to include them.
                 Node startNode;
-                if (c instanceof org.example.component.GroupLayerV2) {
-                    startNode = ((org.example.component.GroupLayerV2) c).getContentGroup();
+                if (c instanceof org.example.component.AbstractGraphicLayer) {
+                    startNode = ((org.example.component.AbstractGraphicLayer) c).getContentGroup();
                 } else if (c instanceof org.example.component.GroupLayer) {
                     startNode = ((org.example.component.GroupLayer) c).getContentGroup();
                 } else {
@@ -924,7 +924,7 @@ public class UserLayerManager {
                 // RESTORE SHEAR (fallback if group was sheared)
                 if (Math.abs(shearX) > 0.001 || Math.abs(shearY) > 0.001) {
                     if (c instanceof org.example.component.ShapeLayer) {
-                        ((org.example.component.ShapeLayer) c).getTransformManager().multiplyShear(shearX, shearY);
+                        ((org.example.component.ShapeLayer) c).multiplyShear(shearX, shearY);
                     } else if (c instanceof org.example.component.ImageLayer) {
                         org.example.component.ImageLayer il = (org.example.component.ImageLayer) c;
                         il.getShearTransform().setX(il.getShearTransform().getX() + shearX);
@@ -982,9 +982,11 @@ public class UserLayerManager {
                     if (historyManager != null && historyManager.getVisualizer() != null) {
                         historyManager.getVisualizer().getPowerClipManager().refreshZoneClip(zoneContainer.getZoneId());
                     }
+                    // Do NOT auto-select children after ungroup inside PowerClip.
+                    // User must click to select the desired child normally.
+                } else {
+                    addToSelectionInternal(c);
                 }
-
-                addToSelectionInternal(c);
                 i++;
             }
 
@@ -1115,9 +1117,9 @@ public class UserLayerManager {
     private void setNodeRotationAndScale(Node n, double rotation, double scaleX, double scaleY) {
         if (n instanceof org.example.component.ShapeLayer) {
             org.example.component.ShapeLayer sl = (org.example.component.ShapeLayer) n;
-            sl.getTransformManager().setInternalRotation(rotation);
-            sl.getTransformManager().setInternalScaleX(scaleX);
-            sl.getTransformManager().setInternalScaleY(scaleY);
+            sl.setInternalRotation(rotation);
+            sl.setInternalScaleX(scaleX);
+            sl.setInternalScaleY(scaleY);
         } else if (n instanceof org.example.component.ImageLayer) {
             org.example.component.ImageLayer il = (org.example.component.ImageLayer) n;
             il.setInternalRotation(rotation);

@@ -343,7 +343,7 @@ public class PrendaVisualizer extends StackPane {
             uiController.updateModeIndicatorVisuals(b, null);
         }
     }
-    public void setActiveDesign(boolean b) { setEditandoArquero(b); }
+    public void setActiveDesign(boolean b) { designSwapManager.setActiveDesign(b); }
     public boolean isArqueroDisenoPersonalizado() { return stateManager.isArqueroDisenoPersonalizado(); }
     public void setArqueroDisenoPersonalizado(boolean v) { stateManager.setArqueroDisenoPersonalizado(v); }
 
@@ -637,7 +637,9 @@ public class PrendaVisualizer extends StackPane {
     public void copySelectedLayer() { clipboardService.copySelectedLayer(); }
     public void cutSelectedLayer() { clipboardService.cutSelectedLayer(); }
     public void pasteLayer() { clipboardService.pasteLayer(); }
+    public void pasteLayerInPlace() { clipboardService.pasteLayerInPlace(); }
     public void deleteSelectedLayer() { clipboardService.deleteSelectedLayer(); }
+    public GarmentClipboardService getClipboardService() { return clipboardService; }
     public void deselectAllNames() { layerManager.clearSelection(); }
     public void clearGlobalSelection() { layerManager.clearSelection(); }
     public void addTextLayer(TextLayer layer) { layerFactory.addUserLayer(layer); }

@@ -118,13 +118,16 @@ public class ShapeLayerOrchestrator {
         clone.setVisualizer(layer.getVisualizer());
         clone.renderShape();
 
+        // Copy pivot offset before copying translations, so the compensation gets overwritten by the exact translation
+        clone.updatePivotWithCompensation(layer.getCustomPivotX(), layer.getCustomPivotY());
+
         clone.setTranslateX(layer.getTranslateX());
         clone.setTranslateY(layer.getTranslateY());
-        clone.setRotate(layer.getRotate());
-        clone.setScaleX(layer.getScaleX());
-        clone.setScaleY(layer.getScaleY());
-        clone.setInternalShearX(layer.getTransformManager().getInternalShearX());
-        clone.setInternalShearY(layer.getTransformManager().getInternalShearY());
+        clone.setInternalRotation(layer.getInternalRotation());
+        clone.setInternalScaleX(layer.getInternalScaleX());
+        clone.setInternalScaleY(layer.getInternalScaleY());
+        clone.setInternalShearX(layer.getInternalShearX());
+        clone.setInternalShearY(layer.getInternalShearY());
 
         return clone;
     }

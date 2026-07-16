@@ -74,7 +74,7 @@ public class ShapeManagerUIOrchestrator {
         toolbar.getChildren().addAll(controller.getSelectButton(), new Separator());
         toolbar.getChildren().addAll(controller.getCurrentShapeButton(), controller.getPencilButton());
         toolbar.getChildren().add(new Separator());
-        toolbar.getChildren().addAll(controller.getBrushButton(), controller.getEraserButton(), new Separator());
+        toolbar.getChildren().addAll(controller.getImageEditorButton(), new Separator());
 
         if (angleBox == null) {
             initAngleControls();
@@ -92,11 +92,13 @@ public class ShapeManagerUIOrchestrator {
 
     private void initAngleControls() {
         txtToolbarAngle = new TextField("0°");
-        txtToolbarAngle.setPrefWidth(45);
-        txtToolbarAngle.setStyle("-fx-font-size: 11px; -fx-padding: 3; -fx-alignment: center; -fx-font-weight: bold;");
+        txtToolbarAngle.setPrefWidth(48);
+        txtToolbarAngle.setMinHeight(32);
+        txtToolbarAngle.setMaxHeight(32);
+        txtToolbarAngle.setStyle("-fx-font-size: 12px; -fx-padding: 3; -fx-alignment: center; -fx-font-weight: bold;");
         txtToolbarAngle.setTooltip(new Tooltip("Ángulo de Rotación"));
 
-        angleBox = new HBox(3, UIFactory.crearIcono("mdi2r-rotate-right", 16, "#555"), txtToolbarAngle);
+        angleBox = new HBox(4, UIFactory.crearIcono("mdi2r-rotate-right", 20, "#555"), txtToolbarAngle);
         angleBox.setAlignment(Pos.CENTER);
 
         txtToolbarAngle.setOnAction(e -> {
@@ -175,10 +177,16 @@ public class ShapeManagerUIOrchestrator {
         VBox box = new VBox(10);
         box.setMinWidth(200);
 
-        ShapeLayer active = controller.getActiveShapeLayer();
+        Node activeNode = null;
+        if (visualizer.getLayerManager() != null && !visualizer.getLayerManager().getSelectedNodes().isEmpty()) {
+            activeNode = visualizer.getLayerManager().getSelectedNodes().iterator().next();
+        } else {
+            ShapeLayer active = controller.getActiveShapeLayer();
+            if (active != null) activeNode = active;
+        }
 
         Label lblRot = new Label("Rotación:");
-        Slider slRot = new Slider(-180, 180, (active != null) ? active.getRotate() : 0);
+        Slider slRot = new Slider(-180, 180, (activeNode != null) ? activeNode.getRotate() : 0);
         TextField txtRot = createValueField(slRot, "°");
 
         final Double[] rotStart = { 0.0 };
@@ -187,20 +195,31 @@ public class ShapeManagerUIOrchestrator {
             double newVal = slRot.getValue();
             if (!Objects.equals(rotStart[0], newVal)) {
                 Double capturedStart = rotStart[0];
-                controller.getActionHandler().recordPropertyChange("Rotate", layer -> capturedStart,
-                        ShapeLayer::setRotate, newVal);
+                controller.getActionHandler().recordNodePropertyChange("Rotate", layer -> capturedStart,
+                        Node::setRotate, newVal);
             }
         });
 
         slRot.valueProperty().addListener((o, old, v) -> {
             if (!controller.isUpdatingUI()) {
-                controller.getActionHandler().applyToSelection(layer -> layer.setRotate(v.doubleValue()));
+                if (visualizer.getLayerManager() != null && !visualizer.getLayerManager().getSelectedNodes().isEmpty()) {
+                    for (Node n : visualizer.getLayerManager().getSelectedNodes()) {
+                        n.setRotate(v.doubleValue());
+                    }
+                } else {
+                    ShapeLayer act = controller.getActiveShapeLayer();
+                    if (act != null) act.setRotate(v.doubleValue());
+                }
             }
         });
 
         Label lblScale = new Label("Escala:");
-        Slider slScale = new Slider(0.1, 5.0, (active != null) ? active.getScaleX() : 1.0);
+        Slider slScale = new Slider(0.1, 5.0, (activeNode != null) ? activeNode.getScaleX() : 1.0);
         TextField txtScale = createValueField(slScale, "x");
+        txtScale.setPrefWidth(48);
+        txtScale.setMinHeight(32);
+        txtScale.setMaxHeight(32);
+        txtScale.setStyle("-fx-font-size: 12px; -fx-padding: 3; -fx-alignment: center; -fx-font-weight: bold;");
 
         final Double[] scaleStart = { 0.0 };
         slScale.setOnMousePressed(e -> scaleStart[0] = slScale.getValue());
@@ -208,7 +227,7 @@ public class ShapeManagerUIOrchestrator {
             double newVal = slScale.getValue();
             if (!Objects.equals(scaleStart[0], newVal)) {
                 Double capturedStart = scaleStart[0];
-                controller.getActionHandler().recordPropertyChange("Scale", layer -> capturedStart, (layer, val) -> {
+                controller.getActionHandler().recordNodePropertyChange("Scale", layer -> capturedStart, (layer, val) -> {
                     layer.setScaleX(val);
                     layer.setScaleY(val);
                 }, newVal);
@@ -217,10 +236,18 @@ public class ShapeManagerUIOrchestrator {
 
         slScale.valueProperty().addListener((o, old, v) -> {
             if (!controller.isUpdatingUI()) {
-                controller.getActionHandler().applyToSelection(layer -> {
-                    layer.setScaleX(v.doubleValue());
-                    layer.setScaleY(v.doubleValue());
-                });
+                if (visualizer.getLayerManager() != null && !visualizer.getLayerManager().getSelectedNodes().isEmpty()) {
+                    for (Node n : visualizer.getLayerManager().getSelectedNodes()) {
+                        n.setScaleX(v.doubleValue());
+                        n.setScaleY(v.doubleValue());
+                    }
+                } else {
+                    ShapeLayer act = controller.getActiveShapeLayer();
+                    if (act != null) {
+                        act.setScaleX(v.doubleValue());
+                        act.setScaleY(v.doubleValue());
+                    }
+                }
             }
         });
 
@@ -237,8 +264,8 @@ public class ShapeManagerUIOrchestrator {
             for (Node node : visualizer.getLayerManager().getSelectedNodes()) {
                 if (node instanceof GroupLayerV2) {
                     ((GroupLayerV2) node).flipHorizontal();
-                } else if (node instanceof ShapeLayer) {
-                    ((ShapeLayer) node).getTransformManager().flipHorizontal();
+                } else if (node instanceof org.example.component.AbstractGraphicLayer) {
+                    ((org.example.component.AbstractGraphicLayer) node).flipHorizontal();
                 }
             }
         });
@@ -246,39 +273,42 @@ public class ShapeManagerUIOrchestrator {
             for (Node node : visualizer.getLayerManager().getSelectedNodes()) {
                 if (node instanceof GroupLayerV2) {
                     ((GroupLayerV2) node).flipVertical();
-                } else if (node instanceof ShapeLayer) {
-                    ((ShapeLayer) node).getTransformManager().flipVertical();
+                } else if (node instanceof org.example.component.AbstractGraphicLayer) {
+                    ((org.example.component.AbstractGraphicLayer) node).flipVertical();
                 }
             }
         });
 
         // New button: Duplicate to Opposite Side (preserves visual inclination, no angle inversion)
-        Button btnDuplicateOpposite = new Button("Duplicar Lado Opuesto", UIFactory.crearIcono("mdi2c-copy", 18, "#2c3e50"));
+        Button btnDuplicateOpposite = new Button("Duplicar Lado Opuesto", UIFactory.crearIcono("mdi2c-content-copy", 18, "#2c3e50"));
         styleTransformActionButton(btnDuplicateOpposite);
         btnDuplicateOpposite.setStyle(btnDuplicateOpposite.getStyle() + "; -fx-base: #27ae60;");
         btnDuplicateOpposite.setOnAction(e -> {
-            ShapeLayer activeLayer = controller.getActiveShapeLayer();
-            if (activeLayer != null && activeLayer.getVisualizer() != null) {
-                double currentScaleX = activeLayer.getInternalScaleX();
-                double width = activeLayer.getState().width * Math.abs(currentScaleX);
-                double offsetX = width * 1.5;
-                ShapeLayer clone = activeLayer.createDeepClone();
-                clone.setTranslateX(activeLayer.getTranslateX() + offsetX);
-                clone.setTranslateY(activeLayer.getTranslateY());
-                clone.setInternalScaleX(currentScaleX);
-                clone.setInternalScaleY(activeLayer.getInternalScaleY());
-                clone.setRotate(activeLayer.getRotate());
-                clone.setInternalShearX(activeLayer.getTransformManager().getInternalShearX());
-                clone.setInternalShearY(activeLayer.getTransformManager().getInternalShearY());
-                activeLayer.getVisualizer().addShapeLayer(clone);
-                if (activeLayer.getVisualizer().getPowerClipManager() != null
-                        && activeLayer.getVisualizer().getPowerClipManager().isEditing()) {
-                    activeLayer.getVisualizer().applySmartPowerClip(clone,
-                            activeLayer.getVisualizer().getPowerClipManager().getCurrentEditingZone(), false);
+            java.util.Set<Node> selection = visualizer.getLayerManager().getSelectedNodes();
+            if (selection.isEmpty()) {
+                ShapeLayer activeLayer = controller.getActiveShapeLayer();
+                if (activeLayer != null) selection = java.util.Collections.<Node>singleton(activeLayer);
+            }
+            
+            for (Node node : selection) {
+                Node clone = null;
+                if (visualizer.getClipboardService() != null) {
+                    clone = visualizer.getClipboardService().cloneNode(node);
+                }
+                
+                if (clone != null) {
+                    double offsetX = node.getBoundsInParent().getWidth();
+                    clone.setTranslateX(node.getTranslateX() + offsetX);
+                    clone.setTranslateY(node.getTranslateY());
+                    
+                    if (node.getParent() instanceof javafx.scene.Group) {
+                        visualizer.getUserLayerManager().addLayerToContainer(clone, (javafx.scene.Group)node.getParent(), false);
+                    } else {
+                        visualizer.getUserLayerManager().addLayer(clone);
+                    }
                 }
             }
         });
-
         mirrorBox.getChildren().addAll(btnFlipH, btnFlipV, btnDuplicateOpposite);
 
         box.getChildren().addAll(new HBox(10, lblRot, txtRot), slRot, new Separator(), new Label("Invertir:"),

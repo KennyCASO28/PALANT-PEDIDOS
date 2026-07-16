@@ -3,8 +3,12 @@ package org.example.controller.uicomponent;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.stage.Stage;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
+import org.example.component.ImageEditorDialog;
+import org.example.component.ImageLayer;
 import org.example.component.PrendaVisualizer;
 import org.example.component.ShapeLayer;
 import org.example.model.ShapeType;
@@ -31,6 +35,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
     private Label strokeWidthLabel;
     private ToggleButton btnBrush;
     private ToggleButton btnEraser;
+    private Button btnImageEditor;
     private ToggleButton btnPencil;
     private Button btnTransform;
     private Button btnStroke;
@@ -241,10 +246,41 @@ public class ShapeManagerController implements org.example.component.helper.Draw
             btnBrush.setOnAction(e -> {
                 visualizer.cancelShapeCreation();
                 visualizer.getShapeHelper().exitNodeEditMode();
-                visualizer.setCursor(btnBrush.isSelected() ? javafx.scene.Cursor.CROSSHAIR : javafx.scene.Cursor.DEFAULT);
+                if (btnBrush.isSelected()) {
+                    visualizer.setCursor(javafx.scene.Cursor.CROSSHAIR);
+                } else {
+                    visualizer.setCursor(javafx.scene.Cursor.DEFAULT);
+                }
             });
         }
         return btnBrush;
+    }
+
+    public Button getImageEditorButton() {
+        if (btnImageEditor == null) {
+            btnImageEditor = new Button();
+            btnImageEditor.setGraphic(UIFactory.crearIcono("mdi2i-image-filter-hdr", 20, "#2c3e50"));
+            btnImageEditor.setTooltip(new Tooltip("Editar imagen (Pintar / Borrar)"));
+            btnImageEditor.setMinSize(28, 28);
+            btnImageEditor.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-background-radius: 4; -fx-padding: 4;");
+            btnImageEditor.setOnAction(e -> {
+                Node sel = visualizer.getSelectedNode();
+                if (sel instanceof ImageLayer) {
+                    ImageLayer il = (ImageLayer) sel;
+                    ImageEditorDialog editor = new ImageEditorDialog(il.getImage());
+                    Stage owner = (Stage) visualizer.getScene().getWindow();
+                    Image result = editor.showAndWait(owner);
+                    if (result != null) il.setImage(result);
+                }
+            });
+            visualizer.addSelectionListener(n -> {
+                btnImageEditor.setVisible(n instanceof ImageLayer);
+                btnImageEditor.setManaged(n instanceof ImageLayer);
+            });
+            btnImageEditor.setVisible(false);
+            btnImageEditor.setManaged(false);
+        }
+        return btnImageEditor;
     }
 
     public ToggleButton getEraserButton() {
@@ -255,7 +291,11 @@ public class ShapeManagerController implements org.example.component.helper.Draw
             btnEraser.setOnAction(e -> {
                 visualizer.cancelShapeCreation();
                 visualizer.getShapeHelper().exitNodeEditMode();
-                visualizer.setCursor(btnEraser.isSelected() ? javafx.scene.Cursor.CROSSHAIR : javafx.scene.Cursor.DEFAULT);
+                if (btnEraser.isSelected()) {
+                    visualizer.setCursor(javafx.scene.Cursor.CROSSHAIR);
+                } else {
+                    visualizer.setCursor(javafx.scene.Cursor.DEFAULT);
+                }
             });
         }
         return btnEraser;
@@ -264,7 +304,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getTransformButton() {
         if (btnTransform == null) {
-            btnTransform = new Button("", UIFactory.crearIcono("mdi2r-resize", 16, "#555"));
+            btnTransform = new Button("", UIFactory.crearIcono("mdi2r-resize", 20, "#555"));
             btnTransform.setTooltip(new Tooltip("Transformar (Tamaño/Rotación)"));
             buttonFactory.styleToolButton(btnTransform);
             btnTransform.setOnAction(e -> uiOrchestrator.showTransformPopup(btnTransform));
@@ -277,18 +317,18 @@ public class ShapeManagerController implements org.example.component.helper.Draw
         if (btnTransform == null) return;
         ShapeLayer layer = getActiveShapeLayer();
         boolean active = layer != null && (Math.abs(layer.getRotate()) > 0.1 || Math.abs(layer.getScaleX() - 1.0) > 0.01);
-        btnTransform.setGraphic(UIFactory.crearIcono("mdi2r-resize", 16, active ? "#3498db" : "#555"));
+        btnTransform.setGraphic(UIFactory.crearIcono("mdi2r-resize", 20, active ? "#3498db" : "#555"));
         btnTransform.setStyle(active ? "-fx-background-color: #d6eaf8; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 4; -fx-background-insets: 0;" : "-fx-background-color: transparent; -fx-border-color: transparent; -fx-cursor: hand; -fx-padding: 4; -fx-background-insets: 0;");
     }
 
     public Button getStrokeButton() {
         if (btnStroke == null) {
-            btnStroke = new Button("", UIFactory.crearIcono("mdi2f-format-line-weight", 16, "#555"));
+            btnStroke = new Button("", UIFactory.crearIcono("mdi2f-format-line-weight", 20, "#555"));
             btnStroke.setTooltip(new Tooltip("Grosor de Borde"));
             buttonFactory.styleToolButton(btnStroke);
             btnStroke.setOnAction(e -> {
                 uiOrchestrator.showStrokePopup(btnStroke);
-                btnStroke.setGraphic(UIFactory.crearIcono("mdi2f-format-line-weight", 16, "#3498db"));
+                btnStroke.setGraphic(UIFactory.crearIcono("mdi2f-format-line-weight", 20, "#3498db"));
                 btnStroke.setStyle("-fx-background-color: #d6eaf8; -fx-background-radius: 4; -fx-padding: 4;");
             });
         }
@@ -297,7 +337,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getContourButton() {
         if (btnContour == null) {
-            btnContour = new Button("", UIFactory.crearIcono("mdi2b-border-outside", 16, "#555"));
+            btnContour = new Button("", UIFactory.crearIcono("mdi2b-border-outside", 20, "#555"));
             btnContour.setTooltip(new Tooltip("Contorno / Silueta"));
             buttonFactory.styleToolButton(btnContour);
             btnContour.setOnAction(e -> uiOrchestrator.showContourPopup(btnContour));
@@ -307,7 +347,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getTransButton() {
         if (btnTrans == null) {
-            btnTrans = new Button("", UIFactory.crearIcono("mdi2g-gradient", 16, "#555"));
+            btnTrans = new Button("", UIFactory.crearIcono("mdi2g-gradient", 20, "#555"));
             btnTrans.setTooltip(new Tooltip("Transparencia y Degradado"));
             buttonFactory.styleToolButton(btnTrans);
             btnTrans.setOnAction(e -> uiOrchestrator.showTransPopup(btnTrans));
@@ -317,9 +357,9 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getDeleteButton() {
         if (btnDelete == null) {
-            btnDelete = new Button("", UIFactory.crearIcono("mdi2d-delete", 16, "#c0392b"));
+            btnDelete = new Button("", UIFactory.crearIcono("mdi2d-delete", 20, "#c0392b"));
             btnDelete.setTooltip(new Tooltip("Eliminar"));
-            btnDelete.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 4;");
+            buttonFactory.styleToolButton(btnDelete); // Ensure it also has the 32x32 size
             btnDelete.setOnAction(e -> actionHandler.deleteSelection());
         }
         return btnDelete;
@@ -327,7 +367,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getWeldButton() {
         if (btnWeld == null) {
-            btnWeld = new Button("Soldar", UIFactory.crearIcono("mdi2l-link", 16, "#555"));
+            btnWeld = new Button("", UIFactory.crearIcono("mdi2l-link", 20, "#555"));
             btnWeld.setTooltip(new Tooltip("Soldar Vectores (Unir)"));
             buttonFactory.styleToolButton(btnWeld);
             btnWeld.setOnAction(e -> actionHandler.weldSelectedShapes());
@@ -339,7 +379,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getUnweldButton() {
         if (btnUnweld == null) {
-            btnUnweld = new Button("Desoldar", UIFactory.crearIcono("mdi2l-link-off", 16, "#555"));
+            btnUnweld = new Button("", UIFactory.crearIcono("mdi2l-link-off", 20, "#555"));
             btnUnweld.setTooltip(new Tooltip("Desoldar Vectores (Separar)"));
             buttonFactory.styleToolButton(btnUnweld);
             btnUnweld.setOnAction(e -> actionHandler.unweldSelectedShape());
@@ -350,7 +390,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public Button getCutButton() {
         if (btnCut == null) {
-            btnCut = new Button("Cortar", UIFactory.crearIcono("mdi2c-content-cut", 16, "#555"));
+            btnCut = new Button("", UIFactory.crearIcono("mdi2c-content-cut", 20, "#555"));
             btnCut.setTooltip(new Tooltip("Cortar Vectores (Restar)"));
             buttonFactory.styleToolButton(btnCut);
             btnCut.setOnAction(e -> actionHandler.cutSelectedShapes());
@@ -403,7 +443,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
             isLocked = ((org.example.component.GroupLayer) selected).isUserLocked();
         }
 
-        btnLock.setGraphic(UIFactory.crearIcono(isLocked ? "mdi2l-lock" : "mdi2l-lock-open-variant", 16, isLocked ? "#e74c3c" : "#555"));
+        btnLock.setGraphic(UIFactory.crearIcono(isLocked ? "mdi2l-lock" : "mdi2l-lock-open-variant", 20, isLocked ? "#e74c3c" : "#555"));
         btnLock.setStyle(isLocked ? "-fx-background-color: #fadbd8; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 4;" : "-fx-background-color: transparent; -fx-border-color: transparent; -fx-cursor: hand; -fx-padding: 4;");
     }
 

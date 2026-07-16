@@ -25,6 +25,15 @@ public interface GraphicLayer {
     void updateVisuals();
     void render();
     
+    // Group State
+    void setGrouped(boolean grouped);
+    boolean isGrouped();
+    
+    // Logical Dimensions
+    default double getLogicalWidth() { return 0; }
+    default double getLogicalHeight() { return 0; }
+    default void setSize(double w, double h) {}
+    
     // Transforms
     double getInternalRotation();
     void setInternalRotation(double angle);

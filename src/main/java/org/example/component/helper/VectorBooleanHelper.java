@@ -463,8 +463,9 @@ public class VectorBooleanHelper {
             List<org.example.model.BezierNode> nodes = getLocalBezierNodes(layer);
             if (nodes == null || nodes.isEmpty()) continue;
 
-            // Transform each bezier node globally to target container space to prevent size reduction and misalignment
-            List<org.example.model.BezierNode> parentNodes = transformNodesGlobally(nodes, layer, targetContainer);
+            // Transform each bezier node globally to target container space
+            // Usamos contentGroup en vez de layer para incluir transforms visuales (flip, rotación, sesgo)
+            List<org.example.model.BezierNode> parentNodes = transformNodesGlobally(nodes, layer.getContentGroup(), targetContainer);
 
             // Build SVG path in target space
             String svgData = ShapePathSupport.buildSvgPath(parentNodes, true);
@@ -500,19 +501,19 @@ public class VectorBooleanHelper {
             originalStates.add(new org.example.pattern.NodeMemento(layer));
         }
 
-        // Add welded layer back into the same container at the same position
-        if (parentGroup != null) {
-            visualizer.addShapeLayerToContainer(weldedLayer, parentGroup, insertionIndex, true);
-        } else {
-            visualizer.addShapeLayer(weldedLayer);
-        }
-
         boolean wasHistory = visualizer.getUserLayerManager().isPerformingHistoryAction();
         visualizer.getUserLayerManager().setPerformingHistoryAction(true);
         try {
             // Remove old layers
             for (ShapeLayer layer : layersToWeld) {
                 visualizer.getUserLayerManager().removeLayer(layer);
+            }
+            
+            // Add welded layer back into the same container at the same position
+            if (parentGroup != null) {
+                visualizer.addShapeLayerToContainer(weldedLayer, parentGroup, insertionIndex, true);
+            } else {
+                visualizer.addShapeLayer(weldedLayer);
             }
         } finally {
             visualizer.getUserLayerManager().setPerformingHistoryAction(wasHistory);
@@ -608,12 +609,11 @@ public class VectorBooleanHelper {
             }
 
             // Transform target's and cutter's local bezier nodes to target's parent space globally
-            List<org.example.model.BezierNode> targetParentNodes = transformNodesGlobally(targetLocalNodes, targetLayer, targetParentGroup);
-            List<org.example.model.BezierNode> cutterParentNodes = transformNodesGlobally(cutterLocalNodes, cutterLayer, targetParentGroup);
+            List<org.example.model.BezierNode> targetParentNodes = transformNodesGlobally(targetLocalNodes, targetLayer.getContentGroup(), targetParentGroup);
+            List<org.example.model.BezierNode> cutterParentNodes = transformNodesGlobally(cutterLocalNodes, cutterLayer.getContentGroup(), targetParentGroup);
             
-            // Scale up target nodes by 100x to force JavaFX CSG engine to use high precision
-            List<org.example.model.BezierNode> scaledTargetNodes = scaleNodes(targetParentNodes, 100.0);
-            String targetSvgData = ShapePathSupport.buildSvgPath(scaledTargetNodes, true);
+            // Build SVG path for target and cutter directly without scaling up (prevents primitive geometry clipping errors)
+            String targetSvgData = ShapePathSupport.buildSvgPath(targetParentNodes, true);
             if (targetSvgData.isEmpty()) {
                 resultCutLayers.add(null);
                 continue;
@@ -621,9 +621,7 @@ public class VectorBooleanHelper {
             SVGPath targetSvgPath = new SVGPath();
             targetSvgPath.setContent(targetSvgData);
 
-            // Scale up cutter nodes by 100x to force JavaFX CSG engine to use high precision
-            List<org.example.model.BezierNode> scaledCutterNodes = scaleNodes(cutterParentNodes, 100.0);
-            String cutterSvgData = ShapePathSupport.buildSvgPath(scaledCutterNodes, true);
+            String cutterSvgData = ShapePathSupport.buildSvgPath(cutterParentNodes, true);
             if (cutterSvgData.isEmpty()) {
                 resultCutLayers.add(null);
                 continue;
@@ -636,9 +634,6 @@ public class VectorBooleanHelper {
 
             // Convert result shape into standard JavaFX Path
             Path subtractPath = (Path) Shape.union(subtractResult, new Path());
-            
-            // Scale path elements back down by 100x
-            scalePathDown(subtractPath, 100.0);
 
             // Create shape layer in target's parent space copying target's style/gradient
             ShapeLayer cutLayer = createShapeLayerFromPath(subtractPath, targetLayer.getFillColor(),
@@ -665,46 +660,47 @@ public class VectorBooleanHelper {
         List<org.example.pattern.NodeMemento> originalStates = new ArrayList<>();
         for (ShapeLayer layer : layersToCut) {
             originalStates.add(new org.example.pattern.NodeMemento(layer));
-        }
-
-        // Remove old layers (the targets and the cutter)
+        }        
+        
+        List<Node> newResultNodes = new ArrayList<>();
+        
+        // Remove old layers and add new ones under history lock
         boolean wasHistory = visualizer.getUserLayerManager().isPerformingHistoryAction();
         visualizer.getUserLayerManager().setPerformingHistoryAction(true);
         try {
             for (ShapeLayer layer : layersToCut) {
                 visualizer.getUserLayerManager().removeLayer(layer);
             }
+            
+            // Add successfully cut layers back into their respective original containers
+            for (int i = 0; i < targetLayers.size(); i++) {
+                ShapeLayer targetLayer = targetLayers.get(i);
+                ShapeLayer cutLayer = resultCutLayers.get(i);
+                if (cutLayer == null) continue;
+                newResultNodes.add(cutLayer);
+    
+                cutLayer.setActiveZone(targetLayer.getActiveZone());
+    
+                javafx.scene.Group parentGroup = parentGroups.get(i);
+                int insertionIndex = insertionIndices.get(i);
+    
+                if (parentGroup != null) {
+                    visualizer.addShapeLayerToContainer(cutLayer, parentGroup, insertionIndex, false);
+                } else {
+                    visualizer.addShapeLayer(cutLayer);
+                }
+                
+                // Sync PowerClip container item state if in a zone and refresh clip
+                if (cutLayer.getActiveZone() != null) {
+                    org.example.component.helper.SmartZoneContainer zoneContainer = visualizer.getPowerClipManager().getContainer(cutLayer.getActiveZone());
+                    if (zoneContainer != null) {
+                        zoneContainer.updateItemState(cutLayer);
+                    }
+                    visualizer.getPowerClipManager().refreshZoneClip(cutLayer.getActiveZone());
+                }
+            }
         } finally {
             visualizer.getUserLayerManager().setPerformingHistoryAction(wasHistory);
-        }
-
-        // Add successfully cut layers back into their respective original containers
-        List<Node> newResultNodes = new ArrayList<>();
-        for (int i = 0; i < targetLayers.size(); i++) {
-            ShapeLayer targetLayer = targetLayers.get(i);
-            ShapeLayer cutLayer = resultCutLayers.get(i);
-            if (cutLayer == null) continue;
-            newResultNodes.add(cutLayer);
-
-            cutLayer.setActiveZone(targetLayer.getActiveZone());
-
-            javafx.scene.Group parentGroup = parentGroups.get(i);
-            int insertionIndex = insertionIndices.get(i);
-
-            if (parentGroup != null) {
-                visualizer.addShapeLayerToContainer(cutLayer, parentGroup, insertionIndex, false);
-            } else {
-                visualizer.addShapeLayer(cutLayer);
-            }
-
-            // Sync PowerClip container item state if in a zone and refresh clip
-            if (cutLayer.getActiveZone() != null) {
-                SmartZoneContainer zoneContainer = visualizer.getPowerClipManager().getContainer(cutLayer.getActiveZone());
-                if (zoneContainer != null) {
-                    zoneContainer.updateItemState(cutLayer);
-                }
-                visualizer.getPowerClipManager().refreshZoneClip(cutLayer.getActiveZone());
-            }
         }
 
         // Clean up empty or single-child groups dynamically
@@ -842,9 +838,12 @@ public class VectorBooleanHelper {
         javafx.scene.paint.Color srcStroke = layer.getStrokeColor();
         double srcStrokeWidth = layer.getStrokeWidth();
 
-        // The bezierNodes are in the welded ShapeLayer's LOCAL space.
-        // getLocalToParentTransform() maps them to the parent container's space.
-        javafx.scene.transform.Transform t = layer.getLocalToParentTransform();
+        // Los bezierNodes están en el espacio LOCAL de contentGroup.
+        // Necesitamos incluir las transforms de contentGroup (flip, rotación, sesgo)
+        // y luego las de ShapeLayer (translate) para llegar al espacio del padre.
+        javafx.scene.transform.Transform ct = layer.getContentGroup().getLocalToParentTransform();
+        javafx.scene.transform.Transform lt = layer.getLocalToParentTransform();
+        javafx.scene.transform.Transform t = lt.createConcatenation(ct);
 
         List<ShapeLayer> newLayers = new ArrayList<>();
         for (List<org.example.model.BezierNode> subPath : subPaths) {
@@ -908,18 +907,18 @@ public class VectorBooleanHelper {
             visualizer.getUserLayerManager().setPerformingHistoryAction(true);
             try {
                 visualizer.getUserLayerManager().removeLayer(layer);
+                visualizer.getUserLayerManager().clearSelection();
+                for (ShapeLayer nl : newLayers) {
+                    if (parentGroup != null) {
+                        visualizer.addShapeLayerToContainer(nl, parentGroup, -1, false);
+                    } else {
+                        visualizer.addShapeLayer(nl);
+                    }
+                    visualizer.getUserLayerManager().addToSelection(nl);
+                    resultNodes.add(nl);
+                }
             } finally {
                 visualizer.getUserLayerManager().setPerformingHistoryAction(wasHistory);
-            }
-            visualizer.getUserLayerManager().clearSelection();
-            for (ShapeLayer nl : newLayers) {
-                if (parentGroup != null) {
-                    visualizer.getUserLayerManager().addLayerToContainer(nl, parentGroup, false);
-                } else {
-                    visualizer.getUserLayerManager().addLayer(nl);
-                }
-                visualizer.getUserLayerManager().addToSelection(nl);
-                resultNodes.add(nl);
             }
 
             if (visualizer.getHistoryManager() != null) {

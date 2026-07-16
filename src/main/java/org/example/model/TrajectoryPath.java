@@ -111,12 +111,51 @@ public class TrajectoryPath implements Serializable {
     }
 
     private Point2D calculateArcPoint(double t) {
-        Point2D p0 = controlPoints.get(0);
-        Point2D pMid = controlPoints.get(1);
-        Point2D p1 = controlPoints.get(2);
-        Point2D q0 = lerp(p0, pMid, t);
-        Point2D q1 = lerp(pMid, p1, t);
-        return lerp(q0, q1, t);
+        Point2D p1 = controlPoints.get(0);
+        Point2D p2 = controlPoints.get(1);
+        Point2D p3 = controlPoints.get(2);
+
+        double x1 = p1.getX(), y1 = p1.getY();
+        double x2 = p2.getX(), y2 = p2.getY();
+        double x3 = p3.getX(), y3 = p3.getY();
+
+        double d = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+        
+        if (Math.abs(d) < 0.0001) {
+            Point2D q0 = lerp(p1, p2, t);
+            Point2D q1 = lerp(p2, p3, t);
+            return lerp(q0, q1, t);
+        }
+
+        double ux = ((x1 * x1 + y1 * y1) * (y2 - y3) + (x2 * x2 + y2 * y2) * (y3 - y1) + (x3 * x3 + y3 * y3) * (y1 - y2)) / d;
+        double uy = ((x1 * x1 + y1 * y1) * (x3 - x2) + (x2 * x2 + y2 * y2) * (x1 - x3) + (x3 * x3 + y3 * y3) * (x2 - x1)) / d;
+
+        Point2D center = new Point2D(ux, uy);
+        double radius = center.distance(p1);
+
+        double startAngle = Math.atan2(y1 - uy, x1 - ux);
+        double midAngle = Math.atan2(y2 - uy, x2 - ux);
+        double endAngle = Math.atan2(y3 - uy, x3 - ux);
+
+        double normMid = (midAngle - startAngle) % (2 * Math.PI);
+        if (normMid < 0) normMid += 2 * Math.PI;
+        
+        double normEnd = (endAngle - startAngle) % (2 * Math.PI);
+        if (normEnd < 0) normEnd += 2 * Math.PI;
+        
+        double sweep;
+        if (normMid > normEnd) {
+            sweep = normEnd - 2 * Math.PI;
+        } else {
+            sweep = normEnd;
+        }
+
+        double currentAngle = startAngle + t * sweep;
+
+        return new Point2D(
+                center.getX() + radius * Math.cos(currentAngle),
+                center.getY() + radius * Math.sin(currentAngle)
+        );
     }
 
     private Point2D calculateCirclePoint(double t) {

@@ -578,10 +578,18 @@ public class PersonalizacionDelegate {
 
         javafx.scene.control.ScrollPane scrollTools = new javafx.scene.control.ScrollPane(toolsContainer);
         scrollTools.setVbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
-        scrollTools.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollTools.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
         scrollTools.setFitToHeight(true);
         scrollTools.setPannable(true);
         scrollTools.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent; -fx-padding: 0; -fx-border-color: transparent;");
+        // Redirigir rueda del mouse al scroll horizontal (la barra está oculta pero el scroll sigue funcionando)
+        scrollTools.addEventFilter(javafx.scene.input.ScrollEvent.SCROLL, ev -> {
+            double delta = ev.getDeltaY() != 0 ? ev.getDeltaY() : ev.getDeltaX();
+            double step = 0.08; // porcentaje del rango total por cada tick de rueda
+            double newH = Math.max(0, Math.min(1.0, scrollTools.getHvalue() - (delta > 0 ? step : -step)));
+            scrollTools.setHvalue(newH);
+            ev.consume();
+        });
         scrollTools.visibleProperty().bind(btnToolbarToggle.selectedProperty());
         scrollTools.managedProperty().bind(btnToolbarToggle.selectedProperty());
 
@@ -667,11 +675,13 @@ public class PersonalizacionDelegate {
             }
         });
 
-        HBox shapeGroup = new HBox(1, btnShape, btnPencil);
+        HBox shapeGroup = new HBox(4, btnShape, btnPencil);
         shapeGroup.setAlignment(Pos.CENTER);
+        shapeGroup.setPadding(new Insets(0, 8, 0, 8));
 
-        HBox editGroup = new HBox(1);
+        HBox editGroup = new HBox(4);
         editGroup.setAlignment(Pos.CENTER);
+        editGroup.setPadding(new Insets(0, 8, 0, 8));
         if (getShapeController() != null) {
             javafx.scene.Node w = getShapeController().getWeldButton();
             javafx.scene.Node uw = getShapeController().getUnweldButton();
@@ -687,9 +697,9 @@ public class PersonalizacionDelegate {
         }
 
         // --- Fill & Stroke color pickers (tight pair) ---
-        HBox colorPickerGroup = new HBox(0);
+        HBox colorPickerGroup = new HBox(4);
         colorPickerGroup.setAlignment(Pos.CENTER);
-        colorPickerGroup.setPadding(new Insets(0, 2, 0, 2));
+        colorPickerGroup.setPadding(new Insets(0, 8, 0, 8));
         if (getShapeController() != null) {
             javafx.scene.Node f = getShapeController().getFillPicker();
             javafx.scene.Node st = getShapeController().getStrokePicker();
@@ -697,21 +707,18 @@ public class PersonalizacionDelegate {
             if (st != null) colorPickerGroup.getChildren().add(st);
         }
 
-        // --- Image Tools: photo icon label + brush + eraser ---
-        HBox imageToolsGroup = new HBox(1);
+        // --- Image Tools: image editor button ---
+        HBox imageToolsGroup = new HBox(4);
         imageToolsGroup.setAlignment(Pos.CENTER);
-        // Small gallery/photo icon to indicate these tools work on images
-        javafx.scene.Node imgIcon = UIFactory.crearIcono("mdi2i-image-filter-hdr", 16, "#7f8c8d");
-        imageToolsGroup.getChildren().add(imgIcon);
+        imageToolsGroup.setPadding(new Insets(0, 8, 0, 8));
         if (getShapeController() != null) {
-            javafx.scene.Node b = getShapeController().getBrushButton();
-            javafx.scene.Node er = getShapeController().getEraserButton();
-            if (b != null) imageToolsGroup.getChildren().add(b);
-            if (er != null) imageToolsGroup.getChildren().add(er);
+            javafx.scene.Node editorBtn = getShapeController().getImageEditorButton();
+            if (editorBtn != null) imageToolsGroup.getChildren().add(editorBtn);
         }
 
-        HBox advancedBox = new HBox(1);
+        HBox advancedBox = new HBox(4);
         advancedBox.setAlignment(Pos.CENTER);
+        advancedBox.setPadding(new Insets(0, 8, 0, 8));
         if (getShapeController() != null) {
             javafx.scene.Node ang = getShapeController().getAngleBox();
             javafx.scene.Node tr = getShapeController().getTransformButton();
