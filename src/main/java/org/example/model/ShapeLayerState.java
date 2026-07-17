@@ -26,6 +26,7 @@ public class ShapeLayerState {
     public double strokeWidth = 1.0;
     public StrokeLineJoin strokeLineJoin = StrokeLineJoin.ROUND;
     public javafx.scene.shape.StrokeType strokeType = javafx.scene.shape.StrokeType.CENTERED;
+    public javafx.scene.shape.FillRule fillRule = javafx.scene.shape.FillRule.NON_ZERO;
 
     // Custom Geometry
     public String svgPathData;
@@ -66,6 +67,7 @@ public class ShapeLayerState {
         copy.strokeWidth = this.strokeWidth;
         copy.strokeLineJoin = this.strokeLineJoin;
         copy.strokeType = this.strokeType;
+        copy.fillRule = this.fillRule;
         copy.svgPathData = this.svgPathData;
         if (this.bezierNodes != null) {
             copy.bezierNodes = new ArrayList<>();

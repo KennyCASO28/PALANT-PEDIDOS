@@ -44,16 +44,10 @@ public class ImageClipboardSupport {
         // 4. Match Visual Size (Do this BEFORE copying scales so it doesn't overwrite them)
         copy.setSize(clipboardLayer.getWidth(), clipboardLayer.getHeight());
 
-        copy.updatePivotWithCompensation(clipboardLayer.getCustomPivotX(), clipboardLayer.getCustomPivotY());
-
         // 3. Copy Properties
         copy.setTranslateX(clipboardLayer.getTranslateX());
         copy.setTranslateY(clipboardLayer.getTranslateY());
-        copy.setInternalRotation(clipboardLayer.getInternalRotation());
-        copy.setInternalScaleX(clipboardLayer.getInternalScaleX());
-        copy.setInternalScaleY(clipboardLayer.getInternalScaleY());
-        copy.getShearTransform().setX(clipboardLayer.getShearTransform().getX());
-        copy.getShearTransform().setY(clipboardLayer.getShearTransform().getY());
+        copy.copyTransformsFrom(clipboardLayer);
         
         // Match State (Legacy fields)
         if (clipboardLayer.getActiveZone() != null) {

@@ -62,5 +62,13 @@ public interface GraphicLayer {
     void setRotationMode(boolean active);
     boolean isRotationMode();
     
+    // Styling
+    default javafx.scene.paint.Color getFillColor() { return null; }
+    default void setFillColor(javafx.scene.paint.Color color) {}
+    default javafx.scene.paint.Color getStrokeColor() { return null; }
+    default void setStrokeColor(javafx.scene.paint.Color color) {}
+    default double getStrokeWidth() { return 0; }
+    default void setStrokeWidth(double width) {}
+
     Node getNode();
 }

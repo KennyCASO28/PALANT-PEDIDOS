@@ -10,6 +10,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.Polygon;
 import org.example.component.PrendaVisualizer;
 import org.example.component.ShapeLayer;
 import org.example.model.BezierNode;
@@ -209,7 +210,7 @@ public class BezierInteractionService {
             Point2D anchorScene = editingLayer.shapeLocalToScene(n.anchor);
             Point2D anchorLocal = visualizer.getContentGroup().sceneToLocal(anchorScene);
 
-            Circle anchorNode = new Circle(anchorLocal.getX(), anchorLocal.getY(), 4.0);
+            Circle anchorNode = new Circle(anchorLocal.getX(), anchorLocal.getY(), 3.0);
             anchorNode.setFill(selectedBezierNodes.contains(n) ? Color.RED : Color.web("#0078D7"));
             anchorNode.setStroke(Color.WHITE);
             anchorNode.setStrokeWidth(1.5);
@@ -284,25 +285,41 @@ public class BezierInteractionService {
             boolean showC1 = false;
             if (idx > start) {
                 BezierNode prevNode = bezierNodes.get(idx - 1);
-                showC1 = prevNode.segmentType == BezierNode.SegmentType.CURVE;
+                showC1 = prevNode.segmentType == BezierNode.SegmentType.CURVE || (n.control1 != null && n.control1.distance(n.anchor) > 0.1);
             } else if (idx == start && isClosed) {
                 BezierNode prevNode = bezierNodes.get(end);
-                showC1 = prevNode.segmentType == BezierNode.SegmentType.CURVE;
+                showC1 = prevNode.segmentType == BezierNode.SegmentType.CURVE || (n.control1 != null && n.control1.distance(n.anchor) > 0.1);
             }
 
             boolean showC2 = false;
             if (idx < end) {
-                showC2 = n.segmentType == BezierNode.SegmentType.CURVE;
+                showC2 = n.segmentType == BezierNode.SegmentType.CURVE || (n.control2 != null && n.control2.distance(n.anchor) > 0.1);
             } else if (idx == end && isClosed) {
-                showC2 = n.segmentType == BezierNode.SegmentType.CURVE;
+                showC2 = n.segmentType == BezierNode.SegmentType.CURVE || (n.control2 != null && n.control2.distance(n.anchor) > 0.1);
             }
 
-            if (showC1) {
+            boolean isNSelected = selectedBezierNodes.contains(n);
+            
+            boolean isPrevSelected = false;
+            if (idx > start) {
+                isPrevSelected = selectedBezierNodes.contains(bezierNodes.get(idx - 1));
+            } else if (idx == start && isClosed) {
+                isPrevSelected = selectedBezierNodes.contains(bezierNodes.get(end));
+            }
+            
+            boolean isNextSelected = false;
+            if (idx < end) {
+                isNextSelected = selectedBezierNodes.contains(bezierNodes.get(idx + 1));
+            } else if (idx == end && isClosed) {
+                isNextSelected = selectedBezierNodes.contains(bezierNodes.get(start));
+            }
+
+            if (showC1 && (isNSelected || isPrevSelected)) {
                 Point2D c1Scene = editingLayer.shapeLocalToScene(n.control1);
                 Point2D c1Local = visualizer.getContentGroup().sceneToLocal(c1Scene);
                 drawEditHandle(n, c1Local, anchorLocal, "C1", nodeIndex);
             }
-            if (showC2) {
+            if (showC2 && (isNSelected || isNextSelected)) {
                 Point2D c2Scene = editingLayer.shapeLocalToScene(n.control2);
                 Point2D c2Local = visualizer.getContentGroup().sceneToLocal(c2Scene);
                 drawEditHandle(n, c2Local, anchorLocal, "C2", nodeIndex);
@@ -322,7 +339,7 @@ public class BezierInteractionService {
 
         for (Node child : handleGroup.getChildren()) {
             if (child == marqueeRect) continue;
-            if (child instanceof Rectangle || child instanceof Circle) {
+            if (child instanceof Rectangle || child instanceof Circle || child instanceof Polygon) {
                 child.setScaleX(invScale);
                 child.setScaleY(invScale);
             } else if (child instanceof Line) {
@@ -359,12 +376,29 @@ public class BezierInteractionService {
             } else if (child == marqueeRect) {
                 // ignore marqueeRect
             } else if ("C1".equals(type) || "C2".equals(type)) {
+                Point2D controlScene = editingLayer.shapeLocalToScene("C1".equals(type) ? n.control1 : n.control2);
+                Point2D controlLocal = visualizer.getContentGroup().sceneToLocal(controlScene);
                 if (child instanceof Circle) {
                     Circle c = (Circle) child;
-                    Point2D controlScene = editingLayer.shapeLocalToScene("C1".equals(type) ? n.control1 : n.control2);
-                    Point2D controlLocal = visualizer.getContentGroup().sceneToLocal(controlScene);
                     c.setCenterX(controlLocal.getX());
                     c.setCenterY(controlLocal.getY());
+                } else if (child instanceof Polygon) {
+                    Polygon arrowhead = (Polygon) child;
+                    double len = anchorLocal.distance(controlLocal);
+                    double dx = len > 0 ? (controlLocal.getX() - anchorLocal.getX()) / len : 1.0;
+                    double dy = len > 0 ? (controlLocal.getY() - anchorLocal.getY()) / len : 0.0;
+                    double size = 4.0;
+                    double tipX = controlLocal.getX() + dx * size;
+                    double tipY = controlLocal.getY() + dy * size;
+                    double baseMidX = controlLocal.getX() - dx * size;
+                    double baseMidY = controlLocal.getY() - dy * size;
+                    double ox = -dy * (size * 0.8);
+                    double oy = dx * (size * 0.8);
+                    arrowhead.getPoints().setAll(
+                        tipX, tipY,
+                        baseMidX + ox, baseMidY + oy,
+                        baseMidX - ox, baseMidY - oy
+                    );
                 }
             } else if ("C1LINE".equals(type) || "C2LINE".equals(type)) {
                 Line l = (Line) child;
@@ -461,20 +495,49 @@ public class BezierInteractionService {
 
     private void drawEditHandle(BezierNode n, Point2D controlLocal, Point2D anchorLocal, String type, int nodeIndex) {
         Line handleBar = new Line(anchorLocal.getX(), anchorLocal.getY(), controlLocal.getX(), controlLocal.getY());
-        handleBar.setStroke(Color.web("#0078D7", 0.6));
+        handleBar.setStroke(Color.web("#0078D7", 0.8));
         handleBar.setStrokeWidth(1.0);
+        handleBar.getStrokeDashArray().addAll(3.0, 3.0); // Dotted line
         handleBar.setMouseTransparent(true);
         handleBar.setUserData(new Object[] { n, type + "LINE", nodeIndex });
         handleGroup.getChildren().add(handleBar);
 
-        Circle c = new Circle(controlLocal.getX(), controlLocal.getY(), 3.5, Color.WHITE);
-        c.setStroke(Color.web("#0078D7"));
-        c.setStrokeWidth(1.5);
-        c.setCursor(Cursor.HAND);
-        c.setUserData(new Object[] { n, type, nodeIndex });
-        
-        c.setOnMouseEntered(ev -> { c.setStrokeWidth(2.0); c.setRadius(4.5); });
-        c.setOnMouseExited(ev -> { c.setStrokeWidth(1.5); c.setRadius(3.5); });
+        // Calculate arrowhead triangle pointing along the tangent vector
+        double len = anchorLocal.distance(controlLocal);
+        double dx = len > 0 ? (controlLocal.getX() - anchorLocal.getX()) / len : 1.0;
+        double dy = len > 0 ? (controlLocal.getY() - anchorLocal.getY()) / len : 0.0;
+        double size = 4.0;
+        double tipX = controlLocal.getX() + dx * size;
+        double tipY = controlLocal.getY() + dy * size;
+        double baseMidX = controlLocal.getX() - dx * size;
+        double baseMidY = controlLocal.getY() - dy * size;
+        double ox = -dy * (size * 0.8);
+        double oy = dx * (size * 0.8);
+
+        Polygon arrowhead = new Polygon(
+            tipX, tipY,
+            baseMidX + ox, baseMidY + oy,
+            baseMidX - ox, baseMidY - oy
+        );
+        arrowhead.setFill(Color.WHITE);
+        arrowhead.setStroke(Color.web("#0078D7"));
+        arrowhead.setStrokeWidth(1.5);
+        arrowhead.setCursor(Cursor.HAND);
+        arrowhead.setUserData(new Object[] { n, type, nodeIndex });
+
+        arrowhead.setOnMouseEntered(ev -> {
+            arrowhead.setFill(Color.web("#E6F2FF"));
+            arrowhead.setStrokeWidth(2.0);
+        });
+        arrowhead.setOnMouseExited(ev -> {
+            arrowhead.setFill(Color.WHITE);
+            arrowhead.setStrokeWidth(1.5);
+        });
+
+        // Keep invisible Circle c for hitbox translation bindings
+        Circle c = new Circle(controlLocal.getX(), controlLocal.getY(), 3.5);
+        c.setVisible(false);
+        c.setUserData(arrowhead.getUserData());
         
         // Improve hitbox sensitivity using a larger transparent region
         Rectangle hitBox = new Rectangle();
@@ -486,8 +549,8 @@ public class BezierInteractionService {
         hitBox.setCursor(Cursor.HAND);
         hitBox.setUserData(c.getUserData());
         
-        hitBox.setOnMouseEntered(c.getOnMouseEntered());
-        hitBox.setOnMouseExited(c.getOnMouseExited());
+        hitBox.setOnMouseEntered(arrowhead.getOnMouseEntered());
+        hitBox.setOnMouseExited(arrowhead.getOnMouseExited());
 
         hitBox.setOnMousePressed(e -> {
             currentDragNode = n;
@@ -517,7 +580,7 @@ public class BezierInteractionService {
         });
 
         // Add both to group (order matters for rendering vs hit detection)
-        handleGroup.getChildren().add(c);
+        handleGroup.getChildren().add(arrowhead);
         handleGroup.getChildren().add(hitBox);
     }
 

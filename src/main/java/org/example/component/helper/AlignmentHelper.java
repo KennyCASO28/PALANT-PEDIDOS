@@ -23,7 +23,10 @@ public class AlignmentHelper {
             Bounds cb = g2.calculateBounds();
             double cx = cb.getMinX() + cb.getWidth() / 2.0;
             double cy = cb.getMinY() + cb.getHeight() / 2.0;
-            return g2.localToScene(cx, cy);
+            // calculateBounds() usa coordenadas del contentGroup (no del GroupLayerV2 mismo).
+            // Debemos convertir desde contentGroup.localToScene para que la rotación/escala
+            // del contentGroup (rotate/scale/shear transforms) sea correctamente considerada.
+            return g2.getContentGroup().localToScene(cx, cy);
         } else if (n instanceof org.example.component.GroupLayer) {
             org.example.component.GroupLayer gl = (org.example.component.GroupLayer) n;
             double cx = gl.getBoundsMinX() + gl.getLogicalWidth() / 2.0;
@@ -55,7 +58,8 @@ public class AlignmentHelper {
         if (n instanceof org.example.component.GroupLayerV2) {
             org.example.component.GroupLayerV2 g2 = (org.example.component.GroupLayerV2) n;
             Bounds cb = g2.calculateBounds();
-            return g2.localToScene(cb.getMinX(), cb.getMinY());
+            // calculateBounds() usa coordenadas del contentGroup — usar contentGroup.localToScene
+            return g2.getContentGroup().localToScene(cb.getMinX(), cb.getMinY());
         } else if (n instanceof org.example.component.GroupLayer) {
             org.example.component.GroupLayer gl = (org.example.component.GroupLayer) n;
             return gl.localToScene(gl.getBoundsMinX(), gl.getBoundsMinY());

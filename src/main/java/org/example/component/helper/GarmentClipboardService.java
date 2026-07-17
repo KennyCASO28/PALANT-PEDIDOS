@@ -81,13 +81,9 @@ public class GarmentClipboardService {
                 }
             }
 
-            newGroup.updatePivotWithCompensation(originalGroup.getCustomPivotX(), originalGroup.getCustomPivotY());
-
             newGroup.setTranslateX(originalGroup.getTranslateX());
             newGroup.setTranslateY(originalGroup.getTranslateY());
-            newGroup.setInternalRotation(originalGroup.getInternalRotation());
-            newGroup.setInternalScale(originalGroup.getInternalScaleX(), originalGroup.getInternalScaleY());
-            newGroup.setInternalShear(originalGroup.getInternalShearX(), originalGroup.getInternalShearY());
+            newGroup.copyTransformsFrom(originalGroup);
             newGroup.setActiveZone(originalGroup.getActiveZone());
             
             // Try to extract visualizer if possible
@@ -117,7 +113,7 @@ public class GarmentClipboardService {
             // Copy group transforms
             newGroup.setTranslateX(originalGroup.getTranslateX());
             newGroup.setTranslateY(originalGroup.getTranslateY());
-
+            
             // CRITICAL: Copy internal transforms
             newGroup.setInternalRotation(originalGroup.getInternalRotation());
             newGroup.setInternalScaleX(originalGroup.getInternalScaleX());

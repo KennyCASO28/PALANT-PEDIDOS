@@ -145,13 +145,6 @@ public class GarmentInputHandler {
             if (isControlDown && !isAltDown) {
                 if (e.getCode() == javafx.scene.input.KeyCode.Z) {
                     if (inSidePanel) return;
-                    
-                    long now = System.currentTimeMillis();
-                    if (now - lastUndoTime[0] < 250) {
-                        e.consume();
-                        return; // Ignore fast auto-repeats to prevent disappearing objects
-                    }
-                    lastUndoTime[0] = now;
 
                     // If the user is drawing a Bezier path, Ctrl+Z removes the last point
                     if (!isShiftDown && visualizer.getShapeHelper() != null
@@ -160,6 +153,16 @@ public class GarmentInputHandler {
                         e.consume();
                         return;
                     }
+
+
+
+                    // Debounce para evitar ejecución doble por eventos rápidos del sistema
+                    long now = System.currentTimeMillis();
+                    if (now - lastUndoTime[0] < 300) {
+                        e.consume();
+                        return;
+                    }
+                    lastUndoTime[0] = now;
                     
                     if (visualizer.getHistoryManager() != null) {
                         if (isShiftDown) visualizer.getHistoryManager().redo();
@@ -1728,4 +1731,5 @@ public class GarmentInputHandler {
         return item;
     }
 }
+
 

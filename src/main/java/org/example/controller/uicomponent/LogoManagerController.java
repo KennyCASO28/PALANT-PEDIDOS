@@ -15,6 +15,12 @@ import org.example.utils.UIFactory;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import javafx.scene.control.Alert;
+import javafx.application.Platform;
+import javafx.scene.shape.SVGPath;
+import javafx.scene.shape.Path;
+import javafx.scene.shape.Shape;
+import org.example.component.helper.VectorBooleanHelper;
 
 public class LogoManagerController {
 
@@ -152,16 +158,19 @@ public class LogoManagerController {
 
     private void uploadImage() {
         FileChooser fc = new FileChooser();
-        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Imágenes", "*.png", "*.jpg", "*.jpeg", "*.webp"));
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Imágenes y Vectores", "*.png", "*.jpg", "*.jpeg", "*.webp", "*.svg", "*.pdf", "*.cdr"));
         List<File> files = fc.showOpenMultipleDialog(container.getScene().getWindow());
 
         if (files != null) {
             for (File f : files) {
                 try {
-                    // OPTIMIZATION: Limit texture memory payload per image (max 2000px, preserve
-                    // ratio, smooth scaling)
-                    Image img = new Image(f.toURI().toString(), 800, 800, true, true);
-                    addToGallery(img);
+                    String name = f.getName().toLowerCase();
+                    if (name.endsWith(".svg") || name.endsWith(".pdf") || name.endsWith(".cdr")) {
+                        processVectorFileAsync(f);
+                    } else {
+                        Image img = new Image(f.toURI().toString(), 800, 800, true, true);
+                        addToGallery(img, null);
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -169,7 +178,110 @@ public class LogoManagerController {
         }
     }
 
-    private void addToGallery(Image img) {
+    private void processVectorFileAsync(File f) {
+        new Thread(() -> {
+            try {
+                File svgFile = f;
+                if (!f.getName().toLowerCase().endsWith(".svg")) {
+                    svgFile = File.createTempFile("converted_vector_", ".svg");
+                    svgFile.deleteOnExit();
+                    
+                    String inkscapePath = "inkscape";
+                    if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                        // 1. Buscar versión portable empaquetada (Recomendado)
+                        File bundled = new File(System.getProperty("user.dir"), "tools\\inkscape\\bin\\inkscape.exe");
+                        // 2. Buscar versión de sistema
+                        File pf = new File("C:\\Program Files\\Inkscape\\bin\\inkscape.exe");
+                        
+                        if (bundled.exists()) {
+                            inkscapePath = bundled.getAbsolutePath();
+                        } else if (pf.exists()) {
+                            inkscapePath = pf.getAbsolutePath();
+                        }
+                    }
+                    
+                    ProcessBuilder pb = new ProcessBuilder(
+                        inkscapePath, 
+                        "--export-type=svg", 
+                        "--export-plain-svg", 
+                        "--export-filename=" + svgFile.getAbsolutePath(), 
+                        f.getAbsolutePath()
+                    );
+                    
+                    Process p;
+                    try {
+                        p = pb.start();
+                    } catch (java.io.IOException e) {
+                        Platform.runLater(() -> {
+                            Alert alert = new Alert(Alert.AlertType.ERROR);
+                            alert.setTitle("Conversor de Vectores Ausente");
+                            alert.setHeaderText("Falta el motor Inkscape Portable");
+                            alert.setContentText("Para que el sistema sea independiente, debes empaquetar Inkscape Portable.\nCrea una carpeta llamada 'tools' junto a tu proyecto, y dentro coloca la carpeta 'inkscape'.\nEl sistema buscará el archivo en: tools\\inkscape\\bin\\inkscape.exe");
+                            alert.showAndWait();
+                        });
+                        return;
+                    }
+                    
+                    int exitCode = p.waitFor();
+                    if (exitCode != 0) {
+                        Platform.runLater(() -> {
+                            Alert alert = new Alert(Alert.AlertType.ERROR);
+                            alert.setTitle("Error de Conversión");
+                            alert.setHeaderText("Fallo al convertir archivo a SVG");
+                            alert.setContentText("Asegúrate de que Inkscape está instalado y en el PATH del sistema. Código: " + exitCode);
+                            alert.showAndWait();
+                        });
+                        return;
+                    }
+                }
+                
+                // Parse the SVG to create a thumbnail
+                java.util.List<org.example.utils.SVGUtils.ParsedSVGShape> shapes = org.example.utils.SVGUtils.parseComplexSvg(svgFile);
+                if (shapes.isEmpty()) return;
+                
+                javafx.scene.Group tempGroup = new javafx.scene.Group();
+                for (org.example.utils.SVGUtils.ParsedSVGShape ps : shapes) {
+                    javafx.scene.shape.SVGPath path = new javafx.scene.shape.SVGPath();
+                    path.setContent(ps.pathData);
+                    boolean hasNoFill = ps.fill == null || ps.fill.isEmpty() || ps.fill.equals("none");
+                    boolean hasNoStroke = ps.stroke == null || ps.stroke.isEmpty() || ps.stroke.equals("none") || ps.stroke.equals("null");
+                    double sw = ps.strokeWidth != null && !ps.strokeWidth.equals("none") && !ps.strokeWidth.isEmpty() && !ps.strokeWidth.equals("null") ? Double.parseDouble(ps.strokeWidth.replaceAll("[a-zA-Z]", "")) : 0.0;
+                    javafx.scene.paint.Color thumbFill = org.example.utils.SVGUtils.getSafeColor(ps.fill, javafx.scene.paint.Color.BLACK);
+                    if (hasNoFill && (hasNoStroke || sw <= 0)) {
+                        thumbFill = javafx.scene.paint.Color.BLACK;
+                    }
+                    path.setFill(thumbFill);
+                    if (ps.stroke != null && !ps.stroke.equals("none")) {
+                        path.setStroke(org.example.utils.SVGUtils.getSafeColor(ps.stroke, javafx.scene.paint.Color.TRANSPARENT));
+                        path.setStrokeWidth(ps.strokeWidth != null && !ps.strokeWidth.equals("none") ? Double.parseDouble(ps.strokeWidth.replaceAll("[a-zA-Z]", "")) : 0.0);
+                    }
+                    String fillRuleStr = (ps.fillRule != null && !ps.fillRule.isEmpty()) ? ps.fillRule : "evenodd";
+                    if ("evenodd".equalsIgnoreCase(fillRuleStr)) {
+                        path.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
+                    }
+                    org.example.utils.SVGUtils.applySVGTransform(path, ps.transform);
+                    tempGroup.getChildren().add(path);
+                }
+                
+                final File finalSvgFile = svgFile;
+                Platform.runLater(() -> {
+                    javafx.scene.SnapshotParameters params = new javafx.scene.SnapshotParameters();
+                    params.setFill(javafx.scene.paint.Color.TRANSPARENT);
+                    double maxDim = Math.max(tempGroup.getBoundsInLocal().getWidth(), tempGroup.getBoundsInLocal().getHeight());
+                    if (maxDim > 0) {
+                        double scale = 150 / maxDim;
+                        params.setTransform(javafx.scene.transform.Transform.scale(scale, scale));
+                    }
+                    Image thumbnail = tempGroup.snapshot(params, null);
+                    addToGallery(thumbnail, finalSvgFile);
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void addToGallery(Image img, File vectorFile) {
         uploadedImages.add(img);
 
         ImageView thumb = new ImageView(img);
@@ -220,8 +332,57 @@ public class LogoManagerController {
         box.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2) {
                 // Double Click: Insert directly to canvas
-                org.example.component.ImageLayer il = new org.example.component.ImageLayer(img);
-                visualizer.getLayerFactory().addImageLayer(il);
+                if (vectorFile != null) {
+                    // Import individual shapes separately to avoid path fusion and coordinate corruption
+                    java.util.List<org.example.utils.SVGUtils.ParsedSVGShape> shapes = org.example.utils.SVGUtils.parseComplexSvg(vectorFile);
+                    if (!shapes.isEmpty()) {
+                        java.util.List<javafx.scene.Node> newLayers = new java.util.ArrayList<>();
+                        for (org.example.utils.SVGUtils.ParsedSVGShape ps : shapes) {
+                            String fillColor = ps.fill;
+                            String strokeColor = ps.stroke;
+                            String strokeW = ps.strokeWidth;
+                            String transformStr = ps.transform;
+                            String fillRuleStr = (ps.fillRule != null && !ps.fillRule.isEmpty()) ? ps.fillRule : "evenodd";
+
+                            // Bake SVG transform into geometry via Shape.union (exactamente como PrendaLayerFactory)
+                            javafx.scene.shape.SVGPath tempSvg = new javafx.scene.shape.SVGPath();
+                            tempSvg.setContent(ps.pathData);
+                            if ("evenodd".equalsIgnoreCase(fillRuleStr)) {
+                                tempSvg.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
+                            }
+                            if (transformStr != null && !transformStr.isEmpty()) {
+                                org.example.utils.SVGUtils.applySVGTransform(tempSvg, transformStr);
+                            }
+                            javafx.scene.shape.Path fxPath = (javafx.scene.shape.Path) javafx.scene.shape.Shape.union(tempSvg, new javafx.scene.shape.Path());
+                            if ("evenodd".equalsIgnoreCase(fillRuleStr)) {
+                                fxPath.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
+                            }
+
+                            // Inkscape exporta CDR con fill:none y sin stroke; aplicar negro como default
+                            boolean hasNoFill = fillColor == null || fillColor.isEmpty() || fillColor.equals("none");
+                            boolean hasNoStroke = strokeColor == null || strokeColor.isEmpty() || strokeColor.equals("none") || strokeColor.equals("null");
+                            double sw = strokeW != null && !strokeW.equals("none") && !strokeW.isEmpty() && !strokeW.equals("null") ? Double.parseDouble(strokeW.replaceAll("[a-zA-Z]", "")) : 0.0;
+                            javafx.scene.paint.Color fill = org.example.utils.SVGUtils.getSafeColor(fillColor, javafx.scene.paint.Color.BLACK);
+                            if (hasNoFill && (hasNoStroke || sw <= 0)) {
+                                fill = javafx.scene.paint.Color.BLACK;
+                            }
+                            org.example.component.ShapeLayer sl = org.example.component.helper.VectorBooleanHelper.createShapeLayerFromPath(fxPath,
+                                fill,
+                                org.example.utils.SVGUtils.getSafeColor(strokeColor, javafx.scene.paint.Color.TRANSPARENT),
+                                sw);
+
+                            if (sl == null) continue;
+                            visualizer.getLayerFactory().addShapeLayer(sl);
+                            newLayers.add(sl);
+                        }
+                        visualizer.getLayerManager().clearSelection();
+                        newLayers.forEach(visualizer.getLayerManager()::addToSelection);
+                        visualizer.getLayerManager().groupSelected();
+                    }
+                } else {
+                    org.example.component.ImageLayer il = new org.example.component.ImageLayer(img);
+                    visualizer.getLayerFactory().addImageLayer(il);
+                }
                 e.consume();
                 return;
             }
@@ -242,7 +403,11 @@ public class LogoManagerController {
         box.setOnDragDetected(e -> {
             Dragboard db = box.startDragAndDrop(TransferMode.COPY);
             ClipboardContent content = new ClipboardContent();
-            content.putImage(img);
+            if (vectorFile != null) {
+                content.putFiles(java.util.Collections.singletonList(vectorFile));
+            } else {
+                content.putImage(img);
+            }
             db.setContent(content);
             e.consume();
         });
@@ -285,7 +450,7 @@ public class LogoManagerController {
         clearAll();
         if (images != null) {
             for (Image img : images) {
-                addToGallery(img);
+                addToGallery(img, null);
             }
         }
     }

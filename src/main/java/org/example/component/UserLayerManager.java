@@ -292,6 +292,9 @@ public class UserLayerManager {
             while (temp.getParent() != null) {
                 temp = temp.getParent();
                 if ("USER_GROUP".equals(temp.getId()) || temp instanceof GroupLayerV2 || temp instanceof GroupLayer) {
+                    if (temp instanceof GroupLayerV2 && ((GroupLayerV2) temp).isEditingMode()) {
+                        break; // Stop looking up! The child can be selected.
+                    }
                     topmostGroup = temp;
                 }
             }
@@ -319,6 +322,9 @@ public class UserLayerManager {
         while (temp.getParent() != null) {
             temp = temp.getParent();
             if ("USER_GROUP".equals(temp.getId()) || temp instanceof GroupLayerV2 || temp instanceof GroupLayer) {
+                if (temp instanceof GroupLayerV2 && ((GroupLayerV2) temp).isEditingMode()) {
+                    break;
+                }
                 topmostGroup = temp;
             }
         }
@@ -340,6 +346,9 @@ public class UserLayerManager {
             while (temp.getParent() != null) {
                 temp = temp.getParent();
                 if ("USER_GROUP".equals(temp.getId()) || temp instanceof GroupLayerV2 || temp instanceof GroupLayer) {
+                    if (temp instanceof GroupLayerV2 && ((GroupLayerV2) temp).isEditingMode()) {
+                        break;
+                    }
                     topmostGroup = temp;
                 }
             }
@@ -910,7 +919,11 @@ public class UserLayerManager {
                     double sy = Math.sqrt(b * b + d * d);
 
                     if (det < 0) {
-                        sx = -sx;
+                        if (d < 0) {
+                            sy = -sy;
+                        } else {
+                            sx = -sx;
+                        }
                     }
 
                     double rotation = 0;

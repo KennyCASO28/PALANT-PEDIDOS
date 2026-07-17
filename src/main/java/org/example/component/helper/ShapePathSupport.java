@@ -473,7 +473,7 @@ public final class ShapePathSupport {
         }
         try {
             List<BezierNode> nodes = new ArrayList<>();
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile("[MLCZSmlczs]|[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile("[MLCZSHVSmlczshvs]|[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?");
             java.util.regex.Matcher m = p.matcher(pathData);
             List<String> tokens = new ArrayList<>();
             while (m.find()) {
@@ -481,16 +481,29 @@ public final class ShapePathSupport {
             }
 
             int i = 0;
+            double lastX = 0;
+            double lastY = 0;
             BezierNode current = null;
             while (i < tokens.size()) {
                 String token = tokens.get(i);
-                if (token.equalsIgnoreCase("M")) {
+                if (token.equals("M")) {
                     double x = Double.parseDouble(tokens.get(i + 1));
                     double y = Double.parseDouble(tokens.get(i + 2));
+                    lastX = x;
+                    lastY = y;
                     current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
                     nodes.add(current);
                     i += 3;
-                } else if (token.equalsIgnoreCase("C")) {
+                } else if (token.equals("m")) {
+                    double x = Double.parseDouble(tokens.get(i + 1)) + lastX;
+                    double y = Double.parseDouble(tokens.get(i + 2)) + lastY;
+                    lastX = x;
+                    lastY = y;
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    current.isMoveTo = true;
+                    nodes.add(current);
+                    i += 3;
+                } else if (token.equals("C")) {
                     double cx1 = Double.parseDouble(tokens.get(i + 1));
                     double cy1 = Double.parseDouble(tokens.get(i + 2));
                     double cx2 = Double.parseDouble(tokens.get(i + 3));
@@ -502,27 +515,189 @@ public final class ShapePathSupport {
                         current.control2 = new Point2D(cx1, cy1);
                     }
                     current = new BezierNode(new Point2D(x, y), new Point2D(cx2, cy2), new Point2D(x, y));
+                    lastX = x;
+                    lastY = y;
                     nodes.add(current);
                     i += 7;
-                } else if (token.equalsIgnoreCase("L")) {
+                } else if (token.equals("c")) {
+                    double cx1 = Double.parseDouble(tokens.get(i + 1)) + lastX;
+                    double cy1 = Double.parseDouble(tokens.get(i + 2)) + lastY;
+                    double cx2 = Double.parseDouble(tokens.get(i + 3)) + lastX;
+                    double cy2 = Double.parseDouble(tokens.get(i + 4)) + lastY;
+                    double x = Double.parseDouble(tokens.get(i + 5)) + lastX;
+                    double y = Double.parseDouble(tokens.get(i + 6)) + lastY;
+
+                    if (current != null) {
+                        current.control2 = new Point2D(cx1, cy1);
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(cx2, cy2), new Point2D(x, y));
+                    lastX = x;
+                    lastY = y;
+                    nodes.add(current);
+                    i += 7;
+                } else if (token.equals("L")) {
                     double x = Double.parseDouble(tokens.get(i + 1));
                     double y = Double.parseDouble(tokens.get(i + 2));
                     if (current != null) {
                         current.control2 = current.anchor;
                     }
                     current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    lastX = x;
+                    lastY = y;
                     nodes.add(current);
                     i += 3;
+                } else if (token.equals("l")) {
+                    double x = Double.parseDouble(tokens.get(i + 1)) + lastX;
+                    double y = Double.parseDouble(tokens.get(i + 2)) + lastY;
+                    if (current != null) {
+                        current.control2 = current.anchor;
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    lastX = x;
+                    lastY = y;
+                    nodes.add(current);
+                    i += 3;
+                } else if (token.equals("H")) {
+                    double x = Double.parseDouble(tokens.get(i + 1));
+                    double y = lastY;
+                    if (current != null) {
+                        current.control2 = current.anchor;
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    lastX = x;
+                    nodes.add(current);
+                    i += 2;
+                } else if (token.equals("h")) {
+                    double x = Double.parseDouble(tokens.get(i + 1)) + lastX;
+                    double y = lastY;
+                    if (current != null) {
+                        current.control2 = current.anchor;
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    lastX = x;
+                    nodes.add(current);
+                    i += 2;
+                } else if (token.equals("V")) {
+                    double x = lastX;
+                    double y = Double.parseDouble(tokens.get(i + 1));
+                    if (current != null) {
+                        current.control2 = current.anchor;
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    lastY = y;
+                    nodes.add(current);
+                    i += 2;
+                } else if (token.equals("v")) {
+                    double x = lastX;
+                    double y = Double.parseDouble(tokens.get(i + 1)) + lastY;
+                    if (current != null) {
+                        current.control2 = current.anchor;
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(x, y), new Point2D(x, y));
+                    lastY = y;
+                    nodes.add(current);
+                    i += 2;
+                } else if (token.equals("S")) {
+                    double cx2 = Double.parseDouble(tokens.get(i + 1));
+                    double cy2 = Double.parseDouble(tokens.get(i + 2));
+                    double x = Double.parseDouble(tokens.get(i + 3));
+                    double y = Double.parseDouble(tokens.get(i + 4));
+
+                    double cx1 = lastX;
+                    double cy1 = lastY;
+                    if (current != null && current.control2 != null) {
+                        cx1 = 2 * lastX - current.control2.getX();
+                        cy1 = 2 * lastY - current.control2.getY();
+                    }
+
+                    if (current != null) {
+                        current.control2 = new Point2D(cx1, cy1);
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(cx2, cy2), new Point2D(x, y));
+                    lastX = x;
+                    lastY = y;
+                    nodes.add(current);
+                    i += 5;
+                } else if (token.equals("s")) {
+                    double cx2 = Double.parseDouble(tokens.get(i + 1)) + lastX;
+                    double cy2 = Double.parseDouble(tokens.get(i + 2)) + lastY;
+                    double x = Double.parseDouble(tokens.get(i + 3)) + lastX;
+                    double y = Double.parseDouble(tokens.get(i + 4)) + lastY;
+
+                    double cx1 = lastX;
+                    double cy1 = lastY;
+                    if (current != null && current.control2 != null) {
+                        cx1 = 2 * lastX - current.control2.getX();
+                        cy1 = 2 * lastY - current.control2.getY();
+                    }
+
+                    if (current != null) {
+                        current.control2 = new Point2D(cx1, cy1);
+                    }
+                    current = new BezierNode(new Point2D(x, y), new Point2D(cx2, cy2), new Point2D(x, y));
+                    lastX = x;
+                    lastY = y;
+                    nodes.add(current);
+                    i += 5;
                 } else if (token.equalsIgnoreCase("Z")) {
+                    if (!nodes.isEmpty()) {
+                        for (int k = nodes.size() - 1; k >= 0; k--) {
+                            if (nodes.get(k).isMoveTo || k == 0) {
+                                lastX = nodes.get(k).anchor.getX();
+                                lastY = nodes.get(k).anchor.getY();
+                                break;
+                            }
+                        }
+                    }
                     i++;
                 } else {
                     i++;
                 }
             }
-            return nodes;
+            return simplifyBezierNodes(nodes, 0.5);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public static List<BezierNode> simplifyBezierNodes(List<BezierNode> source, double tolerance) {
+        if (source == null || source.size() <= 2) {
+            return source;
+        }
+
+        List<BezierNode> result = new ArrayList<>();
+        result.add(source.get(0).copy());
+
+        for (int i = 1; i < source.size() - 1; i++) {
+            BezierNode current = source.get(i);
+            BezierNode prevInResult = result.get(result.size() - 1);
+            BezierNode next = source.get(i + 1);
+
+            if (current.isMoveTo) {
+                result.add(current.copy());
+                continue;
+            }
+
+            double distanceToPrev = current.anchor.distance(prevInResult.anchor);
+            if (distanceToPrev < tolerance) {
+                prevInResult.control2 = current.control2;
+                prevInResult.segmentType = current.segmentType;
+                continue;
+            }
+
+            if (current.segmentType == BezierNode.SegmentType.LINE && next.segmentType == BezierNode.SegmentType.LINE) {
+                double crossProduct = (current.anchor.getY() - prevInResult.anchor.getY()) * (next.anchor.getX() - current.anchor.getX())
+                                    - (current.anchor.getX() - prevInResult.anchor.getX()) * (next.anchor.getY() - current.anchor.getY());
+                if (Math.abs(crossProduct) < tolerance * 5) {
+                    continue;
+                }
+            }
+
+            result.add(current.copy());
+        }
+
+        result.add(source.get(source.size() - 1).copy());
+        return result;
     }
 }

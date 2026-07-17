@@ -686,12 +686,14 @@ public class PersonalizacionDelegate {
             javafx.scene.Node w = getShapeController().getWeldButton();
             javafx.scene.Node uw = getShapeController().getUnweldButton();
             javafx.scene.Node cut = getShapeController().getCutButton();
+            javafx.scene.Node comb = getShapeController().getCombineButton();
             javafx.scene.Node n = getShapeController().getNodeEditButton();
             javafx.scene.Node s = getShapeController().getStrokeButton();
             
             if (w != null) editGroup.getChildren().add(w);
             if (uw != null) editGroup.getChildren().add(uw);
             if (cut != null) editGroup.getChildren().add(cut);
+            if (comb != null) editGroup.getChildren().add(comb);
             if (n != null) shapeGroup.getChildren().add(n);
             if (s != null) editGroup.getChildren().add(s);
         }
@@ -831,3 +833,4 @@ public class PersonalizacionDelegate {
         }
     }
 }
+

@@ -64,7 +64,7 @@ public class ShapeManagerUIOrchestrator {
         toolbar.getChildren().add(controller.getSystemColorPicker());
         toolbar.getChildren().add(controller.getTargetScopeButton());
         toolbar.getChildren().add(new Separator());
-        toolbar.getChildren().addAll(controller.getWeldButton(), controller.getUnweldButton(), controller.getCutButton(), new Separator());
+        toolbar.getChildren().addAll(controller.getWeldButton(), controller.getUnweldButton(), controller.getCutButton(), controller.getCombineButton(), new Separator());
 
         toolbar.getChildren().addAll(controller.getFillPicker(), controller.getStrokePicker());
 
@@ -733,3 +733,4 @@ public class ShapeManagerUIOrchestrator {
                 "-fx-background-color: #ecf0f1; -fx-background-radius: 4; -fx-cursor: hand; -fx-padding: 8; -fx-font-size: 10px; -fx-text-fill: #2c3e50;"));
     }
 }
+

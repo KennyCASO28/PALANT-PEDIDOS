@@ -254,6 +254,22 @@ public class ShapeManagerActionHandler {
         org.example.component.helper.VectorBooleanHelper.unweldShape(visualizer, active);
     }
 
+        public void combineSelectedShapes() {
+        if (visualizer == null || visualizer.getUserLayerManager() == null) return;
+        java.util.List<javafx.scene.Node> selection = new java.util.ArrayList<>(visualizer.getUserLayerManager().getSelectedNodes());
+        if (selection.size() < 2) return;
+        
+        java.util.List<org.example.component.ShapeLayer> shapeLayers = new java.util.ArrayList<>();
+        for (javafx.scene.Node n : selection) {
+            if (n instanceof org.example.component.ShapeLayer) {
+                shapeLayers.add((org.example.component.ShapeLayer) n);
+            }
+        }
+        
+        if (shapeLayers.size() < 2) return;
+        org.example.component.helper.VectorBooleanHelper.combineSelectedShapes(visualizer, shapeLayers);
+    }
+
     public void cutSelectedShapes() {
         if (visualizer.getLayerManager() == null) return;
 
@@ -297,3 +313,7 @@ public class ShapeManagerActionHandler {
         }
     }
 }
+
+
+
+

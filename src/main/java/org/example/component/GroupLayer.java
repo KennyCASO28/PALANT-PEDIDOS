@@ -221,7 +221,8 @@ public class GroupLayer extends Group {
     }
 
     public void setInternalScaleX(double x) {
-        scaleTransform.setX(x);
+        double sign = Math.signum(x);
+        scaleTransform.setX(sign == 0 ? 1 : sign);
         updateVisuals();
     }
 
@@ -230,7 +231,8 @@ public class GroupLayer extends Group {
     }
 
     public void setInternalScaleY(double y) {
-        scaleTransform.setY(y);
+        double sign = Math.signum(y);
+        scaleTransform.setY(sign == 0 ? 1 : sign);
         updateVisuals();
     }
 

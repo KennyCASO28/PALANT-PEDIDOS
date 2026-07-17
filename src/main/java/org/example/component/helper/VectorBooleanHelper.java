@@ -192,8 +192,11 @@ public class VectorBooleanHelper {
         layer.getState().width = bounds.getWidth();
         layer.getState().height = bounds.getHeight();
         layer.getState().svgPathData = svgData;
-        layer.getState().bezierNodes = convertPathToBezierNodes(normalizedPath);
+        layer.getState().bezierNodes = ShapePathSupport.simplifyBezierNodes(convertPathToBezierNodes(normalizedPath), 0.5);
         layer.getState().originalBezierNodes = ShapePathSupport.copyNodes(layer.getState().bezierNodes);
+        layer.getState().fillRule = normalizedPath.getFillRule();
+        layer.setTranslateX(bounds.getMinX());
+        layer.setTranslateY(bounds.getMinY());
 
         if (sourceStyleState != null) {
             layer.getState().fillColor = sourceStyleState.fillColor;
@@ -201,6 +204,7 @@ public class VectorBooleanHelper {
             layer.getState().strokeWidth = sourceStyleState.strokeWidth;
             layer.getState().strokeLineJoin = sourceStyleState.strokeLineJoin;
             layer.getState().strokeType = sourceStyleState.strokeType;
+            layer.getState().fillRule = sourceStyleState.fillRule;
 
             // Contour / Glow
             layer.getState().contourSteps = sourceStyleState.contourSteps;
@@ -216,9 +220,11 @@ public class VectorBooleanHelper {
             layer.getState().transparencyBalance = sourceStyleState.transparencyBalance;
         }
 
-        layer.setTranslateX(bounds.getMinX());
-        layer.setTranslateY(bounds.getMinY());
         layer.renderShape();
+        // Recalcular bounds para sincronizar posición del layer.
+        // Si el layer ya tiene padre, la transformación es correcta.
+        // Si no tiene padre, normalizeNodes() devuelve offset (0,0) porque ya está normalizado,
+        // y translateX/Y no se modifica.
         layer.getOrchestrator().recalculateGeometricBounds();
         layer.updateVisuals();
         return layer;
@@ -459,20 +465,28 @@ public class VectorBooleanHelper {
             }
         }
 
+        javafx.scene.shape.FillRule resultFillRule = firstLayer.getState().fillRule;
+
         for (ShapeLayer layer : layersToWeld) {
             List<org.example.model.BezierNode> nodes = getLocalBezierNodes(layer);
             if (nodes == null || nodes.isEmpty()) continue;
 
             // Transform each bezier node globally to target container space
-            // Usamos contentGroup en vez de layer para incluir transforms visuales (flip, rotación, sesgo)
-            List<org.example.model.BezierNode> parentNodes = transformNodesGlobally(nodes, layer.getContentGroup(), targetContainer);
+            // Usamos getCurrentShapeNode en vez de contentGroup para incluir transforms visuales (flip, rotación, sesgo) y transforms internos de SVG
+            List<org.example.model.BezierNode> parentNodes = transformNodesGlobally(nodes, layer.getCurrentShapeNode(), targetContainer);
 
             // Build SVG path in target space
             String svgData = ShapePathSupport.buildSvgPath(parentNodes, true);
             if (!svgData.isEmpty()) {
                 SVGPath svgPath = new SVGPath();
                 svgPath.setContent(svgData);
+                svgPath.setFillRule(layer.getState().fillRule);
                 shapesToUnion.add(svgPath);
+            }
+
+            // Usar el fillRule más permisible (EVEN_ODD si alguna capa lo usa)
+            if (layer.getState().fillRule == javafx.scene.shape.FillRule.EVEN_ODD) {
+                resultFillRule = javafx.scene.shape.FillRule.EVEN_ODD;
             }
         }
 
@@ -491,6 +505,8 @@ public class VectorBooleanHelper {
         ShapeLayer weldedLayer = createShapeLayerFromPath(unionPath, fill, stroke, strokeWidth, firstLayer.getState());
         if (weldedLayer == null) return;
         weldedLayer.setActiveZone(firstLayer.getActiveZone());
+        weldedLayer.getState().fillRule = resultFillRule;
+        weldedLayer.setFillRule(resultFillRule);
 
         int insertionIndex = parentGroup != null ? parentGroup.getChildren().indexOf(firstLayer) : -1;
 
@@ -558,13 +574,148 @@ public class VectorBooleanHelper {
         }
     }
 
+        public static void combineSelectedShapes(PrendaVisualizer visualizer, List<ShapeLayer> layersToCombine) {
+        if (layersToCombine == null || layersToCombine.size() < 2 || visualizer == null) return;
+
+        javafx.scene.paint.Color fill = null;
+        javafx.scene.paint.Color stroke = null;
+        double strokeWidth = 0;
+
+        for (ShapeLayer layer : layersToCombine) {
+            if (fill == null || javafx.scene.paint.Color.TRANSPARENT.equals(fill)) fill = layer.getFillColor();
+            if (stroke == null || javafx.scene.paint.Color.TRANSPARENT.equals(stroke)) stroke = layer.getStrokeColor();
+            if (layer.getStrokeWidth() > strokeWidth) strokeWidth = layer.getStrokeWidth();
+        }
+
+        List<Shape> shapesToCombine = new ArrayList<>();
+
+        ShapeLayer firstLayer = layersToCombine.get(0);
+        javafx.scene.Group parentGroup = null;
+        if (firstLayer.getParent() instanceof javafx.scene.Group) {
+            parentGroup = (javafx.scene.Group) firstLayer.getParent();
+        }
+        javafx.scene.Group targetContainer = parentGroup;
+        if (targetContainer == null) {
+            targetContainer = visualizer.getUserLayerManager().getLayerGroup();
+        }
+
+        java.util.Set<javafx.scene.Group> potentialEmptyGroups = new java.util.HashSet<>();
+        for (ShapeLayer layer : layersToCombine) {
+            javafx.scene.Parent p = layer.getParent();
+            if (p instanceof javafx.scene.Group) {
+                javafx.scene.Parent gp = p.getParent();
+                if (gp instanceof org.example.component.GroupLayerV2 || gp instanceof org.example.component.GroupLayer) {
+                    potentialEmptyGroups.add((javafx.scene.Group) gp);
+                } else if (p instanceof org.example.component.GroupLayerV2 || p instanceof org.example.component.GroupLayer) {
+                    potentialEmptyGroups.add((javafx.scene.Group) p);
+                }
+            }
+        }
+
+        for (ShapeLayer layer : layersToCombine) {
+            List<org.example.model.BezierNode> nodes = getLocalBezierNodes(layer);
+            if (nodes == null || nodes.isEmpty()) continue;
+
+            List<org.example.model.BezierNode> parentNodes = transformNodesGlobally(nodes, layer.getCurrentShapeNode(), targetContainer);
+
+            String svgData = ShapePathSupport.buildSvgPath(parentNodes, true);
+            if (!svgData.isEmpty()) {
+                SVGPath svgPath = new SVGPath();
+                svgPath.setContent(svgData);
+                svgPath.setFillRule(layer.getState().fillRule);
+                shapesToCombine.add(svgPath);
+            }
+        }
+
+        if (shapesToCombine.isEmpty()) return;
+
+        Shape combineResult = shapesToCombine.get(0);
+        for (int i = 1; i < shapesToCombine.size(); i++) {
+            Shape union = Shape.union(combineResult, shapesToCombine.get(i));
+            Shape intersect = Shape.intersect(combineResult, shapesToCombine.get(i));
+            combineResult = Shape.subtract(union, intersect);
+        }
+
+        Path combinePath = (Path) Shape.union(combineResult, new Path());
+
+        ShapeLayer combinedLayer = createShapeLayerFromPath(combinePath, fill, stroke, strokeWidth, firstLayer.getState());
+        if (combinedLayer == null) return;
+        combinedLayer.setActiveZone(firstLayer.getActiveZone());
+        combinedLayer.getState().fillRule = firstLayer.getState().fillRule;
+        combinedLayer.setFillRule(firstLayer.getState().fillRule);
+
+        int insertionIndex = parentGroup != null ? parentGroup.getChildren().indexOf(firstLayer) : -1;
+
+        List<javafx.scene.Node> originalNodes = new ArrayList<>(layersToCombine);
+        List<org.example.pattern.NodeMemento> originalStates = new ArrayList<>();
+        for (ShapeLayer layer : layersToCombine) {
+            originalStates.add(new org.example.pattern.NodeMemento(layer));
+        }
+
+        boolean wasHistory = visualizer.getUserLayerManager().isPerformingHistoryAction();
+        visualizer.getUserLayerManager().setPerformingHistoryAction(true);
+        try {
+            for (ShapeLayer layer : layersToCombine) {
+                visualizer.getUserLayerManager().removeLayer(layer);
+            }
+            
+            if (parentGroup != null) {
+                visualizer.addShapeLayerToContainer(combinedLayer, parentGroup, insertionIndex, true);
+            } else {
+                visualizer.addShapeLayer(combinedLayer);
+            }
+        } finally {
+            visualizer.getUserLayerManager().setPerformingHistoryAction(wasHistory);
+        }
+
+        if (combinedLayer.getActiveZone() != null) {
+            SmartZoneContainer zoneContainer = visualizer.getPowerClipManager().getContainer(combinedLayer.getActiveZone());
+            if (zoneContainer != null) {
+                zoneContainer.updateItemState(combinedLayer);
+            }
+            visualizer.getPowerClipManager().refreshZoneClip(combinedLayer.getActiveZone());
+        }
+
+        if (visualizer.getHistoryManager() != null) {
+            visualizer.getHistoryManager().addCommand(new org.example.pattern.VectorBooleanCommand(
+                visualizer.getUserLayerManager(),
+                originalNodes,
+                java.util.Collections.singletonList(combinedLayer),
+                org.example.pattern.VectorBooleanCommand.ActionType.WELD, // Fallback to WELD action type, though it's technically a combine. VectorBooleanCommand doesn't have COMBINE enum yet.
+                combinedLayer.getActiveZone(),
+                originalStates
+            ));
+        }
+
+        visualizer.getUserLayerManager().selectNode(combinedLayer);
+
+        for (javafx.scene.Group groupNode : potentialEmptyGroups) {
+            int childCount = 0;
+            if (groupNode instanceof org.example.component.GroupLayerV2) {
+                childCount = ((org.example.component.GroupLayerV2) groupNode).getUserLayers().size();
+            } else if (groupNode instanceof org.example.component.GroupLayer) {
+                childCount = ((org.example.component.GroupLayer) groupNode).getUserLayers().size();
+            }
+            
+            if (childCount == 0) {
+                visualizer.getUserLayerManager().removeLayer(groupNode);
+            } else if (childCount == 1) {
+                visualizer.getUserLayerManager().ungroup(groupNode);
+            }
+        }
+    }
+
     public static void cutSelectedShapes(PrendaVisualizer visualizer, List<ShapeLayer> layersToCut) {
         if (layersToCut == null || layersToCut.size() < 2 || visualizer == null) return;
 
-        // Sort layers to cut by global Z-order
-        List<Node> allLayers = visualizer.getUserLayerManager().getLayers();
+        // Sort layers to cut by Z-order in their parent container
+        javafx.scene.Parent parent = layersToCut.get(0).getParent();
+        final List<Node> siblingList = (parent instanceof javafx.scene.Group) 
+            ? new ArrayList<>(((javafx.scene.Group) parent).getChildren())
+            : visualizer.getUserLayerManager().getLayers();
+
         layersToCut.sort(java.util.Comparator.comparingInt(node -> {
-            int idx = allLayers.indexOf(node);
+            int idx = siblingList.indexOf(node);
             return idx != -1 ? idx : 0;
         }));
 
@@ -609,8 +760,8 @@ public class VectorBooleanHelper {
             }
 
             // Transform target's and cutter's local bezier nodes to target's parent space globally
-            List<org.example.model.BezierNode> targetParentNodes = transformNodesGlobally(targetLocalNodes, targetLayer.getContentGroup(), targetParentGroup);
-            List<org.example.model.BezierNode> cutterParentNodes = transformNodesGlobally(cutterLocalNodes, cutterLayer.getContentGroup(), targetParentGroup);
+            List<org.example.model.BezierNode> targetParentNodes = transformNodesGlobally(targetLocalNodes, targetLayer.getCurrentShapeNode(), targetParentGroup);
+            List<org.example.model.BezierNode> cutterParentNodes = transformNodesGlobally(cutterLocalNodes, cutterLayer.getCurrentShapeNode(), targetParentGroup);
             
             // Build SVG path for target and cutter directly without scaling up (prevents primitive geometry clipping errors)
             String targetSvgData = ShapePathSupport.buildSvgPath(targetParentNodes, true);
@@ -620,6 +771,7 @@ public class VectorBooleanHelper {
             }
             SVGPath targetSvgPath = new SVGPath();
             targetSvgPath.setContent(targetSvgData);
+            targetSvgPath.setFillRule(targetLayer.getState().fillRule);
 
             String cutterSvgData = ShapePathSupport.buildSvgPath(cutterParentNodes, true);
             if (cutterSvgData.isEmpty()) {
@@ -628,6 +780,7 @@ public class VectorBooleanHelper {
             }
             SVGPath cutterSvgPath = new SVGPath();
             cutterSvgPath.setContent(cutterSvgData);
+            cutterSvgPath.setFillRule(cutterLayer.getState().fillRule);
 
             // Perform subtraction: Target - Cutter
             Shape subtractResult = Shape.subtract(targetSvgPath, cutterSvgPath);
@@ -763,6 +916,9 @@ public class VectorBooleanHelper {
     }
 
     private static List<org.example.model.BezierNode> getLocalBezierNodes(ShapeLayer layer) {
+        if (layer.getState().bezierNodes == null || layer.getState().bezierNodes.isEmpty()) {
+            layer.convertPrimitiveToPath();
+        }
         List<org.example.model.BezierNode> nodes = layer.getState().bezierNodes;
         if (nodes == null || nodes.isEmpty()) {
             ShapePathSupport.PathConversionResult res = ShapePathSupport.convertPrimitiveToPath(
@@ -796,11 +952,14 @@ public class VectorBooleanHelper {
     private static List<org.example.model.BezierNode> transformNodesGlobally(List<org.example.model.BezierNode> nodes, Node source, javafx.scene.Group target) {
         List<org.example.model.BezierNode> parentNodes = new ArrayList<>();
         if (nodes == null) return parentNodes;
+        
+        javafx.scene.transform.Transform t = getTransformBetween(source, target);
+        
         boolean firstNodeOfThisShape = true;
         for (org.example.model.BezierNode bn : nodes) {
-            javafx.geometry.Point2D anchor = target.sceneToLocal(source.localToScene(bn.anchor));
-            javafx.geometry.Point2D c1 = target.sceneToLocal(source.localToScene(bn.control1 != null ? bn.control1 : bn.anchor));
-            javafx.geometry.Point2D c2 = target.sceneToLocal(source.localToScene(bn.control2 != null ? bn.control2 : bn.anchor));
+            javafx.geometry.Point2D anchor = t.transform(bn.anchor);
+            javafx.geometry.Point2D c1 = t.transform(bn.control1 != null ? bn.control1 : bn.anchor);
+            javafx.geometry.Point2D c2 = t.transform(bn.control2 != null ? bn.control2 : bn.anchor);
 
             org.example.model.BezierNode tbn = new org.example.model.BezierNode(anchor, c1, c2);
             tbn.segmentType = bn.segmentType;
@@ -811,9 +970,63 @@ public class VectorBooleanHelper {
         return parentNodes;
     }
 
+    private static javafx.scene.transform.Transform getTransformBetween(Node source, Node target) {
+        javafx.scene.transform.Transform sourceToScene = getTransformToScene(source);
+        javafx.scene.transform.Transform targetToScene = getTransformToScene(target);
+        try {
+            return targetToScene.createInverse().createConcatenation(sourceToScene);
+        } catch (javafx.scene.transform.NonInvertibleTransformException e) {
+            // Fallback robusto: computar transform usando puntos de muestra
+            // para evitar coordenadas en espacio de escena (que incluyen zoom/pan del viewport)
+            return computeTransformViaPoints(source, target);
+        }
+    }
+
+    private static javafx.scene.transform.Transform computeTransformViaPoints(Node source, Node target) {
+        try {
+            // Tomamos 3 puntos no colineales en el espacio source
+            javafx.geometry.Point2D s0 = source.localToScene(0, 0);
+            javafx.geometry.Point2D s1 = source.localToScene(1, 0);
+            javafx.geometry.Point2D s2 = source.localToScene(0, 1);
+
+            // Los mapeamos al espacio target
+            javafx.geometry.Point2D t0 = target.sceneToLocal(s0);
+            javafx.geometry.Point2D t1 = target.sceneToLocal(s1);
+            javafx.geometry.Point2D t2 = target.sceneToLocal(s2);
+
+            // Resolvemos la matriz afín 2D:
+            // [a b tx]   [0 1 0]   [t0.x t1.x t2.x]
+            // [c d ty] * [0 0 1] = [t0.y t1.y t2.y]
+            // [0 0 1 ]   [1 1 1]   [1    1    1   ]
+            double tx = t0.getX();
+            double ty = t0.getY();
+            double a = t1.getX() - tx;
+            double b = t2.getX() - tx;
+            double c = t1.getY() - ty;
+            double d = t2.getY() - ty;
+
+            return new javafx.scene.transform.Affine(a, b, tx, c, d, ty);
+        } catch (Exception ex) {
+            return new javafx.scene.transform.Translate(0, 0);
+        }
+    }
+
+    private static javafx.scene.transform.Transform getTransformToScene(Node node) {
+        javafx.scene.transform.Transform t = new javafx.scene.transform.Translate(0, 0);
+        Node curr = node;
+        while (curr != null) {
+            t = curr.getLocalToParentTransform().createConcatenation(t);
+            curr = curr.getParent();
+        }
+        return t;
+    }
+
     public static void unweldShape(PrendaVisualizer visualizer, ShapeLayer layer) {
         if (layer == null || layer.getType() != ShapeType.CUSTOM_PATH || visualizer == null) return;
 
+        if (layer.getState().bezierNodes == null || layer.getState().bezierNodes.isEmpty()) {
+            layer.convertPrimitiveToPath();
+        }
         List<org.example.model.BezierNode> nodes = layer.getState().bezierNodes;
         if (nodes == null || nodes.isEmpty()) return;
 
@@ -839,11 +1052,9 @@ public class VectorBooleanHelper {
         double srcStrokeWidth = layer.getStrokeWidth();
 
         // Los bezierNodes están en el espacio LOCAL de contentGroup.
-        // Necesitamos incluir las transforms de contentGroup (flip, rotación, sesgo)
-        // y luego las de ShapeLayer (translate) para llegar al espacio del padre.
-        javafx.scene.transform.Transform ct = layer.getContentGroup().getLocalToParentTransform();
-        javafx.scene.transform.Transform lt = layer.getLocalToParentTransform();
-        javafx.scene.transform.Transform t = lt.createConcatenation(ct);
+        // Usamos getTransformBetween para mapear desde contentGroup al espacio del padre
+        // de forma robusta, sin depender de localToScene/sceneToLocal cacheados.
+        javafx.scene.transform.Transform t = getTransformBetween(layer.getContentGroup(), parentGroup != null ? parentGroup : visualizer.getUserLayerManager().getLayerGroup());
 
         List<ShapeLayer> newLayers = new ArrayList<>();
         for (List<org.example.model.BezierNode> subPath : subPaths) {
@@ -851,13 +1062,14 @@ public class VectorBooleanHelper {
 
             // Transform subpath nodes to parent space
             List<org.example.model.BezierNode> transformed = new ArrayList<>();
-            for (org.example.model.BezierNode bn : subPath) {
+            for (int i = 0; i < subPath.size(); i++) {
+                org.example.model.BezierNode bn = subPath.get(i);
                 javafx.geometry.Point2D anchor = t.transform(bn.anchor);
                 javafx.geometry.Point2D c1 = t.transform(bn.control1 != null ? bn.control1 : bn.anchor);
                 javafx.geometry.Point2D c2 = t.transform(bn.control2 != null ? bn.control2 : bn.anchor);
                 org.example.model.BezierNode tbn = new org.example.model.BezierNode(anchor, c1, c2);
                 tbn.segmentType = bn.segmentType;
-                tbn.isMoveTo = false; // each new layer is a single subpath
+                tbn.isMoveTo = (i == 0); // first node is a MoveTo
                 transformed.add(tbn);
             }
 
@@ -868,13 +1080,14 @@ public class VectorBooleanHelper {
             double ox = sBounds.getMinX();
             double oy = sBounds.getMinY();
             List<org.example.model.BezierNode> normalized = new ArrayList<>();
-            for (org.example.model.BezierNode bn : transformed) {
+            for (int i = 0; i < transformed.size(); i++) {
+                org.example.model.BezierNode bn = transformed.get(i);
                 javafx.geometry.Point2D a  = new javafx.geometry.Point2D(bn.anchor.getX()   - ox, bn.anchor.getY()   - oy);
                 javafx.geometry.Point2D c1 = new javafx.geometry.Point2D(bn.control1.getX() - ox, bn.control1.getY() - oy);
                 javafx.geometry.Point2D c2 = new javafx.geometry.Point2D(bn.control2.getX() - ox, bn.control2.getY() - oy);
                 org.example.model.BezierNode nbn = new org.example.model.BezierNode(a, c1, c2);
                 nbn.segmentType = bn.segmentType;
-                nbn.isMoveTo = false;
+                nbn.isMoveTo = (i == 0);
                 normalized.add(nbn);
             }
 
@@ -890,6 +1103,7 @@ public class VectorBooleanHelper {
             newLayer.getState().svgPathData = svgData;
             newLayer.getState().bezierNodes = normalized;
             newLayer.getState().originalBezierNodes = ShapePathSupport.copyNodes(normalized);
+            newLayer.getState().fillRule = layer.getState().fillRule;
             newLayer.setActiveZone(activeZone);
             newLayer.setTranslateX(sBounds.getMinX());
             newLayer.setTranslateY(sBounds.getMinY());
@@ -990,3 +1204,4 @@ public class VectorBooleanHelper {
         }
     }
 }
+

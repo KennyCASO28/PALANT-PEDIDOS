@@ -21,6 +21,8 @@ public class VisualizerUiController {
     private Button btnFinishEditOverlay;
     private javafx.scene.control.Label lblModeIndicator;
     private javafx.scene.control.Label externalModeIndicator;
+    private javafx.scene.control.ColorPicker colorPickerBg;
+    private Button btnBgColor;
 
     public VisualizerUiController(PrendaVisualizer visualizer) {
         this.visualizer = visualizer;
@@ -81,6 +83,7 @@ public class VisualizerUiController {
         initLockBackgroundButton();
         initReferencePointsButton();
         initFinishEditButton();
+        initColorPickerBackgroundButton();
     }
 
     public void attachTo(StackPane container) {
@@ -99,6 +102,16 @@ public class VisualizerUiController {
             container.getChildren().add(btnFinishEditOverlay);
             StackPane.setAlignment(btnFinishEditOverlay, Pos.TOP_CENTER);
             StackPane.setMargin(btnFinishEditOverlay, new Insets(60, 0, 0, 0));
+        }
+        if (btnBgColor != null && !container.getChildren().contains(btnBgColor)) {
+            container.getChildren().add(btnBgColor);
+            StackPane.setAlignment(btnBgColor, Pos.TOP_LEFT);
+            StackPane.setMargin(btnBgColor, new Insets(70, 0, 0, 20));
+        }
+        if (colorPickerBg != null && !container.getChildren().contains(colorPickerBg)) {
+            container.getChildren().add(colorPickerBg);
+            StackPane.setAlignment(colorPickerBg, Pos.TOP_LEFT);
+            StackPane.setMargin(colorPickerBg, new Insets(70, 0, 0, 20));
         }
     }
 
@@ -141,6 +154,37 @@ public class VisualizerUiController {
             visualizer.setViewportPanningEnabled(!btnLockBg.isSelected());
         });
     }
+
+    private void initColorPickerBackgroundButton() {
+        // Hidden ColorPicker just for the dialog functionality
+        colorPickerBg = new javafx.scene.control.ColorPicker(javafx.scene.paint.Color.web("#f4f4f4"));
+        colorPickerBg.setVisible(false);
+        colorPickerBg.setManaged(false);
+        colorPickerBg.setOnAction(e -> {
+            javafx.scene.paint.Color c = colorPickerBg.getValue();
+            visualizer.setBackground(new javafx.scene.layout.Background(
+                new javafx.scene.layout.BackgroundFill(c, javafx.scene.layout.CornerRadii.EMPTY, Insets.EMPTY)
+            ));
+        });
+
+        // Visible Button with Icon
+        btnBgColor = new Button("");
+        try {
+            btnBgColor.setGraphic(UIFactory.crearIcono("mdi2p-palette", 18, "white"));
+        } catch (Exception e) {}
+        
+        btnBgColor.setTooltip(new Tooltip("Cambiar Color de Fondo"));
+        
+        String BTN_STYLE = "-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; "
+                + "-fx-background-radius: 50%; -fx-padding: 8; -fx-min-width: 40px; -fx-min-height: 40px; -fx-max-width: 40px; -fx-max-height: 40px; "
+                + "-fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.15), 3, 0, 0, 1); -fx-border-color: transparent; -fx-alignment: center;";
+        btnBgColor.setStyle(BTN_STYLE);
+        
+        btnBgColor.setOnAction(e -> {
+            colorPickerBg.show();
+        });
+    }
+
 
     private void initReferencePointsButton() {
         this.btnToggleRefPoints = new ToggleButton("");
@@ -254,6 +298,10 @@ public class VisualizerUiController {
         if (btnToggleRefPoints != null) {
             btnToggleRefPoints.setVisible(visible);
             btnToggleRefPoints.setManaged(visible);
+        }
+        if (btnBgColor != null) {
+            btnBgColor.setVisible(visible);
+            btnBgColor.setManaged(visible);
         }
         setEditOverlayVisible(visible && isEditOverlayVisible()); // Only restore if it was actually active
     }

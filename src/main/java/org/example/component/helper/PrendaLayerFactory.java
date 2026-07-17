@@ -3,7 +3,9 @@ package org.example.component.helper;
 import javafx.scene.input.TransferMode;
 import org.example.component.ImageLayer;
 import org.example.component.TextLayer;
+import org.example.component.ShapeLayer;
 import org.example.component.UserLayerManager;
+import javafx.geometry.Point2D;
 import org.example.component.PrendaVisualizer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -227,19 +229,33 @@ public class PrendaLayerFactory {
     public void addShapeLayer(org.example.component.ShapeLayer layer) {
         layer.setVisualizer(visualizer); // Inject before adding to ensure correct viewport scale
         
-        // Smart Insertion for Shape
-        boolean insertedInPowerClip = false;
-        if (visualizer.getPowerClipManager().isEditing()) {
-            String zone = visualizer.getPowerClipManager().getCurrentEditingZone();
-            visualizer.getPowerClipManager().addToContainer(layer, zone, true);
-            recordAddInHistory(layer, zone);
-            insertedInPowerClip = true;
-        } else {
-            if (layer.getTranslateX() == 0 && layer.getTranslateY() == 0) {
-                layer.setTranslateX(250);
-                layer.setTranslateY(250);
+        if (layer.getParent() == null) {
+            // Smart Insertion for Shape
+            boolean insertedInPowerClip = false;
+            String zone = layer.getActiveZone();
+            if (zone == null && visualizer.getPowerClipManager().isEditing()) {
+                if (layer.getState().svgPathData == null || layer.getState().svgPathData.isEmpty()) {
+                    zone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                }
             }
-            layerManager.addLayer(layer);
+            if (zone != null) {
+                visualizer.getPowerClipManager().addToContainer(layer, zone, false);
+                recordAddInHistory(layer, zone);
+                insertedInPowerClip = true;
+            } else {
+                if (layer.getTranslateX() == 0 && layer.getTranslateY() == 0) {
+                    if (layer.getState().svgPathData == null || layer.getState().svgPathData.isEmpty()) {
+                        layer.setTranslateX(250);
+                        layer.setTranslateY(250);
+                    }
+                }
+                layerManager.addLayer(layer);
+            }
+        } else {
+            // Already has a parent (like inside a group in unweldShape), just register it
+            if (!layerManager.getLayers().contains(layer)) {
+                layerManager.getLayers().add(layer);
+            }
         }
 
         // PowerClip Handler
@@ -427,46 +443,128 @@ public class PrendaLayerFactory {
 
     public void initDragDrop(javafx.scene.Node targetNode) {
         targetNode.setOnDragOver(event -> {
-            if (event.getGestureSource() != targetNode && event.getDragboard().hasImage()) {
-                event.acceptTransferModes(TransferMode.COPY);
+            boolean hasValidFile = false;
+            if (event.getDragboard().hasFiles()) {
+                for (java.io.File f : event.getDragboard().getFiles()) {
+                    if (f.getName().toLowerCase().endsWith(".svg")) {
+                        hasValidFile = true;
+                        break;
+                    }
+                }
+            }
+            if (event.getGestureSource() != targetNode && (event.getDragboard().hasImage() || hasValidFile)) {
+                event.acceptTransferModes(javafx.scene.input.TransferMode.COPY);
             }
             event.consume();
         });
 
         targetNode.setOnDragDropped(event -> {
             boolean success = false;
-            if (event.getDragboard().hasImage()) {
+            
+            // 1. Check for SVG Files
+            if (event.getDragboard().hasFiles()) {
+                for (java.io.File file : event.getDragboard().getFiles()) {
+                    if (file.getName().toLowerCase().endsWith(".svg")) {
+                        try {
+                            java.util.List<org.example.utils.SVGUtils.ParsedSVGShape> shapes = org.example.utils.SVGUtils.parseComplexSvg(file);
+                            if (!shapes.isEmpty()) {
+                                java.util.List<Node> newLayers = new java.util.ArrayList<>();
+                                for (org.example.utils.SVGUtils.ParsedSVGShape ps : shapes) {
+                                    String fillColor = ps.fill;
+                                    String strokeColor = ps.stroke;
+                                    String strokeW = ps.strokeWidth;
+                                    String transformStr = ps.transform;
+                                    String fillRuleStr = (ps.fillRule != null && !ps.fillRule.isEmpty()) ? ps.fillRule : "evenodd";
+
+                                    boolean hasNoFill = fillColor == null || fillColor.isEmpty() || fillColor.equals("none");
+                                    boolean hasNoStroke = strokeColor == null || strokeColor.isEmpty() || strokeColor.equals("none") || strokeColor.equals("null");
+                                    double sw = strokeW != null && !strokeW.equals("none") && !strokeW.isEmpty() && !strokeW.equals("null") ? Double.parseDouble(strokeW.replaceAll("[a-zA-Z]", "")) : 0.0;
+                                    javafx.scene.paint.Color fill = org.example.utils.SVGUtils.getSafeColor(fillColor, javafx.scene.paint.Color.BLACK);
+                                    if (hasNoFill && (hasNoStroke || sw <= 0)) {
+                                        fill = javafx.scene.paint.Color.BLACK;
+                                    }
+                                    javafx.scene.paint.Color stroke = org.example.utils.SVGUtils.getSafeColor(strokeColor, javafx.scene.paint.Color.TRANSPARENT);
+
+                                    // Build a proper normalized ShapeLayer from SVG data
+                                    javafx.scene.shape.SVGPath tempSvg = new javafx.scene.shape.SVGPath();
+                                    tempSvg.setContent(ps.pathData);
+                                    if ("evenodd".equalsIgnoreCase(fillRuleStr)) {
+                                        tempSvg.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
+                                    }
+                                    if (transformStr != null && !transformStr.isEmpty()) {
+                                        org.example.utils.SVGUtils.applySVGTransform(tempSvg, transformStr);
+                                    }
+                                    javafx.scene.shape.Path fxPath = (javafx.scene.shape.Path) javafx.scene.shape.Shape.union(tempSvg, new javafx.scene.shape.Path());
+                                    if ("evenodd".equalsIgnoreCase(fillRuleStr)) {
+                                        fxPath.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
+                                    }
+
+                                    ShapeLayer sl = org.example.component.helper.VectorBooleanHelper.createShapeLayerFromPath(fxPath, fill, stroke, sw);
+                                    if (sl == null) continue;
+                                    addShapeLayer(sl);
+                                    newLayers.add(sl);
+                                }
+                                
+                                // Group them!
+                                if (newLayers.size() > 1) {
+                                    layerManager.clearSelection();
+                                    newLayers.forEach(layerManager::addToSelection);
+                                    layerManager.groupSelected();
+                                    
+                                    // Get the created group and move it to cursor position
+                                    Node createdGroup = layerManager.getSelectedNode();
+                                    if (createdGroup != null) {
+                                        Point2D localP = createdGroup.getParent().sceneToLocal(event.getSceneX(), event.getSceneY());
+                                        // Center it roughly
+                                        createdGroup.setTranslateX(localP.getX() - createdGroup.getBoundsInParent().getWidth() / 2);
+                                        createdGroup.setTranslateY(localP.getY() - createdGroup.getBoundsInParent().getHeight() / 2);
+                                    }
+                                } else if (newLayers.size() == 1) {
+                                    Node single = newLayers.get(0);
+                                    Point2D localP = single.getParent().sceneToLocal(event.getSceneX(), event.getSceneY());
+                                    single.setTranslateX(localP.getX() - single.getBoundsInParent().getWidth() / 2);
+                                    single.setTranslateY(localP.getY() - single.getBoundsInParent().getHeight() / 2);
+                                    layerManager.selectNode(single);
+                                }
+                                success = true;
+                            }
+                        } catch (Exception ex) { 
+                            ex.printStackTrace(); 
+                        }
+                    }
+                }
+            }
+
+            // 2. Check for Standard Image
+            if (!success && event.getDragboard().hasImage()) {
                 ImageLayer il = new ImageLayer(event.getDragboard().getImage());
 
                 // PARSE METADATA (Shield / Logo)
                 if (event.getDragboard().hasString()) {
                     String metadata = event.getDragboard().getString();
                     if (metadata != null && metadata.startsWith("BADGE:")) {
-                        // Format: "BADGE:TYPE:ZONE"
                         String[] parts = metadata.split(":");
                         if (parts.length >= 2) {
                             try {
                                 il.setBadgeType(org.example.model.TipoEscudo.valueOf(parts[1]));
                             } catch (Exception e) {
-                                // Fallback to BORDADO if type invalid
                                 il.setBadgeType(org.example.model.TipoEscudo.BORDADO);
                             }
                         }
                     } else {
-                        // If it's not explicitly a BADGE from the gallery, it's a regular logo
                         il.setBadgeType(org.example.model.TipoEscudo.NINGUNO);
                     }
                 } else {
                     il.setBadgeType(org.example.model.TipoEscudo.NINGUNO);
                 }
 
-                // Detection for auto-powerclip on drop
-                String zone = visualizer.getShapeHelper().detectZone(event.getSceneX(), event.getSceneY());
-                if (zone != null) {
-                    // DELETED: Automatic PowerClip on Drop.
-                    // User wants it to stay floating ("quede afuera").
-                }
                 addImageLayer(il);
+                
+                // Position at mouse
+                Point2D localP = il.getParent().sceneToLocal(event.getSceneX(), event.getSceneY());
+                il.setTranslateX(localP.getX() - il.getBoundsInParent().getWidth() / 2);
+                il.setTranslateY(localP.getY() - il.getBoundsInParent().getHeight() / 2);
+                
                 success = true;
             }
             event.setDropCompleted(success);

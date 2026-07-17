@@ -1261,16 +1261,11 @@ public class TextLayer extends AbstractGraphicLayer {
 
     public TextLayer createClone() {
         TextLayer clone = new TextLayer(textContent, font, textColor);
-        clone.updatePivotWithCompensation(getCustomPivotX(), getCustomPivotY());
         clone.setTranslateX(getTranslateX());
         clone.setTranslateY(getTranslateY());
         clone.setTrajectoryType(trajectory.getType());
         clone.setTextSize(logicalWidth, logicalHeight);
-        clone.setInternalRotation(getInternalRotation());
-        clone.setInternalScaleX(getInternalScaleX());
-        clone.setInternalScaleY(getInternalScaleY());
-        clone.setInternalShearX(getInternalShearX());
-        clone.setInternalShearY(getInternalShearY());
+        clone.copyTransformsFrom(this);
         clone.setActiveZone(getActiveZone());
         return clone;
     }

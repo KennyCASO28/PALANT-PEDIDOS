@@ -51,6 +51,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
     private Button btnWeld;
     private Button btnUnweld;
     private Button btnCut;
+    private Button btnCombine;
 
     // State
     private org.example.component.GraphicLayer activeGraphicLayer = null;
@@ -133,15 +134,15 @@ public class ShapeManagerController implements org.example.component.helper.Draw
     public MenuButton getFillPicker() {
         if (fillPicker == null) {
             fillPicker = buttonFactory.createColorMenuButton("mdi2f-format-color-fill", Color.web("#E31B23"), "Color de Relleno",
-                c -> { if (!isUpdatingUI) actionHandler.recordPropertyChange("Fill Color", ShapeLayer::getFillColor, ShapeLayer::setFillColor, c); },
+                c -> { if (!isUpdatingUI) actionHandler.recordPropertyChange("Fill Color", org.example.component.GraphicLayer::getFillColor, org.example.component.GraphicLayer::setFillColor, c); },
                 c -> buttonFactory.updatePickerGraphic(fillPicker, c),
-                () -> activateEyedropper(c -> { buttonFactory.updatePickerGraphic(fillPicker, c); actionHandler.recordPropertyChange("Fill Color", ShapeLayer::getFillColor, ShapeLayer::setFillColor, c); }),
+                () -> activateEyedropper(c -> { buttonFactory.updatePickerGraphic(fillPicker, c); actionHandler.recordPropertyChange("Fill Color", org.example.component.GraphicLayer::getFillColor, org.example.component.GraphicLayer::setFillColor, c); }),
                 () -> UIFactory.showColorSelector(fillPicker.getScene().getWindow(), (Color)fillPicker.getUserData(),
-                    c -> { buttonFactory.updatePickerGraphic(fillPicker, c); actionHandler.recordPropertyChange("Fill Color", ShapeLayer::getFillColor, ShapeLayer::setFillColor, c); },
-                    c -> { buttonFactory.updatePickerGraphic(fillPicker, c); actionHandler.recordPropertyChange("Fill Color", ShapeLayer::getFillColor, ShapeLayer::setFillColor, c); }));
+                    c -> { buttonFactory.updatePickerGraphic(fillPicker, c); actionHandler.recordPropertyChange("Fill Color", org.example.component.GraphicLayer::getFillColor, org.example.component.GraphicLayer::setFillColor, c); },
+                    c -> { buttonFactory.updatePickerGraphic(fillPicker, c); actionHandler.recordPropertyChange("Fill Color", org.example.component.GraphicLayer::getFillColor, org.example.component.GraphicLayer::setFillColor, c); }));
             fillPicker.setOnContextMenuRequested(e -> {
                 if (!isUpdatingUI) {
-                    actionHandler.recordPropertyChange("Set No Fill", ShapeLayer::getFillColor, ShapeLayer::setFillColor, Color.TRANSPARENT);
+                    actionHandler.recordPropertyChange("Set No Fill", org.example.component.GraphicLayer::getFillColor, org.example.component.GraphicLayer::setFillColor, Color.TRANSPARENT);
                     buttonFactory.updatePickerGraphic(fillPicker, Color.TRANSPARENT);
                 }
             });
@@ -152,15 +153,15 @@ public class ShapeManagerController implements org.example.component.helper.Draw
     public MenuButton getStrokePicker() {
         if (strokePicker == null) {
             strokePicker = buttonFactory.createColorMenuButton("mdi2b-border-color", Color.BLACK, "Color de Borde",
-                c -> { if (!isUpdatingUI) actionHandler.recordPropertyChange("Stroke Color", ShapeLayer::getStrokeColor, ShapeLayer::setStrokeColor, c); },
+                c -> { if (!isUpdatingUI) actionHandler.recordPropertyChange("Stroke Color", org.example.component.GraphicLayer::getStrokeColor, org.example.component.GraphicLayer::setStrokeColor, c); },
                 c -> buttonFactory.updatePickerGraphic(strokePicker, c),
-                () -> activateEyedropper(c -> { buttonFactory.updatePickerGraphic(strokePicker, c); actionHandler.recordPropertyChange("Stroke Color", ShapeLayer::getStrokeColor, ShapeLayer::setStrokeColor, c); }),
+                () -> activateEyedropper(c -> { buttonFactory.updatePickerGraphic(strokePicker, c); actionHandler.recordPropertyChange("Stroke Color", org.example.component.GraphicLayer::getStrokeColor, org.example.component.GraphicLayer::setStrokeColor, c); }),
                 () -> UIFactory.showColorSelector(strokePicker.getScene().getWindow(), (Color)strokePicker.getUserData(),
-                    c -> { buttonFactory.updatePickerGraphic(strokePicker, c); actionHandler.recordPropertyChange("Stroke Color", ShapeLayer::getStrokeColor, ShapeLayer::setStrokeColor, c); },
-                    c -> { buttonFactory.updatePickerGraphic(strokePicker, c); actionHandler.recordPropertyChange("Stroke Color", ShapeLayer::getStrokeColor, ShapeLayer::setStrokeColor, c); }));
+                    c -> { buttonFactory.updatePickerGraphic(strokePicker, c); actionHandler.recordPropertyChange("Stroke Color", org.example.component.GraphicLayer::getStrokeColor, org.example.component.GraphicLayer::setStrokeColor, c); },
+                    c -> { buttonFactory.updatePickerGraphic(strokePicker, c); actionHandler.recordPropertyChange("Stroke Color", org.example.component.GraphicLayer::getStrokeColor, org.example.component.GraphicLayer::setStrokeColor, c); }));
             strokePicker.setOnContextMenuRequested(e -> {
                 if (!isUpdatingUI) {
-                    actionHandler.recordPropertyChange("Remove Stroke", ShapeLayer::getStrokeColor, ShapeLayer::setStrokeColor, Color.TRANSPARENT);
+                    actionHandler.recordPropertyChange("Remove Stroke", org.example.component.GraphicLayer::getStrokeColor, org.example.component.GraphicLayer::setStrokeColor, Color.TRANSPARENT);
                     buttonFactory.updatePickerGraphic(strokePicker, Color.TRANSPARENT);
                 }
             });
@@ -180,7 +181,7 @@ public class ShapeManagerController implements org.example.component.helper.Draw
             strokeWidthSlider.setPrefHeight(100);
             strokeWidthSlider.valueProperty().addListener((obs, old, val) -> {
                 if (strokeWidthLabel != null) strokeWidthLabel.setText(String.format("%.0fpx", val.doubleValue()));
-                if (!isUpdatingUI) actionHandler.recordPropertyChange("Stroke Width", ShapeLayer::getStrokeWidth, ShapeLayer::setStrokeWidth, val.doubleValue());
+                if (!isUpdatingUI) actionHandler.recordPropertyChange("Stroke Width", org.example.component.GraphicLayer::getStrokeWidth, org.example.component.GraphicLayer::setStrokeWidth, val.doubleValue());
             });
         }
         return strokeWidthSlider;
@@ -388,6 +389,17 @@ public class ShapeManagerController implements org.example.component.helper.Draw
         return btnUnweld;
     }
 
+        public Button getCombineButton() {
+        if (btnCombine == null) {
+            btnCombine = new Button("", UIFactory.crearIcono("mdi2s-shape-outline", 20, "#555"));
+            btnCombine.setTooltip(new Tooltip("Combinar Vectores (Excluir)"));
+            buttonFactory.styleToolButton(btnCombine);
+            btnCombine.setOnAction(e -> actionHandler.combineSelectedShapes());
+            visualizer.addSelectionListener(n -> updateWeldButtonState());
+        }
+        return btnCombine;
+    }
+
     public Button getCutButton() {
         if (btnCut == null) {
             btnCut = new Button("", UIFactory.crearIcono("mdi2c-content-cut", 20, "#555"));
@@ -411,6 +423,10 @@ public class ShapeManagerController implements org.example.component.helper.Draw
         if (btnCut != null) {
             btnCut.setDisable(!hasShape);
             btnCut.setOpacity(hasShape ? 1.0 : 0.5);
+        }
+        if (btnCombine != null) {
+            btnCombine.setDisable(!hasShape);
+            btnCombine.setOpacity(hasShape ? 1.0 : 0.5);
         }
     }
 
@@ -590,3 +606,4 @@ public class ShapeManagerController implements org.example.component.helper.Draw
 
     public ShapeButtonFactory getButtonFactory() { return buttonFactory; }
 }
+

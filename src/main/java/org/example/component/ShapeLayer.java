@@ -28,6 +28,11 @@ import java.util.function.Supplier;
 public class ShapeLayer extends AbstractGraphicLayer {
 
     @Override
+    protected boolean hasUnscaledBounds() {
+        return true;
+    }
+
+    @Override
     public javafx.geometry.Bounds calculateBounds() {
         javafx.geometry.Bounds b = contentGroup.getBoundsInLocal();
         if (b.isEmpty() || b.getWidth() <= 0 || b.getHeight() <= 0) {
@@ -43,21 +48,41 @@ public class ShapeLayer extends AbstractGraphicLayer {
 
     @Override
     protected javafx.scene.Node createSilhouetteNode() {
+        javafx.scene.Node silhouette = null;
         if (currentShapeNode instanceof javafx.scene.shape.SVGPath) {
             javafx.scene.shape.SVGPath p = new javafx.scene.shape.SVGPath();
             p.setContent(((javafx.scene.shape.SVGPath)currentShapeNode).getContent());
-            return p;
+            p.setFillRule(((javafx.scene.shape.SVGPath)currentShapeNode).getFillRule());
+            silhouette = p;
         } else if (currentShapeNode instanceof javafx.scene.shape.Path) {
             javafx.scene.shape.Path p = new javafx.scene.shape.Path();
             p.getElements().addAll(((javafx.scene.shape.Path)currentShapeNode).getElements());
-            return p;
+            silhouette = p;
         } else if (currentShapeNode instanceof javafx.scene.shape.Rectangle) {
             javafx.scene.shape.Rectangle r = (javafx.scene.shape.Rectangle) currentShapeNode;
-            return new javafx.scene.shape.Rectangle(r.getX(), r.getY(), r.getWidth(), r.getHeight());
+            silhouette = new javafx.scene.shape.Rectangle(r.getX(), r.getY(), r.getWidth(), r.getHeight());
         } else if (currentShapeNode instanceof javafx.scene.shape.Ellipse) {
             javafx.scene.shape.Ellipse e = (javafx.scene.shape.Ellipse) currentShapeNode;
-            return new javafx.scene.shape.Ellipse(e.getCenterX(), e.getCenterY(), e.getRadiusX(), e.getRadiusY());
+            silhouette = new javafx.scene.shape.Ellipse(e.getCenterX(), e.getCenterY(), e.getRadiusX(), e.getRadiusY());
+        } else if (currentShapeNode instanceof javafx.scene.shape.Polygon) {
+            javafx.scene.shape.Polygon p = (javafx.scene.shape.Polygon) currentShapeNode;
+            silhouette = new javafx.scene.shape.Polygon(p.getPoints().stream().mapToDouble(Double::doubleValue).toArray());
+        } else if (currentShapeNode instanceof javafx.scene.shape.Line) {
+            javafx.scene.shape.Line l = (javafx.scene.shape.Line) currentShapeNode;
+            silhouette = new javafx.scene.shape.Line(l.getStartX(), l.getStartY(), l.getEndX(), l.getEndY());
         }
+        
+        if (silhouette != null && currentShapeNode != null) {
+            // Must copy transforms so that PDF/SVG imported coordinate flips are preserved on the ghost!
+            for (javafx.scene.transform.Transform t : currentShapeNode.getTransforms()) {
+                silhouette.getTransforms().add(t.clone());
+            }
+        }
+        
+        if (silhouette != null) {
+            return silhouette;
+        }
+        
         javafx.geometry.Bounds b = calculateBounds();
         return new javafx.scene.shape.Rectangle(b.getMinX(), b.getMinY(), b.getWidth(), b.getHeight());
     }
@@ -165,17 +190,25 @@ public class ShapeLayer extends AbstractGraphicLayer {
 
     @Override
     public void setInternalScaleX(double s) {
-        // ShapeLayer uses geometric scaling (setSize) for magnitude to prevent stroke distortion.
-        // scaleTransform is only used for mirroring.
-        double sign = Math.signum(s);
-        super.setInternalScaleX(sign == 0 ? 1 : sign);
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            super.setInternalScaleX(s);
+        } else {
+            double sign = Math.signum(s);
+            super.setInternalScaleX(sign == 0 ? 1 : sign);
+        }
     }
 
     @Override
     public void setInternalScaleY(double s) {
-        double sign = Math.signum(s);
-        super.setInternalScaleY(sign == 0 ? 1 : sign);
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            super.setInternalScaleY(s);
+        } else {
+            double sign = Math.signum(s);
+            super.setInternalScaleY(sign == 0 ? 1 : sign);
+        }
     }
+
+
 
     @Override
     public void setInternalRotation(double angle) {
@@ -190,9 +223,19 @@ public class ShapeLayer extends AbstractGraphicLayer {
     }
 
     // --- Geometry Management ---
-    public double getWidth() { return state.width; }
+    public double getWidth() { 
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            return state.width * Math.abs(getInternalScaleX());
+        }
+        return state.width; 
+    }
     public void setWidth(double w) { this.state.width = w; refreshShapeVisuals(); }
-    public double getHeight() { return state.height; }
+    public double getHeight() { 
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            return state.height * Math.abs(getInternalScaleY());
+        }
+        return state.height; 
+    }
     public void setHeight(double h) { this.state.height = h; refreshShapeVisuals(); }
     public void setPrefSize(double w, double h) { this.state.width = w; this.state.height = h; refreshShapeVisuals(); }
     public double getLogicalWidth() { return state.width; }
@@ -247,16 +290,20 @@ public class ShapeLayer extends AbstractGraphicLayer {
 
         updateFill();
         // Do not pass shearTransform to ShapeGeometryEngine anymore! It is handled by contentGroup!
-        ShapeGeometryEngine.applyGeometry(shape, state.type, state.bezierNodes,
+        ShapeGeometryEngine.applyGeometry(currentShapeNode, state.type, state.bezierNodes,
                 state.width, state.height, state.visualMinX, state.visualMinY,
                 state.arcWidth, state.arcHeight, state.svgPathData, null);
 
-        shape.setStroke(state.strokeColor != null ? state.strokeColor : Color.TRANSPARENT);
-        shape.setStrokeWidth(Math.max(0.001, state.strokeWidth));
-        shape.setStrokeType(state.strokeType != null ? state.strokeType : StrokeType.CENTERED);
-        shape.setStrokeLineJoin(state.strokeLineJoin);
-        shape.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
-        shape.setPickOnBounds(true);
+        if (currentShapeNode instanceof javafx.scene.shape.SVGPath) {
+            ((javafx.scene.shape.SVGPath) currentShapeNode).setFillRule(state.fillRule);
+        }
+
+        currentShapeNode.setStroke(state.strokeColor != null ? state.strokeColor : Color.TRANSPARENT);
+        currentShapeNode.setStrokeWidth(Math.max(0.001, state.strokeWidth));
+        currentShapeNode.setStrokeType(state.strokeType != null ? state.strokeType : StrokeType.CENTERED);
+        currentShapeNode.setStrokeLineJoin(state.strokeLineJoin);
+        currentShapeNode.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+        currentShapeNode.setPickOnBounds(false);
 
         if (!reuseNode) {
             shapeGroup.getChildren().add(shape);
@@ -282,6 +329,16 @@ public class ShapeLayer extends AbstractGraphicLayer {
 
     // --- Transformation Utilities (delegated to ShapeTransformManager) ---
     public void setSize(double nw, double nh) {
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            double drX = (state.width > 0) ? (nw / state.width) : 1.0;
+            double drY = (state.height > 0) ? (nh / state.height) : 1.0;
+            // Since we don't update state.width/height here, drX and drY are always relative to the original width/height.
+            // So we set the absolute scale, preserving the sign.
+            setInternalScaleX((getInternalScaleX() < 0 ? -1 : 1) * Math.abs(drX));
+            setInternalScaleY((getInternalScaleY() < 0 ? -1 : 1) * Math.abs(drY));
+            return;
+        }
+
         double drX = (state.width > 0) ? (nw / state.width) : 1.0;
         double drY = (state.height > 0) ? (nh / state.height) : 1.0;
         if (state.bezierNodes != null) {
@@ -309,14 +366,45 @@ public class ShapeLayer extends AbstractGraphicLayer {
             rx = Math.abs(rx);
             ry = Math.abs(ry);
         }
-        double newW = state.width * rx;
-        double newH = state.height * ry;
-        setSize(newW, newH);
+        
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            setInternalScaleX(getInternalScaleX() * rx);
+            setInternalScaleY(getInternalScaleY() * ry);
+        } else {
+            double newW = state.width * rx;
+            double newH = state.height * ry;
+            setSize(newW, newH);
+        }
     }
 
     
 
     public void convertPrimitiveToPath() {
+        if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
+            javafx.scene.shape.Path fxPath = null;
+            if (currentShapeNode instanceof javafx.scene.shape.SVGPath svgPath) {
+                javafx.scene.shape.Shape unionShape = javafx.scene.shape.Shape.union(svgPath, new javafx.scene.shape.Path());
+                if (unionShape instanceof javafx.scene.shape.Path) {
+                    fxPath = (javafx.scene.shape.Path) unionShape;
+                }
+            }
+            if (fxPath != null) {
+                this.state.bezierNodes = org.example.component.helper.ShapePathSupport.simplifyBezierNodes(
+                        org.example.component.helper.VectorBooleanHelper.convertPathToBezierNodes(fxPath), 0.5);
+                if (currentShapeNode != null) {
+                    currentShapeNode.getTransforms().clear();
+                }
+            } else {
+                this.state.bezierNodes = org.example.component.helper.ShapePathSupport.parseSvgPath(state.svgPathData);
+            }
+            if (this.state.bezierNodes != null && !this.state.bezierNodes.isEmpty()) {
+                this.state.bezierNodes.get(0).isMoveTo = true; // Ensure the first node is a MoveTo
+            }
+            this.state.originalBezierNodes = org.example.component.helper.ShapePathSupport.copyNodes(this.state.bezierNodes);
+            refreshShapeVisuals();
+            return;
+        }
+
         ShapePathSupport.PathConversionResult res = ShapePathSupport.convertPrimitiveToPath(
                 currentShapeNode, state.width, state.height, state.arcWidth, state.arcHeight, state.isClosed);
         if (res != null) {
@@ -359,6 +447,8 @@ public class ShapeLayer extends AbstractGraphicLayer {
     public ShapeLayerState getState() { return state; }
     public void setFillColor(Color c) { this.state.fillColor = c; updateFill(); }
     public Color getFillColor() { return state.fillColor; }
+    public void setFillRule(javafx.scene.shape.FillRule rule) { this.state.fillRule = rule; renderShape(); updateVisuals(); }
+    public javafx.scene.shape.FillRule getFillRule() { return state.fillRule; }
     public void setStrokeColor(Color c) { this.state.strokeColor = c; if (currentShapeNode != null) currentShapeNode.setStroke(c); }
     public Color getStrokeColor() { return state.strokeColor; }
     public void setStrokeWidth(double w) { this.state.strokeWidth = w; if (currentShapeNode != null) currentShapeNode.setStrokeWidth(w); }
@@ -378,7 +468,7 @@ public class ShapeLayer extends AbstractGraphicLayer {
         }
         refreshShapeVisuals();
     }
-    public void setSvgPathData(String d) { this.state.svgPathData = d; renderShape(); updateVisuals(); }
+    public void setSvgPathData(String d) { this.state.svgPathData = d; refreshShapeVisuals(); }
     public void fastUpdateSvgPathData(String d) {
         this.state.svgPathData = d;
         if (state.type == ShapeType.CUSTOM_PATH && currentShapeNode instanceof javafx.scene.shape.SVGPath) {
@@ -495,16 +585,14 @@ public class ShapeLayer extends AbstractGraphicLayer {
         clone.setVisualizer(visualizer);
         clone.renderShape();
 
-        // Copy pivot offset before copying translations, so the compensation gets overwritten by the exact translation
-        clone.updatePivotWithCompensation(getCustomPivotX(), getCustomPivotY());
-
         clone.setTranslateX(getTranslateX());
         clone.setTranslateY(getTranslateY());
-        clone.setInternalRotation(getInternalRotation());
-        clone.setInternalScaleX(getInternalScaleX());
-        clone.setInternalScaleY(getInternalScaleY());
-        clone.setInternalShearX(getInternalShearX());
-        clone.setInternalShearY(getInternalShearY());
+        
+        clone.copyTransformsFrom(this);
+        
+        if (this.currentShapeNode != null && clone.getCurrentShapeNode() != null) {
+            clone.getCurrentShapeNode().getTransforms().setAll(this.currentShapeNode.getTransforms());
+        }
 
         if (state.contourSteps > 0) {
             clone.applyContour(state.contourSteps, state.contourDistance, state.contourColor);

@@ -31,6 +31,10 @@ public class PrendaHistoryManager {
     private long lastCommandTime = 0;
     private static final long MERGE_TIME_WINDOW_MS = 500;
 
+    // Error recovery: limit de reintentos para evitar bucles infinitos
+    private static final int MAX_UNDO_RETRIES = 3;
+    private int consecutiveUndoErrors = 0;
+
     // Optional listener to update UI
     private Consumer<Boolean> onHistoryChanged;
 
@@ -200,32 +204,38 @@ public class PrendaHistoryManager {
     public void undo() {
         if (undoStack.isEmpty()) {
             System.out.println("History: Undo stack empty. Nothing to undo.");
+            consecutiveUndoErrors = 0;
             return;
         }
 
         ICommand cmd = undoStack.pop();
-        lastCommand = null; // Reset merge state
-
-        // Context-aware zone handling
-        String zone = cmd.getContextZone();
-        if (zone != null && visualizer != null) {
-            boolean isEditing = visualizer.getPowerClipManager().isEditing();
-            String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
-
-            if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
-                visualizer.getPowerClipManager().enterEditMode(zone);
-            }
-        }
+        lastCommand = null;
 
         try {
+            // Context-aware zone handling
+            String zone = cmd.getContextZone();
+            if (zone != null && visualizer != null) {
+                boolean isEditing = visualizer.getPowerClipManager().isEditing();
+                String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
+                    visualizer.getPowerClipManager().enterEditMode(zone);
+                }
+            }
+
             cmd.undo();
             redoStack.push(cmd);
+            consecutiveUndoErrors = 0;
             System.out.println("History: Undid " + cmd.getName());
         } catch (Exception e) {
-            System.err.println("History: ERROR during undo of " + cmd.getName() + ": " + e.getMessage());
+            consecutiveUndoErrors++;
+            System.err.println("History: ERROR during undo of " + cmd.getName() + " (attempt " + consecutiveUndoErrors + "/" + MAX_UNDO_RETRIES + "): " + e.getMessage());
             e.printStackTrace();
-            // Try to recover by pushing it back
-            undoStack.push(cmd);
+            if (consecutiveUndoErrors < MAX_UNDO_RETRIES) {
+                undoStack.push(cmd);
+            } else {
+                System.err.println("History: MAX RETRIES REACHED. Discarding command: " + cmd.getName());
+                consecutiveUndoErrors = 0;
+            }
         }
 
         notifyChange();
@@ -234,30 +244,37 @@ public class PrendaHistoryManager {
     public void redo() {
         if (redoStack.isEmpty()) {
             System.out.println("History: Redo stack empty. Nothing to redo.");
+            consecutiveUndoErrors = 0;
             return;
         }
 
         ICommand cmd = redoStack.pop();
         lastCommand = null;
 
-        String zone = cmd.getContextZone();
-        if (zone != null && visualizer != null) {
-            boolean isEditing = visualizer.getPowerClipManager().isEditing();
-            String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
-
-            if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
-                visualizer.getPowerClipManager().enterEditMode(zone);
-            }
-        }
-
         try {
+            String zone = cmd.getContextZone();
+            if (zone != null && visualizer != null) {
+                boolean isEditing = visualizer.getPowerClipManager().isEditing();
+                String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
+                    visualizer.getPowerClipManager().enterEditMode(zone);
+                }
+            }
+
             cmd.redo();
             undoStack.push(cmd);
+            consecutiveUndoErrors = 0;
             System.out.println("History: Redid " + cmd.getName());
         } catch (Exception e) {
-            System.err.println("History: ERROR during redo of " + cmd.getName() + ": " + e.getMessage());
+            consecutiveUndoErrors++;
+            System.err.println("History: ERROR during redo of " + cmd.getName() + " (attempt " + consecutiveUndoErrors + "/" + MAX_UNDO_RETRIES + "): " + e.getMessage());
             e.printStackTrace();
-            redoStack.push(cmd);
+            if (consecutiveUndoErrors < MAX_UNDO_RETRIES) {
+                redoStack.push(cmd);
+            } else {
+                System.err.println("History: MAX RETRIES REACHED. Discarding command: " + cmd.getName());
+                consecutiveUndoErrors = 0;
+            }
         }
 
         notifyChange();

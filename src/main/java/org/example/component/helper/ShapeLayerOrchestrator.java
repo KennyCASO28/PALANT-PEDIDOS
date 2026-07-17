@@ -137,12 +137,8 @@ public class ShapeLayerOrchestrator {
      */
     public void recalculateGeometricBounds() {
         if (layer.getState().bezierNodes == null || layer.getState().bezierNodes.isEmpty()) {
-            if (layer.getState().type == ShapeType.CUSTOM_PATH && layer.getState().svgPathData != null) {
-                List<BezierNode> parsed = ShapePathSupport.parseSvgPath(layer.getState().svgPathData);
-                if (parsed != null && !parsed.isEmpty()) {
-                    layer.getState().bezierNodes = parsed;
-                }
-            }
+            // Do not attempt to parse complex imported SVG paths here.
+            // ShapePathSupport.parseSvgPath only supports basic commands (M, C, L, Z) and corrupts paths with relative coordinates or arcs.
         }
 
         if (layer.getState().bezierNodes == null || layer.getState().bezierNodes.isEmpty()) {
@@ -153,8 +149,11 @@ public class ShapeLayerOrchestrator {
 
         Point2D offset = ShapePathSupport.normalizeNodes(layer.getState().bezierNodes);
         if (offset.getX() != 0 || offset.getY() != 0) {
-            Point2D parentOffset = layer.localToParent(offset.getX(), offset.getY());
-            Point2D parentZero = layer.localToParent(0, 0);
+            javafx.scene.transform.Transform ct = layer.getContentGroup().getLocalToParentTransform();
+            javafx.scene.transform.Transform lt = layer.getLocalToParentTransform();
+            javafx.scene.transform.Transform t = lt.createConcatenation(ct);
+            Point2D parentOffset = t.transform(offset.getX(), offset.getY());
+            Point2D parentZero = t.transform(0, 0);
             layer.setTranslateX(layer.getTranslateX() + (parentOffset.getX() - parentZero.getX()));
             layer.setTranslateY(layer.getTranslateY() + (parentOffset.getY() - parentZero.getY()));
             layer.getState().svgPathData = ShapePathSupport.buildSvgPath(layer.getState().bezierNodes,

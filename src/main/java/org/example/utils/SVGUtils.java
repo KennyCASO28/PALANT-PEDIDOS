@@ -347,5 +347,318 @@ public class SVGUtils {
         String rest = i < content.length() ? content.substring(i).trim() : "";
         return "M " + absX + " " + absY + " " + rest;
     }
+
+    public static class ParsedSVGShape {
+        public String pathData;
+        public String fill;
+        public String stroke;
+        public String strokeWidth;
+        public String transform;
+        public String fillRule;
+    }
+
+    /** Extrae reglas CSS de todos los elementos <style> en el documento */
+    private static java.util.Map<String, java.util.Map<String, String>> extractCssClasses(org.w3c.dom.Document doc) {
+        java.util.Map<String, java.util.Map<String, String>> cssMap = new java.util.HashMap<>();
+        try {
+            org.w3c.dom.NodeList styleNodes = doc.getElementsByTagName("style");
+            for (int i = 0; i < styleNodes.getLength(); i++) {
+                org.w3c.dom.Node styleNode = styleNodes.item(i);
+                String cssText = styleNode.getTextContent();
+                if (cssText == null || cssText.isEmpty()) continue;
+                // Parse .className { prop: val; prop2: val2; }
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "\\.([a-zA-Z0-9_-]+)\\s*\\{([^}]*)\\}"
+                ).matcher(cssText);
+                while (m.find()) {
+                    String className = m.group(1);
+                    String body = m.group(2);
+                    java.util.Map<String, String> props = new java.util.HashMap<>();
+                    for (String decl : body.split(";")) {
+                        String[] kv = decl.split(":");
+                        if (kv.length == 2) {
+                            props.put(kv[0].trim(), kv[1].trim());
+                        }
+                    }
+                    cssMap.put(className, props);
+                }
+            }
+        } catch (Exception e) {
+            // Ignorar errores de parseo CSS
+        }
+        return cssMap;
+    }
+
+    public static java.util.List<ParsedSVGShape> parseComplexSvg(java.io.File file) {
+        java.util.List<ParsedSVGShape> shapes = new java.util.ArrayList<>();
+        try {
+            javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            
+            // Allow DOCTYPE but prevent XXE attacks
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            
+            // Allow namespaces for proper SVG parsing
+            factory.setNamespaceAware(true);
+            javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
+            org.w3c.dom.Document doc = builder.parse(file);
+            doc.getDocumentElement().normalize();
+            
+            java.util.Map<String, java.util.Map<String, String>> cssClasses = extractCssClasses(doc);
+            traverseDOMForShapes(doc.getDocumentElement(), shapes, cssClasses, null, null, null, null, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return shapes;
+    }
+
+    public static java.util.List<ParsedSVGShape> parseComplexSvg(String content) {
+        java.util.List<ParsedSVGShape> shapes = new java.util.ArrayList<>();
+        try {
+            if (content != null) {
+                int firstAngleBracket = content.indexOf('<');
+                if (firstAngleBracket > 0) {
+                    content = content.substring(firstAngleBracket);
+                }
+            }
+            javax.xml.parsers.DocumentBuilderFactory factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            
+            // Allow DOCTYPE but prevent XXE attacks
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            
+            factory.setNamespaceAware(true);
+            javax.xml.parsers.DocumentBuilder builder = factory.newDocumentBuilder();
+            org.xml.sax.InputSource is = new org.xml.sax.InputSource(new java.io.StringReader(content));
+            org.w3c.dom.Document doc = builder.parse(is);
+            doc.getDocumentElement().normalize();
+            
+            java.util.Map<String, java.util.Map<String, String>> cssClasses = extractCssClasses(doc);
+            traverseDOMForShapes(doc.getDocumentElement(), shapes, cssClasses, null, null, null, null, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return shapes;
+    }
+    
+    private static void traverseDOMForShapes(org.w3c.dom.Node node, java.util.List<ParsedSVGShape> shapes, java.util.Map<String, java.util.Map<String, String>> cssClasses, String currentFill, String currentStroke, String currentStrokeWidth, String currentTransform, String currentFillRule) {
+        if (node.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
+            org.w3c.dom.Element el = (org.w3c.dom.Element) node;
+            String nodeName = el.getNodeName().toLowerCase();
+            if (nodeName.equals("defs") || nodeName.equals("pattern") || nodeName.equals("clippath") 
+                    || nodeName.equals("mask") || nodeName.equals("style") || nodeName.equals("metadata")
+                    || nodeName.equals("lineargradient") || nodeName.equals("radialgradient")) {
+                return;
+            }
+            
+            String fill = el.getAttribute("fill");
+            if (fill == null || fill.isEmpty()) fill = currentFill;
+            String stroke = el.getAttribute("stroke");
+            if (stroke == null || stroke.isEmpty()) stroke = currentStroke;
+            String strokeW = el.getAttribute("stroke-width");
+            if (strokeW == null || strokeW.isEmpty()) strokeW = currentStrokeWidth;
+            String fillRule = el.getAttribute("fill-rule");
+            if (fillRule == null || fillRule.isEmpty()) fillRule = currentFillRule;
+            
+            // Aplicar estilos CSS por clase (Inkscape genera SVG con <style> y class="fil0")
+            if (cssClasses != null && !cssClasses.isEmpty()) {
+                String classAttr = el.getAttribute("class");
+                if (classAttr != null && !classAttr.isEmpty()) {
+                    for (String cls : classAttr.split("\\s+")) {
+                        java.util.Map<String, String> classProps = cssClasses.get(cls);
+                        if (classProps != null) {
+                            if (classProps.containsKey("fill") && (fill == null || fill.isEmpty() || fill.equals(currentFill))) {
+                                fill = classProps.get("fill");
+                            }
+                            // Inkscape usa "color" en lugar de "fill" para algunos elementos
+                            if (classProps.containsKey("color") && (fill == null || fill.isEmpty() || fill.equals(currentFill))
+                                    && !classProps.containsKey("fill")) {
+                                fill = classProps.get("color");
+                            }
+                            if (classProps.containsKey("stroke") && (stroke == null || stroke.isEmpty() || stroke.equals(currentStroke))) {
+                                stroke = classProps.get("stroke");
+                            }
+                            if (classProps.containsKey("stroke-width") && (strokeW == null || strokeW.isEmpty() || strokeW.equals(currentStrokeWidth))) {
+                                strokeW = classProps.get("stroke-width");
+                            }
+                            if (classProps.containsKey("fill-rule") && (fillRule == null || fillRule.isEmpty() || fillRule.equals(currentFillRule))) {
+                                fillRule = classProps.get("fill-rule");
+                            }
+                        }
+                    }
+                }
+            }
+            
+            String style = el.getAttribute("style");
+            if (style != null && !style.isEmpty()) {
+                for (String part : style.split(";")) {
+                    String[] kv = part.split(":");
+                    if (kv.length == 2) {
+                        String k = kv[0].trim();
+                        String v = kv[1].trim();
+                        if (k.equals("fill")) fill = v;
+                        else if (k.equals("stroke")) stroke = v;
+                        else if (k.equals("stroke-width")) strokeW = v;
+                        else if (k.equals("fill-rule")) fillRule = v;
+                    }
+                }
+            }
+            
+            nodeName = el.getNodeName().toLowerCase();
+            String pathData = null;
+            if (nodeName.equals("path")) {
+                pathData = el.getAttribute("d");
+            } else if (nodeName.equals("polygon") || nodeName.equals("polyline")) {
+                pathData = convertPointsToPath(el.getAttribute("points"));
+            } else if (nodeName.equals("rect")) {
+                double x = parseDoubleSafe(el.getAttribute("x"), 0);
+                double y = parseDoubleSafe(el.getAttribute("y"), 0);
+                double w = parseDoubleSafe(el.getAttribute("width"), 0);
+                double h = parseDoubleSafe(el.getAttribute("height"), 0);
+                if (w > 0 && h > 0) {
+                    pathData = String.format(java.util.Locale.US, "M %f %f L %f %f L %f %f L %f %f Z", x, y, x+w, y, x+w, y+h, x, y+h);
+                }
+            } else if (nodeName.equals("circle")) {
+                double cx = parseDoubleSafe(el.getAttribute("cx"), 0);
+                double cy = parseDoubleSafe(el.getAttribute("cy"), 0);
+                double r = parseDoubleSafe(el.getAttribute("r"), 0);
+                if (r > 0) {
+                    pathData = String.format(java.util.Locale.US, "M %f %f A %f %f 0 1 0 %f %f A %f %f 0 1 0 %f %f Z",
+                        cx-r, cy, r, r, cx+r, cy, r, r, cx-r, cy);
+                }
+            }
+            
+            String transform = el.getAttribute("transform");
+            String accumulatedTransform = currentTransform != null ? currentTransform : "";
+            if (transform != null && !transform.isEmpty()) {
+                accumulatedTransform = accumulatedTransform + " " + transform;
+            }
+            accumulatedTransform = accumulatedTransform.trim();
+            
+            if (pathData != null && !pathData.trim().isEmpty()) {
+                ParsedSVGShape s = new ParsedSVGShape();
+                s.pathData = pathData;
+                s.fill = fill;
+                s.stroke = stroke;
+                s.strokeWidth = strokeW;
+                s.transform = accumulatedTransform;
+                s.fillRule = fillRule;
+                shapes.add(s);
+            }
+            
+            org.w3c.dom.NodeList children = el.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                traverseDOMForShapes(children.item(i), shapes, cssClasses, fill, stroke, strokeW, accumulatedTransform.isEmpty() ? null : accumulatedTransform, fillRule);
+            }
+        }
+    }
+    
+    private static double parseDoubleSafe(String val, double def) {
+        if (val == null || val.trim().isEmpty()) return def;
+        try { return Double.parseDouble(val.replaceAll("[a-zA-Z]", "")); } 
+        catch (Exception e) { return def; }
+    }
+    
+    public static javafx.scene.paint.Color getSafeColor(String colorString, javafx.scene.paint.Color fallback) {
+        if (colorString == null || colorString.isEmpty() || colorString.startsWith("url(")) {
+            return fallback;
+        }
+        if (colorString.equalsIgnoreCase("none")) {
+            return javafx.scene.paint.Color.TRANSPARENT;
+        }
+        // Intentar parsear hsl() / hsla() que JavaFX Color.web() no soporta nativamente
+        String trimmed = colorString.trim();
+        if (trimmed.toLowerCase().startsWith("hsl")) {
+             javafx.scene.paint.Color hslColor = parseHslColor(trimmed);
+            if (hslColor != null) return hslColor;
+        }
+        try {
+            return javafx.scene.paint.Color.web(colorString);
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private static javafx.scene.paint.Color parseHslColor(String hslStr) {
+        try {
+            boolean hasAlpha = hslStr.toLowerCase().startsWith("hsla");
+            int start = hslStr.indexOf('(');
+            int end = hslStr.lastIndexOf(')');
+            if (start < 0 || end < 0) return null;
+            String[] parts = hslStr.substring(start + 1, end).split(",");
+            if (parts.length < 3) return null;
+
+            double h = Double.parseDouble(parts[0].trim()) / 360.0;
+            double s = Double.parseDouble(parts[1].trim().replace("%", "")) / 100.0;
+            double l = Double.parseDouble(parts[2].trim().replace("%", "")) / 100.0;
+            double a = 1.0;
+            if (hasAlpha && parts.length >= 4) {
+                a = Double.parseDouble(parts[3].trim());
+            }
+
+            // HSL -> RGB conversion
+            if (s == 0) {
+                double gray = Math.round(l * 255);
+                return javafx.scene.paint.Color.rgb((int) gray, (int) gray, (int) gray, a);
+            }
+
+            double q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            double p = 2 * l - q;
+
+            double r = hueToRgb(p, q, h + 1.0 / 3.0);
+            double g = hueToRgb(p, q, h);
+            double b = hueToRgb(p, q, h - 1.0 / 3.0);
+
+            return javafx.scene.paint.Color.color(r, g, b, a);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static double hueToRgb(double p, double q, double t) {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1.0 / 6.0) return p + (q - p) * 6 * t;
+        if (t < 1.0 / 2.0) return q;
+        if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6;
+        return p;
+    }
+    
+    public static void applySVGTransform(javafx.scene.Node node, String transformStr) {
+        if (transformStr == null || transformStr.isEmpty()) return;
+        
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\w+)\\s*\\(([^)]*)\\)").matcher(transformStr);
+        while (m.find()) {
+            String type = m.group(1).toLowerCase();
+            String[] args = m.group(2).split("[\\s,]+");
+            try {
+                if (type.equals("matrix") && args.length >= 6) {
+                    node.getTransforms().add(new javafx.scene.transform.Affine(
+                        Double.parseDouble(args[0]), Double.parseDouble(args[2]), Double.parseDouble(args[4]),
+                        Double.parseDouble(args[1]), Double.parseDouble(args[3]), Double.parseDouble(args[5])
+                    ));
+                } else if (type.equals("translate") && args.length >= 1) {
+                    double tx = Double.parseDouble(args[0]);
+                    double ty = args.length > 1 ? Double.parseDouble(args[1]) : 0;
+                    node.getTransforms().add(new javafx.scene.transform.Translate(tx, ty));
+                } else if (type.equals("scale") && args.length >= 1) {
+                    double sx = Double.parseDouble(args[0]);
+                    double sy = args.length > 1 ? Double.parseDouble(args[1]) : sx;
+                    node.getTransforms().add(new javafx.scene.transform.Scale(sx, sy));
+                } else if (type.equals("rotate") && args.length >= 1) {
+                    double angle = Double.parseDouble(args[0]);
+                    double px = args.length >= 3 ? Double.parseDouble(args[1]) : 0;
+                    double py = args.length >= 3 ? Double.parseDouble(args[2]) : 0;
+                    node.getTransforms().add(new javafx.scene.transform.Rotate(angle, px, py));
+                }
+            } catch (Exception e) {
+                // Ignore parse errors for specific transform parts
+            }
+        }
+    }
 }
 
