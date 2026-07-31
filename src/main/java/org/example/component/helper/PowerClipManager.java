@@ -52,12 +52,13 @@ public class PowerClipManager {
     public SmartZoneContainer getContainer(String zone) {
         return containers.computeIfAbsent(zone, z -> {
             SmartZoneContainer container = new SmartZoneContainer(z);
-            // Add container to LayerManager's layer group if not already there?
-            // Current LayerManager expects raw nodes.
-            // We need to ensure this container is added to the scene.
-            // Delegate this to layerManager?
-            // Or add directly.
-            // For now, let's assume LayerManager handles the root group.
+            if (z != null && z.startsWith("CUELLO") && visualizer != null && visualizer.getActiveShirtRenderer() != null) {
+                javafx.scene.Group collarGroup = visualizer.getActiveShirtRenderer().getCollarContainerGroup();
+                if (collarGroup != null) {
+                    collarGroup.getChildren().add(container);
+                    return container;
+                }
+            }
             layerManager.getLayerGroup().getChildren().add(container);
             return container;
         });
@@ -200,11 +201,15 @@ public class PowerClipManager {
 
         this.currentEditingZone.set(zoneName);
 
-        // CRITICAL: Clear selection to avoid "phantom" states where outside items look
-        // selected
-        // Use runLater to ensure it happens AFTER any pending mouse events (like
-        // Click/Release)
-        Platform.runLater(() -> layerManager.clearSelection());
+        // Auto-select existing collar silhouette if entering edit mode for collar zone
+        java.util.List<ShapeLayer> existingCollarSilhouettes = (visualizer != null && zoneName != null && zoneName.startsWith("CUELLO")) ? visualizer.getCollarSilhouettes(zoneName) : java.util.Collections.emptyList();
+        if (!existingCollarSilhouettes.isEmpty()) {
+            ShapeLayer existingStripe = existingCollarSilhouettes.get(0);
+            layerManager.clearSelection();
+            layerManager.addToSelection(existingStripe);
+        } else {
+            layerManager.clearSelection();
+        }
 
         // 1. Activate Container Edit Mode
         SmartZoneContainer container = getContainer(zoneName);

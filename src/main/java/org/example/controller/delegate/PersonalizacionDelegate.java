@@ -9,16 +9,22 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.Separator;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
+import javafx.stage.Popup;
+import javafx.scene.Node;
 import java.util.List;
 
 import org.example.component.PrendaVisualizer;
+import org.example.component.ShapeLayer;
 import org.example.utils.UIFactory;
 
 import java.util.function.Consumer;
@@ -84,6 +90,28 @@ public class PersonalizacionDelegate {
                 zoneToggleGroup.selectToggle(null);
             }
         });
+
+        if (visualizer.getVisualizerUiController() != null) {
+            visualizer.getVisualizerUiController().setOnAddSilhouetteAction(() -> {
+                String activeZone = null;
+                if (visualizer.getPowerClipManager() != null) {
+                    activeZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                }
+                if (activeZone == null && visualizer.getEditManager() != null) {
+                    activeZone = visualizer.getEditManager().getCurrentEditingZone();
+                }
+                if (activeZone != null && (activeZone.startsWith("CUELLO") || activeZone.startsWith("V_") || activeZone.startsWith("REDONDO_"))) {
+                    visualizer.generateCollarStripe(activeZone, 2.0, Color.web("#e74c3c"));
+                    String finalZone = activeZone;
+                    javafx.application.Platform.runLater(() -> {
+                        if (getShapeController() != null && getShapeController().getUiOrchestrator() != null) {
+                            Button anchorBtn = visualizer.getVisualizerUiController().getBtnAddSilhouette();
+                            getShapeController().getUiOrchestrator().showContourPopup(anchorBtn != null ? anchorBtn : visualizer);
+                        }
+                    });
+                }
+            });
+        }
     }
 
     public void setupUI() {
@@ -542,6 +570,7 @@ public class PersonalizacionDelegate {
 
         addZoneButton(bar, "Pecho", "PECHO", "mdi2t-tshirt-crew");
         addZoneButton(bar, "Espalda", "ESPALDA", "mdi2t-tshirt-crew-outline");
+        addCollarMenuButton(bar);
         addZoneButton(bar, "Manga Delantera", "MANGA_DELANTERA", "mdi2a-arrow-left-box");
         addZoneButton(bar, "Manga Trasera", "MANGA_TRASERA", "mdi2a-arrow-right-box");
 
@@ -818,6 +847,42 @@ public class PersonalizacionDelegate {
         });
         btn.managedProperty().bind(btn.visibleProperty());
         parent.getChildren().add(btn);
+    }
+
+    private void addCollarMenuButton(javafx.scene.layout.Pane parent) {
+        javafx.scene.control.MenuButton mb = new javafx.scene.control.MenuButton();
+        mb.setTooltip(new Tooltip("Editar Cuello"));
+        mb.setGraphic(UIFactory.crearIconoCuello("CUELLO", 18, "#2c3e50"));
+        mb.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 8; -fx-alignment: center;");
+
+        MenuItem i1 = new MenuItem("1. Frontal Pecho");
+        i1.setGraphic(UIFactory.crearIconoCuello("CUELLO_1", 16, "#8e44ad"));
+        i1.setOnAction(e -> visualizer.getPowerClipManager().enterEditMode("CUELLO_1"));
+
+        MenuItem i2 = new MenuItem("2. Espalda Pecho");
+        i2.setGraphic(UIFactory.crearIconoCuello("CUELLO_2", 16, "#8e44ad"));
+        i2.setOnAction(e -> visualizer.getPowerClipManager().enterEditMode("CUELLO_2"));
+
+        MenuItem i3 = new MenuItem("3. Cuello de Espalda");
+        i3.setGraphic(UIFactory.crearIconoCuello("CUELLO_3", 16, "#8e44ad"));
+        i3.setOnAction(e -> visualizer.getPowerClipManager().enterEditMode("CUELLO_3"));
+
+        MenuItem iAll = new MenuItem("Cuello Completo");
+        iAll.setGraphic(UIFactory.crearIconoCuello("CUELLO", 16, "#8e44ad"));
+        iAll.setOnAction(e -> visualizer.getPowerClipManager().enterEditMode("CUELLO"));
+
+        mb.getItems().addAll(i1, i2, i3, new javafx.scene.control.SeparatorMenuItem(), iAll);
+
+        mb.visibleProperty().bind(new javafx.beans.binding.BooleanBinding() {
+            { super.bind(visualizer.widthProperty()); }
+            @Override protected boolean computeValue() {
+                java.util.List<String> z = visualizer.getAvailableZones();
+                return z.contains("CUELLO") || z.contains("CUELLO_1") || z.contains("CUELLO_FRONTAL");
+            }
+        });
+        mb.managedProperty().bind(mb.visibleProperty());
+
+        parent.getChildren().add(mb);
     }
 
     private String getIconForShape(org.example.model.ShapeType type) {

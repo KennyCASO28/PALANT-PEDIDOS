@@ -75,6 +75,12 @@ public class ShapeMenuHelper {
                     addZoneMenuItem(pcMenu, layer, "PECHO", "mdi2t-tshirt-crew", "#2c3e50", true);
                     addZoneMenuItem(pcMenu, layer, "ESPALDA", "mdi2t-tshirt-crew-outline", "#2c3e50", false);
                 }
+                if (available.contains("CUELLO_FRONTAL")) {
+                    pcMenu.getItems().add(new SeparatorMenuItem());
+                    addZoneMenuItem(pcMenu, layer, "CUELLO_FRONTAL", "mdi2o-oval", "#8e44ad", true);
+                    addZoneMenuItem(pcMenu, layer, "CUELLO_POSTERIOR", "mdi2o-oval", "#8e44ad", false);
+                    addZoneMenuItem(pcMenu, layer, "CUELLO", "mdi2o-oval", "#8e44ad", false);
+                }
                 if (available.contains("MANGA_DELANTERA")) {
                     pcMenu.getItems().add(new SeparatorMenuItem());
                     addZoneMenuItem(pcMenu, layer, "MANGA_DELANTERA", "mdi2a-arm-flex", "#16a085", true);
@@ -216,6 +222,21 @@ public class ShapeMenuHelper {
                 return "Pecho";
             case "ESPALDA":
                 return "Espalda";
+            case "CUELLO_1":
+            case "CUELLO_FRONTAL_PECHO":
+            case "CUELLO_FRONTAL":
+                return "Cuello: 1. Frontal Pecho";
+            case "CUELLO_2":
+            case "CUELLO_FRONTAL_ESPALDA":
+            case "CUELLO_INTERIOR":
+                return "Cuello: 2. Espalda Pecho";
+            case "CUELLO_3":
+            case "CUELLO_POSTERIOR":
+            case "CUELLO_TRASERO":
+            case "CUELLO_ESPALDA":
+                return "Cuello: 3. Espalda";
+            case "CUELLO":
+                return "Cuello Completo";
             case "MANGA_DELANTERA":
                 return "Manga Delantera";
             case "MANGA_TRASERA":

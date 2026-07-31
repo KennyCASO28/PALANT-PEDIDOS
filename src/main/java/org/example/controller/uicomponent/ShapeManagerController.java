@@ -111,6 +111,10 @@ public class ShapeManagerController implements org.example.component.helper.Draw
         if (visualizer.hasShirt()) {
             createScopeMenuItem("Pecho", "mdi2t-tshirt-crew", "PECHO");
             createScopeMenuItem("Espalda", "mdi2t-tshirt-crew-outline", "ESPALDA");
+            createScopeMenuItem("Cuello: 1. Frontal Pecho", "mdi2o-oval", "CUELLO_1");
+            createScopeMenuItem("Cuello: 2. Espalda Pecho", "mdi2o-oval", "CUELLO_2");
+            createScopeMenuItem("Cuello: 3. Espalda", "mdi2o-oval", "CUELLO_3");
+            createScopeMenuItem("Cuello Completo", "mdi2o-oval", "CUELLO");
             createScopeMenuItem("Manga Delantera", "mdi2a-arm-flex", "MANGA_DELANTERA");
             createScopeMenuItem("Manga Trasera", "mdi2a-arm-flex-outline", "MANGA_TRASERA");
         }

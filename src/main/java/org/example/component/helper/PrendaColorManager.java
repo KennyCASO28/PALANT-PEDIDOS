@@ -148,8 +148,12 @@ public class PrendaColorManager {
         colorState.putAll(tempPreviewColors);
 
         // Apply colors to all managed renderers regardless of visibility to ensure they are ready when shown
-        if (shirtRenderer != null && shirtRenderer.getGroup() != null)
+        if (shirtRenderer != null && shirtRenderer.getGroup() != null) {
+            if (state != null) {
+                shirtRenderer.setCollarDesignConfig(state.getCollarDesignConfig());
+            }
             shirtRenderer.applyColors(colorState);
+        }
         
         if (shortsRenderer != null && shortsRenderer.getGroup() != null)
             shortsRenderer.applyColors(colorState);

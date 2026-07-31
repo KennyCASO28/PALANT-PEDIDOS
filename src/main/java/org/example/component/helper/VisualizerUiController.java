@@ -18,7 +18,10 @@ public class VisualizerUiController {
 
     private ToggleButton btnLockBg;
     private ToggleButton btnToggleRefPoints;
+    private javafx.scene.layout.HBox editOverlayBox;
     private Button btnFinishEditOverlay;
+    private Button btnAddSilhouette;
+    private Runnable onAddSilhouetteAction;
     private javafx.scene.control.Label lblModeIndicator;
     private javafx.scene.control.Label externalModeIndicator;
     private javafx.scene.control.ColorPicker colorPickerBg;
@@ -28,6 +31,18 @@ public class VisualizerUiController {
         this.visualizer = visualizer;
         initModeIndicator();
         initButtons();
+    }
+
+    public void setOnAddSilhouetteAction(Runnable action) {
+        this.onAddSilhouetteAction = action;
+    }
+
+    public Button getBtnAddSilhouette() {
+        return btnAddSilhouette;
+    }
+
+    public javafx.scene.layout.HBox getEditOverlayBox() {
+        return editOverlayBox;
     }
 
     public void setExternalModeIndicator(javafx.scene.control.Label label) {
@@ -98,10 +113,10 @@ public class VisualizerUiController {
             StackPane.setAlignment(btnToggleRefPoints, Pos.BOTTOM_LEFT);
             StackPane.setMargin(btnToggleRefPoints, new Insets(20));
         }
-        if (btnFinishEditOverlay != null && !container.getChildren().contains(btnFinishEditOverlay)) {
-            container.getChildren().add(btnFinishEditOverlay);
-            StackPane.setAlignment(btnFinishEditOverlay, Pos.TOP_CENTER);
-            StackPane.setMargin(btnFinishEditOverlay, new Insets(60, 0, 0, 0));
+        if (editOverlayBox != null && !container.getChildren().contains(editOverlayBox)) {
+            container.getChildren().add(editOverlayBox);
+            StackPane.setAlignment(editOverlayBox, Pos.TOP_CENTER);
+            StackPane.setMargin(editOverlayBox, new Insets(60, 0, 0, 0));
         }
         if (btnBgColor != null && !container.getChildren().contains(btnBgColor)) {
             container.getChildren().add(btnBgColor);
@@ -209,6 +224,52 @@ public class VisualizerUiController {
     }
 
     private void initFinishEditButton() {
+        editOverlayBox = new javafx.scene.layout.HBox(10);
+        editOverlayBox.setAlignment(Pos.CENTER);
+        editOverlayBox.setPickOnBounds(false);
+
+        btnAddSilhouette = new Button("+ AÑADIR SILUETA");
+        try {
+            btnAddSilhouette.setGraphic(UIFactory.crearIcono("mdi2s-shape-outline", 18, "white"));
+            btnAddSilhouette.setGraphicTextGap(10);
+        } catch (Exception e) {}
+        btnAddSilhouette.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold; -fx-padding: 8 25; -fx-background-radius: 12; -fx-cursor: hand; -fx-border-color: rgba(255,255,255,0.3); -fx-border-radius: 12; -fx-border-width: 1; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 10, 0, 0, 4);");
+        btnAddSilhouette.setOnAction(e -> {
+            e.consume();
+            String currentZone = null;
+            if (visualizer.getPowerClipManager() != null) {
+                currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+            }
+            if (currentZone == null && visualizer.getEditManager() != null) {
+                currentZone = visualizer.getEditManager().getCurrentEditingZone();
+            }
+            if (currentZone == null) currentZone = "CUELLO_1";
+
+            java.util.List<org.example.component.ShapeLayer> existingSilhouettes = visualizer.getCollarSilhouettes(currentZone);
+            if (existingSilhouettes.isEmpty()) {
+                visualizer.generateCollarStripe(currentZone, 2.0, javafx.scene.paint.Color.web("#e74c3c"));
+            } else {
+                visualizer.getUserLayerManager().clearSelection();
+                visualizer.getUserLayerManager().addToSelection(existingSilhouettes.get(0));
+            }
+            btnAddSilhouette.setText("EDITAR SILUETA");
+
+            org.example.controller.uicomponent.ShapeManagerController smc = visualizer.getShapeManagerController();
+            if (smc == null) {
+                smc = new org.example.controller.uicomponent.ShapeManagerController(visualizer);
+            }
+            if (smc != null && smc.getUiOrchestrator() != null) {
+                final org.example.controller.uicomponent.ShapeManagerController targetSmc = smc;
+                javafx.application.Platform.runLater(() -> {
+                    targetSmc.getUiOrchestrator().showContourPopup(btnAddSilhouette);
+                });
+            }
+            if (onAddSilhouetteAction != null) {
+                onAddSilhouetteAction.run();
+            }
+            setEditOverlayVisible(true);
+        });
+
         btnFinishEditOverlay = new Button("LISTO");
         btnFinishEditOverlay.setAlignment(Pos.CENTER);
         try {
@@ -273,19 +334,34 @@ public class VisualizerUiController {
             visualizer.finishEditMode();
         });
 
-        btnFinishEditOverlay.setVisible(false);
         btnFinishEditOverlay.setId("btnFinishEditOverlay");
         // NOTE: managed stays TRUE so StackPane always applies TOP_CENTER alignment.
         // Visibility is controlled exclusively via setVisible(boolean).
-        btnFinishEditOverlay.setMouseTransparent(false);
-        btnFinishEditOverlay.setPickOnBounds(true);
+        
+        editOverlayBox.getChildren().addAll(btnAddSilhouette, btnFinishEditOverlay);
+        editOverlayBox.setVisible(false);
+        editOverlayBox.setMouseTransparent(false);
     }
 
     public void setEditOverlayVisible(boolean visible) {
-        if (btnFinishEditOverlay != null) {
-            btnFinishEditOverlay.setVisible(visible);
+        if (editOverlayBox != null) {
+            editOverlayBox.setVisible(visible);
             if (visible) {
-                btnFinishEditOverlay.toFront();
+                editOverlayBox.toFront();
+                String currentZone = null;
+                if (visualizer.getPowerClipManager() != null) {
+                    currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                }
+                if (currentZone == null && visualizer.getEditManager() != null) {
+                    currentZone = visualizer.getEditManager().getCurrentEditingZone();
+                }
+                boolean isCollarZone = currentZone != null && (currentZone.startsWith("CUELLO") || currentZone.startsWith("V_") || currentZone.startsWith("REDONDO_"));
+                btnAddSilhouette.setVisible(isCollarZone);
+                btnAddSilhouette.setManaged(isCollarZone);
+                if (isCollarZone) {
+                    boolean hasSilhouette = !visualizer.getCollarSilhouettes(currentZone).isEmpty();
+                    btnAddSilhouette.setText(hasSilhouette ? "EDITAR SILUETA" : "+ AÑADIR SILUETA");
+                }
             }
         }
     }

@@ -253,6 +253,8 @@ public class GarmentZoneService {
         } else if ("SHORT_BACK".equals(zone)) {
             return visualizer.getOverlayManager().getSplitZoneContentForShorts(visualizer.getActiveShortsRenderer().getShorts(),
                     false);
+        } else if (zone.startsWith("CUELLO")) {
+            return visualizer.getOverlayManager().getZoneContent(zone, visualizer);
         }
         return "";
     }

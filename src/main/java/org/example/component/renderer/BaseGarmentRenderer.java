@@ -12,8 +12,17 @@ import org.example.component.renderer.GarmentRenderer;
 public abstract class BaseGarmentRenderer implements GarmentRenderer {
     protected final Group group = new Group();
     protected final Group detailGroup = new Group();
+    protected final Group cuffsGroup = new Group();
     protected boolean visible = true;
     protected boolean hasLinea = false;
+    protected org.example.model.CollarDesignConfig collarDesignConfig;
+
+    public void setCollarDesignConfig(org.example.model.CollarDesignConfig config) {
+        this.collarDesignConfig = config;
+        applyCollarCustomization();
+    }
+
+    public void applyCollarCustomization() {}
 
     public abstract void setShirtLinea(boolean hasLinea);
 
@@ -21,6 +30,7 @@ public abstract class BaseGarmentRenderer implements GarmentRenderer {
     protected final java.util.Map<String, java.util.List<SVGPath>> zoneMap = new java.util.HashMap<>();
 
     public java.util.Map<String, java.util.List<SVGPath>> getZoneMap() { return zoneMap; }
+    public javafx.scene.Group getCollarContainerGroup() { return null; }
     
     protected void trackZoneNode(String zone, SVGPath path) {
         zoneMap.computeIfAbsent(zone, k -> new java.util.ArrayList<>()).add(path);
@@ -36,6 +46,7 @@ public abstract class BaseGarmentRenderer implements GarmentRenderer {
         this.visible = visible;
         group.setVisible(visible);
         detailGroup.setVisible(visible);
+        cuffsGroup.setVisible(visible);
     }
 
     @Override
@@ -52,6 +63,10 @@ public abstract class BaseGarmentRenderer implements GarmentRenderer {
 
     public Group getDetailGroup() {
         return detailGroup;
+    }
+
+    public Group getCuffsGroup() {
+        return cuffsGroup;
     }
 
     public Group getGroup() {
@@ -107,8 +122,15 @@ public abstract class BaseGarmentRenderer implements GarmentRenderer {
 
         if (!content.isEmpty()) {
             String shadowPath = basePath.replace(".svg", "_sombra.svg");
+            String shadowContent = SVGCache.loadOptionalPath(shadowPath);
+            if (shadowContent.isEmpty()) {
+                shadowContent = SVGCache.loadOptionalPath(basePath.replace(".svg", "_reforsado.svg"));
+            }
+            if (shadowContent.isEmpty()) {
+                shadowContent = SVGCache.loadOptionalPath(basePath.replace(".svg", "_reforzado.svg"));
+            }
             String detailPath = basePath.replace(".svg", "_detalle.svg");
-            safeSetContent(shadowNode, SVGCache.loadOptionalPath(shadowPath));
+            safeSetContent(shadowNode, shadowContent);
             safeSetContent(detailNode, SVGCache.loadOptionalPath(detailPath));
         } else {
             safeSetContent(shadowNode, "");

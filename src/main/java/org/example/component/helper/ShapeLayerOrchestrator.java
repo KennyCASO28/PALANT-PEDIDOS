@@ -40,49 +40,41 @@ public class ShapeLayerOrchestrator {
 
         int steps = layer.getState().contourSteps;
         double dist = layer.getState().contourDistance;
-        Color c = layer.getState().contourColor;
 
         Color baseColor = (layer.getState().fillColor != null && !Color.TRANSPARENT.equals(layer.getState().fillColor))
                 ? layer.getState().fillColor
                 : (layer.getState().strokeColor != null ? layer.getState().strokeColor : Color.BLACK);
 
-        double origTranslateX = layer.getTranslateX();
-        double origTranslateY = layer.getTranslateY();
-        double origRotate = layer.getRotate();
-        double origScaleX = layer.getScaleX();
-        double origScaleY = layer.getScaleY();
+        Color[] stepPalette = new Color[]{
+            baseColor,
+            Color.web("#f1c40f"), // Gold / Yellow
+            Color.web("#3498db"), // Blue
+            Color.web("#e67e22"), // Orange
+            Color.web("#2ecc71"), // Green
+            Color.web("#9b59b6"), // Purple
+            Color.WHITE,
+            Color.BLACK
+        };
 
-        for (int i = 1; i <= steps; i++) {
+        // Create from outermost (step N) to innermost (step 1) to preserve Z-order
+        for (int i = steps; i >= 1; i--) {
             ShapeLayer nl = layer.createDeepClone();
             nl.getState().contourSteps = 0;
 
-            Color stepColor = baseColor.interpolate(c, (double) i / steps);
+            Color stepColor = (steps > 1) ? stepPalette[(i - 1) % stepPalette.length] : baseColor;
+            double stepDist = dist * i * 0.5;
+
+            // Make it a real vector shape matching the contour's visual exact properties
             nl.getState().fillColor = stepColor;
             nl.getState().strokeColor = stepColor;
-            nl.getState().strokeWidth = 0.5;
-
-            double offset = i * dist;
-
-            nl.getState().visualMinX = 0;
-            nl.getState().visualMinY = 0;
-            nl.getState().width = layer.getState().width + (offset * 2.0);
-            nl.getState().height = layer.getState().height + (offset * 2.0);
-
-            double expansion = (layer.getState().contourLineJoin == StrokeLineJoin.ROUND) ? (offset * 2.0) : 0;
-            nl.getState().arcWidth = layer.getState().arcWidth + expansion;
-            nl.getState().arcHeight = layer.getState().arcHeight + expansion;
+            nl.getState().strokeWidth = stepDist;
+            
+            // Critical to avoid oval balloon points on open paths
+            nl.getState().strokeType = javafx.scene.shape.StrokeType.OUTSIDE;
+            nl.getState().strokeLineCap = javafx.scene.shape.StrokeLineCap.BUTT;
+            nl.getState().strokeLineJoin = javafx.scene.shape.StrokeLineJoin.MITER;
 
             nl.renderShape();
-
-            double worldOffsetX = offset * Math.abs(origScaleX);
-            double worldOffsetY = offset * Math.abs(origScaleY);
-
-            nl.setTranslateX(origTranslateX + worldOffsetX);
-            nl.setTranslateY(origTranslateY + worldOffsetY);
-            nl.setRotate(origRotate);
-            nl.setScaleX(1.0);
-            nl.setScaleY(1.0);
-
             newLayers.add(nl);
         }
 
@@ -121,6 +113,8 @@ public class ShapeLayerOrchestrator {
         // Copy pivot offset before copying translations, so the compensation gets overwritten by the exact translation
         clone.updatePivotWithCompensation(layer.getCustomPivotX(), layer.getCustomPivotY());
 
+        clone.setLayoutX(layer.getLayoutX());
+        clone.setLayoutY(layer.getLayoutY());
         clone.setTranslateX(layer.getTranslateX());
         clone.setTranslateY(layer.getTranslateY());
         clone.setInternalRotation(layer.getInternalRotation());
@@ -128,6 +122,10 @@ public class ShapeLayerOrchestrator {
         clone.setInternalScaleY(layer.getInternalScaleY());
         clone.setInternalShearX(layer.getInternalShearX());
         clone.setInternalShearY(layer.getInternalShearY());
+
+        if (!layer.getTransforms().isEmpty()) {
+            clone.getTransforms().setAll(layer.getTransforms());
+        }
 
         return clone;
     }

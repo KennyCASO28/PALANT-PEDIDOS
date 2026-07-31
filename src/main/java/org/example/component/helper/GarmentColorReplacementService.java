@@ -54,37 +54,51 @@ public class GarmentColorReplacementService {
         // 1. Replace in current active state only
         replaceInState(state, src, target, effectiveTolerance, masterCmd);
 
+        java.util.Set<Node> processedNodes = new java.util.HashSet<>();
+
         // 2. Replace in current layers (swapping designs already swaps layers)
         if (visualizer.getLayerManager() != null) {
             for (Node node : visualizer.getLayerManager().getLayers()) {
-                replaceInNodeRecursive(node, src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(node, src, target, effectiveTolerance, masterCmd, processedNodes);
+            }
+        }
+
+        // 2.5 Replace in PowerClips (ensures grouped vectors inside clips are reached)
+        if (visualizer.getPowerClipManager() != null) {
+            for (String zone : visualizer.getAvailableZones()) {
+                org.example.component.helper.SmartZoneContainer c = visualizer.getPowerClipManager().getContainer(zone);
+                if (c != null && c.getContentGroup() != null) {
+                    for (Node child : c.getContentGroup().getChildren()) {
+                        replaceInNodeRecursive(child, src, target, effectiveTolerance, masterCmd, processedNodes);
+                    }
+                }
             }
         }
 
         // 3. Replace in active numbers
         GarmentNumberManager nm = visualizer.getNumberManager();
         if (nm.getChestNumber(visualizer.isEditandoArquero()) != null)
-            replaceInNodeRecursive(nm.getChestNumber(visualizer.isEditandoArquero()).getRoot(), src, target, effectiveTolerance, masterCmd);
+            replaceInNodeRecursive(nm.getChestNumber(visualizer.isEditandoArquero()).getRoot(), src, target, effectiveTolerance, masterCmd, processedNodes);
         if (nm.getBackNumber(visualizer.isEditandoArquero()) != null)
-            replaceInNodeRecursive(nm.getBackNumber(visualizer.isEditandoArquero()).getRoot(), src, target, effectiveTolerance, masterCmd);
+            replaceInNodeRecursive(nm.getBackNumber(visualizer.isEditandoArquero()).getRoot(), src, target, effectiveTolerance, masterCmd, processedNodes);
         if (nm.getShortNumber(visualizer.isEditandoArquero()) != null)
-            replaceInNodeRecursive(nm.getShortNumber(visualizer.isEditandoArquero()).getRoot(), src, target, effectiveTolerance, masterCmd);
+            replaceInNodeRecursive(nm.getShortNumber(visualizer.isEditandoArquero()).getRoot(), src, target, effectiveTolerance, masterCmd, processedNodes);
 
         // 4. Branding and renderers for the ACTIVE design only
         if (visualizer.isEditandoArquero()) {
             if (visualizer.getArqueroShirtRenderer() != null)
-                replaceInNodeRecursive(visualizer.getArqueroShirtRenderer().getGroup(), src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(visualizer.getArqueroShirtRenderer().getGroup(), src, target, effectiveTolerance, masterCmd, processedNodes);
             if (visualizer.getArqueroShortsRenderer() != null)
-                replaceInNodeRecursive(visualizer.getArqueroShortsRenderer().getGroup(), src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(visualizer.getArqueroShortsRenderer().getGroup(), src, target, effectiveTolerance, masterCmd, processedNodes);
             if (visualizer.getArqueroSocksRenderer() != null)
-                replaceInNodeRecursive(visualizer.getArqueroSocksRenderer().getGroup(), src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(visualizer.getArqueroSocksRenderer().getGroup(), src, target, effectiveTolerance, masterCmd, processedNodes);
         } else {
             if (visualizer.getShirtRenderer() != null)
-                replaceInNodeRecursive(visualizer.getShirtRenderer().getGroup(), src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(visualizer.getShirtRenderer().getGroup(), src, target, effectiveTolerance, masterCmd, processedNodes);
             if (visualizer.getShortsRenderer() != null)
-                replaceInNodeRecursive(visualizer.getShortsRenderer().getGroup(), src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(visualizer.getShortsRenderer().getGroup(), src, target, effectiveTolerance, masterCmd, processedNodes);
             if (visualizer.getSocksRenderer() != null)
-                replaceInNodeRecursive(visualizer.getSocksRenderer().getGroup(), src, target, effectiveTolerance, masterCmd);
+                replaceInNodeRecursive(visualizer.getSocksRenderer().getGroup(), src, target, effectiveTolerance, masterCmd, processedNodes);
         }
 
         if (!masterCmd.isEmpty()) {
@@ -151,16 +165,42 @@ public class GarmentColorReplacementService {
     }
 
     private void replaceInNodeRecursive(Node node, Color src, Color target, double tolerance,
-            CompositeCommand master) {
-        if (node == null)
+            CompositeCommand master, java.util.Set<Node> processedNodes) {
+        if (node == null || !processedNodes.add(node))
             return;
 
         if (node instanceof ShapeLayer) {
             ShapeLayer sl = (ShapeLayer) node;
+            // Protect collar silhouettes so they retain their custom independent colors and details 100%
+            if (sl.getActiveZone() != null && sl.getActiveZone().startsWith("CUELLO")) {
+                return;
+            }
             if (org.example.utils.ColorUtils.areColorsSimilar(sl.getFillColor(), src, tolerance)) {
                 Color old = sl.getFillColor();
                 master.addCommand(new org.example.pattern.PropertyChangeCommand<>("Fill Shape", old, target,
                         c -> sl.setFillColor(c)));
+            }
+            if (org.example.utils.ColorUtils.areColorsSimilar(sl.getStrokeColor(), src, tolerance)) {
+                Color old = sl.getStrokeColor();
+                master.addCommand(new org.example.pattern.PropertyChangeCommand<>("Stroke Shape", old, target,
+                        c -> sl.setStrokeColor(c)));
+            }
+            if (org.example.utils.ColorUtils.areColorsSimilar(sl.getContourColor(), src, tolerance)) {
+                Color old = sl.getContourColor();
+                master.addCommand(new org.example.pattern.PropertyChangeCommand<>("Contour Shape", old, target,
+                        c -> sl.applyContour(sl.getContourSteps(), sl.getContourDistance(), c)));
+            }
+        } else if (node instanceof org.example.component.TextLayer) {
+            org.example.component.TextLayer tl = (org.example.component.TextLayer) node;
+            if (org.example.utils.ColorUtils.areColorsSimilar(tl.getTextColor(), src, tolerance)) {
+                Color old = tl.getTextColor();
+                master.addCommand(new org.example.pattern.PropertyChangeCommand<>("Text Color", old, target,
+                        c -> tl.setTextColor(c)));
+            }
+            if (org.example.utils.ColorUtils.areColorsSimilar(tl.getStrokeColor(), src, tolerance)) {
+                Color old = tl.getStrokeColor();
+                master.addCommand(new org.example.pattern.PropertyChangeCommand<>("Text Stroke", old, target,
+                        c -> tl.setStrokeColor(c)));
             }
         } else if (visualizer.isNumberRoot(node)) {
             NumberComposition nc = visualizer.getNumberCompositionFromRoot(node);
@@ -212,12 +252,12 @@ public class GarmentColorReplacementService {
             }
         } else if (node instanceof javafx.scene.Group) {
             for (Node child : ((javafx.scene.Group) node).getChildren()) {
-                replaceInNodeRecursive(child, src, target, tolerance, master);
+                replaceInNodeRecursive(child, src, target, tolerance, master, processedNodes);
             }
         } else if (node instanceof javafx.scene.layout.Pane) {
             // Includes StackPane, VBox, HBox etc. which often host logos/branding
             for (Node child : ((javafx.scene.layout.Pane) node).getChildren()) {
-                replaceInNodeRecursive(child, src, target, tolerance, master);
+                replaceInNodeRecursive(child, src, target, tolerance, master, processedNodes);
             }
         } else if (node instanceof javafx.scene.image.ImageView) {
             // LOGO REPLACEMENT: Simplified Colorization for logos

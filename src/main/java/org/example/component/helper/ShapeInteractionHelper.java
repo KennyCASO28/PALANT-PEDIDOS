@@ -65,6 +65,10 @@ public class ShapeInteractionHelper {
         return creationService.undoLastBezierPoint();
     }
 
+    public void finishOpenBezierShape() {
+        creationService.finishOpenBezierShape();
+    }
+
     // --- Delegation: Bezier Editing ---
 
     public boolean isNodeEditing() {

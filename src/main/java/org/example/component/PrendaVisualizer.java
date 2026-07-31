@@ -246,6 +246,10 @@ public class PrendaVisualizer extends StackPane {
         if (stateManager.getActiveState().hasShirt()) {
             zones.add("PECHO");
             zones.add("ESPALDA");
+            zones.add("CUELLO_1");
+            zones.add("CUELLO_2");
+            zones.add("CUELLO_3");
+            zones.add("CUELLO");
             zones.add("MANGA_DELANTERA");
             zones.add("MANGA_TRASERA");
         }
@@ -254,6 +258,132 @@ public class PrendaVisualizer extends StackPane {
             zones.add("SHORT_BACK");
         }
         return zones;
+    }
+
+    public String getCollarVectorContent(String zone) {
+        if (zone == null) return "";
+        boolean isRedondo = false;
+
+        org.example.model.PrendaState state = stateManager != null ? stateManager.getActiveState() : null;
+        if (state != null && state.getCuello() != null) {
+            String cType = state.getCuello().name();
+            if (cType != null && cType.toUpperCase().contains("REDONDO")) {
+                isRedondo = true;
+            }
+        }
+
+        String masterFile = isRedondo ? "redondo.svg" : "v.svg";
+        String genderFolder = (state != null && state.getGenero() == org.example.model.TipoGenero.MUJER) ? "mujer" : "varon";
+        String masterPath = "/vectors/" + genderFolder + "/cuellos/cuadrado/" + (isRedondo ? "CUELLO_REDONDO/" : "CUELLO_V/") + masterFile;
+        java.util.List<String> masterPaths = org.example.utils.SVGUtils.loadSeparatePaths(masterPath.toLowerCase());
+
+        if (masterPaths != null && masterPaths.size() >= 3) {
+            String targetPath = "";
+            if (isRedondo) {
+                // redondo.svg: Index 0 = Piece 3 (Espalda), Index 1 = Piece 2 (Espalda Pecho), Index 2 = Piece 1 (Frontal Pecho)
+                if (zone.contains("1")) targetPath = masterPaths.get(2);
+                else if (zone.contains("2")) targetPath = masterPaths.get(1);
+                else if (zone.contains("3")) targetPath = masterPaths.get(0);
+            } else {
+                // v.svg: Index 0 = Piece 3 (Espalda), Index 1 = Piece 1 (Frontal Pecho), Index 2 = Piece 2 (Espalda Pecho)
+                if (zone.contains("1")) targetPath = masterPaths.get(1);
+                else if (zone.contains("2")) targetPath = masterPaths.get(2);
+                else if (zone.contains("3")) targetPath = masterPaths.get(0);
+            }
+            if (targetPath != null && !targetPath.trim().isEmpty()) {
+                return targetPath.replaceAll("(?i)<rect[^>]*/>", "").replaceAll("(?i)<rect[^>]*>.*?</rect>", "");
+            }
+        }
+
+        String fallback = getShapeHelper().getZoneSvgContent(zone);
+        return fallback != null ? fallback.replaceAll("(?i)<rect[^>]*/>", "").replaceAll("(?i)<rect[^>]*>.*?</rect>", "") : "";
+    }
+
+    public String getCollarStripeVectorContent(String zone) {
+        if (zone == null) return "";
+        boolean isRedondo = false;
+
+        org.example.model.PrendaState state = stateManager != null ? stateManager.getActiveState() : null;
+        if (state != null && state.getCuello() != null) {
+            String cType = state.getCuello().name();
+            if (cType != null && cType.toUpperCase().contains("REDONDO")) {
+                isRedondo = true;
+            }
+        }
+
+        String pieceSuffix = "1collar.svg"; // Default para zona 1
+        if (zone.contains("2")) pieceSuffix = "2collar.svg";
+        else if (zone.contains("3")) pieceSuffix = "3collar.svg";
+
+        String fileName = (isRedondo ? "redondo_" : "v_") + pieceSuffix;
+        String genderFolder = (state != null && state.getGenero() == org.example.model.TipoGenero.MUJER) ? "mujer" : "varon";
+        String filePath = "/vectors/" + genderFolder + "/cuellos/cuadrado/" + (isRedondo ? "CUELLO_REDONDO/" : "CUELLO_V/") + fileName;
+
+        java.util.List<String> rawPaths = org.example.utils.SVGUtils.loadSeparatePaths(filePath.toLowerCase());
+        if (rawPaths != null && !rawPaths.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (String p : rawPaths) {
+                if (p != null && !p.trim().isEmpty()) {
+                    String clean = p.replaceAll("(?i)<rect[^>]*/>", "").replaceAll("(?i)<rect[^>]*>.*?</rect>", "");
+                    sb.append(clean).append(" ");
+                }
+            }
+            String result = sb.toString().trim();
+            if (!result.isEmpty()) {
+                return result;
+            }
+        }
+
+        return getCollarVectorContent(zone);
+    }
+
+    public void generateCollarStripe(String zone, double strokeWidth, Color color) {
+        if (zone == null || !zone.startsWith("CUELLO")) zone = "CUELLO_1";
+
+        // Si ya existe una silueta en esta zona, la seleccionamos para edición en vez de crear un duplicado
+        List<ShapeLayer> existingSilhouettes = getCollarSilhouettes(zone);
+        if (!existingSilhouettes.isEmpty()) {
+            ShapeLayer existingStripe = existingSilhouettes.get(0);
+            getUserLayerManager().clearSelection();
+            getUserLayerManager().addToSelection(existingStripe);
+            return;
+        }
+        
+        // 1. Cargar el vector específico de silueta exportado (ej: v_1collar.svg)
+        String svgContent = getCollarStripeVectorContent(zone);
+        if (svgContent == null || svgContent.trim().isEmpty()) return;
+
+        Color baseColor = color != null ? color : Color.web("#e74c3c");
+        ShapeLayer stripe = new ShapeLayer(org.example.model.ShapeType.CUSTOM_PATH, Color.TRANSPARENT, Color.TRANSPARENT, 0.0);
+        stripe.setSvgPathData(svgContent);
+        stripe.setFillColor(Color.TRANSPARENT);
+        stripe.setStrokeColor(Color.TRANSPARENT);
+        stripe.setStrokeWidth(0.0);
+        stripe.setTranslateX(0);
+        stripe.setTranslateY(0);
+        stripe.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.BUTT);
+        stripe.applyContour(0, 0, Color.TRANSPARENT);
+
+        addShapeLayer(stripe);
+        applySmartPowerClip(stripe, zone, false);
+
+        // 3. Apply collar boundary as clip on contour group so silhouettes never bleed outside the collar,
+        //    even when SmartZoneContainer removes its own clip during edit mode.
+        String collarBoundary = getCollarVectorContent(zone);
+        if (collarBoundary != null && !collarBoundary.trim().isEmpty()) {
+            stripe.setContourClip(collarBoundary);
+        }
+
+        // 2. Habilitar interacción: seleccionable pero inamovible en posición
+        stripe.setSystemLocked(true);
+        stripe.setUserLocked(true);
+        stripe.setMouseTransparent(false);
+        if (getPowerClipManager() != null && getPowerClipManager().getContainer(zone) != null) {
+            getPowerClipManager().getContainer(zone).getContentGroup().setMouseTransparent(false);
+        }
+
+        getUserLayerManager().clearSelection();
+        getUserLayerManager().addToSelection(stripe);
     }
 
     public void applySmartPowerClip(Node layer, String zone, boolean center) {
@@ -658,6 +788,20 @@ public class PrendaVisualizer extends StackPane {
     }
     public void removeUserLayer(Node n) { layerManager.removeLayer(n); notifyStateChanged(); }
     public void clearUserLayers() { layerManager.clearAll(); powerClipManager.reset(); notifyStateChanged(); }
+
+    public java.util.List<ShapeLayer> getCollarSilhouettes(String zone) {
+        java.util.List<ShapeLayer> result = new java.util.ArrayList<>();
+        for (Node n : layerManager.getLayers()) {
+            if (n instanceof ShapeLayer) {
+                ShapeLayer sl = (ShapeLayer) n;
+                if (zone.equals(sl.getActiveZone()) && !sl.getState().isTrajectoryLine) {
+                    result.add(sl);
+                }
+            }
+        }
+        return result;
+    }
+
     public void addSelectionListener(java.util.function.Consumer<Node> listener) { layerManager.addSelectionListener(listener); }
     public void setUserLockedOnSelected(boolean locked) {
         layerManager.getSelectedNodes().forEach(node -> {

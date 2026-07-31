@@ -19,7 +19,7 @@ import org.example.model.ShapeType;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.example.utils.GeometryUtility.format;
+
 
 /**
  * Servicio encargado de la creación inicial de formas (Rectángulos, Círculos, Caminos Bezier).
@@ -273,6 +273,13 @@ public class ShapeCreationService {
         creationPreviewPath.getElements().clear();
         handleGroup.getChildren().clear();
 
+        // Compute anti-scale so handles are always 6px on screen regardless of zoom
+        double invScale = 1.0;
+        if (visualizer.getViewportController() != null) {
+            double s = visualizer.getViewportController().getFinalScale();
+            if (s > 0) invScale = 1.0 / s;
+        }
+
         Point2D start = bezierNodes.get(0).anchor;
         creationPreviewPath.getElements().add(new javafx.scene.shape.MoveTo(start.getX(), start.getY()));
 
@@ -285,26 +292,42 @@ public class ShapeCreationService {
                     n2.anchor.getX(), n2.anchor.getY()));
         }
 
+        // Handle size in content-group local units (always ~6px on screen)
+        double halfRect = 3.0 * invScale;
+        double rectSize = 6.0 * invScale;
+
         for (BezierNode n : bezierNodes) {
-            Rectangle rect = new Rectangle(n.anchor.getX() - 3, n.anchor.getY() - 3, 6, 6);
-            rect.setArcWidth(1.5); rect.setArcHeight(1.5);
-            rect.setFill(Color.web("#0078D7")); rect.setStroke(Color.WHITE); rect.setStrokeWidth(1);
+            Rectangle rect = new Rectangle(
+                n.anchor.getX() - halfRect, n.anchor.getY() - halfRect, rectSize, rectSize);
+            rect.setArcWidth(1.5 * invScale); rect.setArcHeight(1.5 * invScale);
+            rect.setFill(Color.web("#0078D7")); rect.setStroke(Color.WHITE);
+            rect.setStrokeWidth(1.0 * invScale);
             handleGroup.getChildren().add(rect);
 
+            double ctrlR = 2.5 * invScale;
             if (!n.control1.equals(n.anchor)) {
                 Line l = new Line(n.anchor.getX(), n.anchor.getY(), n.control1.getX(), n.control1.getY());
-                l.setStroke(Color.web("#0078D7", 0.6)); l.setStrokeWidth(1);
-                Circle c = new Circle(n.control1.getX(), n.control1.getY(), 2.5);
-                c.setFill(Color.WHITE); c.setStroke(Color.web("#0078D7")); c.setStrokeWidth(1);
+                l.setStroke(Color.web("#0078D7", 0.6)); l.setStrokeWidth(1.0 * invScale);
+                Circle c = new Circle(n.control1.getX(), n.control1.getY(), ctrlR);
+                c.setFill(Color.WHITE); c.setStroke(Color.web("#0078D7")); c.setStrokeWidth(1.0 * invScale);
                 handleGroup.getChildren().addAll(l, c);
             }
             if (!n.control2.equals(n.anchor)) {
                 Line l = new Line(n.anchor.getX(), n.anchor.getY(), n.control2.getX(), n.control2.getY());
-                l.setStroke(Color.web("#0078D7", 0.6)); l.setStrokeWidth(1);
-                Circle c = new Circle(n.control2.getX(), n.control2.getY(), 2.5);
-                c.setFill(Color.WHITE); c.setStroke(Color.web("#0078D7")); c.setStrokeWidth(1);
+                l.setStroke(Color.web("#0078D7", 0.6)); l.setStrokeWidth(1.0 * invScale);
+                Circle c = new Circle(n.control2.getX(), n.control2.getY(), ctrlR);
+                c.setFill(Color.WHITE); c.setStroke(Color.web("#0078D7")); c.setStrokeWidth(1.0 * invScale);
                 handleGroup.getChildren().addAll(l, c);
             }
+        }
+    }
+
+    /**
+     * Finaliza el path bezier abierto (sin cerrar). Invocado con Space.
+     */
+    public void finishOpenBezierShape() {
+        if (isCreatingBezier()) {
+            finishBezierShape(false);
         }
     }
 
@@ -318,36 +341,27 @@ public class ShapeCreationService {
         creationPreviewPath = null;
         handleGroup = null;
 
+        // Use ONLY anchor points for the bounding box origin.
+        // Including control handles causes the shape to jump/shrink when closing.
         double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE;
         double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE;
 
         for (BezierNode n : bezierNodes) {
-            minX = Math.min(minX, Math.min(n.anchor.getX(), Math.min(n.control1.getX(), n.control2.getX())));
-            minY = Math.min(minY, Math.min(n.anchor.getY(), Math.min(n.control1.getY(), n.control2.getY())));
-            maxX = Math.max(maxX, Math.max(n.anchor.getX(), Math.max(n.control1.getX(), n.control2.getX())));
-            maxY = Math.max(maxY, Math.max(n.anchor.getY(), Math.max(n.control1.getY(), n.control2.getY())));
+            minX = Math.min(minX, n.anchor.getX());
+            minY = Math.min(minY, n.anchor.getY());
+            maxX = Math.max(maxX, n.anchor.getX());
+            maxY = Math.max(maxY, n.anchor.getY());
         }
 
         double w = Math.max(maxX - minX, 2);
         double h = Math.max(maxY - minY, 2);
 
-        StringBuilder sb = new StringBuilder();
-        Point2D start = bezierNodes.get(0).anchor;
-        sb.append("M ").append(format(start.getX() - minX)).append(",").append(format(start.getY() - minY));
-
-        for (int i = 0; i < bezierNodes.size() - 1; i++) {
-            BezierNode n1 = bezierNodes.get(i); BezierNode n2 = bezierNodes.get(i + 1);
-            sb.append(" C ")
-                    .append(format(n1.control2.getX() - minX)).append(",").append(format(n1.control2.getY() - minY)).append(" ")
-                    .append(format(n2.control1.getX() - minX)).append(",").append(format(n2.control1.getY() - minY)).append(" ")
-                    .append(format(n2.anchor.getX() - minX)).append(",").append(format(n2.anchor.getY() - minY));
-        }
-        if (closed) sb.append(" Z");
-
         ShapeLayer layer = new ShapeLayer(ShapeType.CUSTOM_PATH, creationFill, creationStroke, creationStrokeWidth);
-        layer.setTranslateX(minX); layer.setTranslateY(minY); layer.setSize(w, h);
-        layer.setSvgPathData(sb.toString()); layer.setIsClosed(closed);
+        layer.setTranslateX(minX);
+        layer.setTranslateY(minY);
+        layer.setIsClosed(closed);
 
+        // Build normalized nodes (origin = anchor minX/minY)
         List<BezierNode> storedNodes = new ArrayList<>();
         for (BezierNode n : bezierNodes) {
             storedNodes.add(new BezierNode(
@@ -355,6 +369,11 @@ public class ShapeCreationService {
                     new Point2D(n.control1.getX() - minX, n.control1.getY() - minY),
                     new Point2D(n.control2.getX() - minX, n.control2.getY() - minY)));
         }
+
+        // Set width/height BEFORE setBezierNodes so ShapeGeometryEngine has the correct
+        // viewport and scaleNodes() ratio is 1:1 (no spurious rescale).
+        layer.setPrefSize(w, h);
+        // setBezierNodes regenerates svgPathData from nodes and calls refreshShapeVisuals()
         layer.setBezierNodes(storedNodes);
 
         visualizer.getLayerFactory().addShapeLayer(layer);

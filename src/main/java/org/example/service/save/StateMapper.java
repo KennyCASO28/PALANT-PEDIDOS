@@ -248,6 +248,7 @@ public class StateMapper {
         dto.setCurrentCorteShort(state.getCorteShort());
         dto.setCurrentLargo(state.getLargo());
         dto.setCurrentCuello(state.getCuello());
+        dto.setCollarDesignConfig(state.getCollarDesignConfig());
         dto.setCurrentGarmentType(state.getGarmentType());
         dto.setCurrentTela(state.getTela());
         dto.setCustomTela(state.getCustomTela());
@@ -1029,6 +1030,7 @@ public class StateMapper {
         if (config.getCurrentCorteShort() != null) state.setCorteShort(config.getCurrentCorteShort());
         if (config.getCurrentLargo() != null) state.setLargo(config.getCurrentLargo());
         if (config.getCurrentCuello() != null) state.setCuello(config.getCurrentCuello());
+        if (config.getCollarDesignConfig() != null) state.setCollarDesignConfig(config.getCollarDesignConfig());
         if (config.getCurrentTela() != null) state.setTela(config.getCurrentTela());
         if (config.getCustomTela() != null) state.setCustomTela(config.getCustomTela());
         state.setTipoMedias(config.getCurrentTipoMedias());

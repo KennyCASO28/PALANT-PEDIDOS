@@ -298,11 +298,16 @@ public class ShapeLayer extends AbstractGraphicLayer {
             ((javafx.scene.shape.SVGPath) currentShapeNode).setFillRule(state.fillRule);
         }
 
-        currentShapeNode.setStroke(state.strokeColor != null ? state.strokeColor : Color.TRANSPARENT);
-        currentShapeNode.setStrokeWidth(Math.max(0.001, state.strokeWidth));
+        if (state.strokeColor == null || Color.TRANSPARENT.equals(state.strokeColor) || state.strokeColor.getOpacity() == 0 || state.strokeWidth <= 0) {
+            currentShapeNode.setStroke(null);
+            currentShapeNode.setStrokeWidth(0);
+        } else {
+            currentShapeNode.setStroke(state.strokeColor);
+            currentShapeNode.setStrokeWidth(state.strokeWidth);
+        }
         currentShapeNode.setStrokeType(state.strokeType != null ? state.strokeType : StrokeType.CENTERED);
         currentShapeNode.setStrokeLineJoin(state.strokeLineJoin);
-        currentShapeNode.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+        currentShapeNode.setStrokeLineCap(state.strokeLineCap);
         currentShapeNode.setPickOnBounds(false);
 
         if (!reuseNode) {
@@ -319,6 +324,18 @@ public class ShapeLayer extends AbstractGraphicLayer {
     public void renderContour() {
         styleOrchestrator.renderContour(state.contourSteps, state.contourDistance, state.contourColor,
                 state.contourLineJoin, currentShapeNode, state.fillColor, state.strokeColor, state.strokeWidth);
+    }
+
+    /** Applies an SVG clip mask to the content group so silhouettes are always clipped to the collar boundary.
+     *  Uses contentGroup (not contourGroup) to ensure the clip is in the correct local coordinate space. */
+    public void setContourClip(String svgContent) {
+        if (svgContent == null || svgContent.trim().isEmpty()) {
+            contentGroup.setClip(null);
+            return;
+        }
+        javafx.scene.shape.SVGPath clipMask = new javafx.scene.shape.SVGPath();
+        clipMask.setContent(svgContent);
+        contentGroup.setClip(clipMask);
     }
 
     public void refreshShapeVisuals() {
@@ -377,7 +394,77 @@ public class ShapeLayer extends AbstractGraphicLayer {
         }
     }
 
-    
+    @Override
+    public void flipHorizontal() {
+        org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+        showInversionGhost(true);
+
+        if (state.bezierNodes != null && !state.bezierNodes.isEmpty()) {
+            double w = state.width;
+            for (org.example.model.BezierNode n : state.bezierNodes) {
+                double newAnchorX = w - n.anchor.getX();
+                double newC1X = w - n.control2.getX();
+                double newC2X = w - n.control1.getX();
+                n.anchor = new javafx.geometry.Point2D(newAnchorX, n.anchor.getY());
+                n.control1 = new javafx.geometry.Point2D(newC1X, n.control1.getY());
+                n.control2 = new javafx.geometry.Point2D(newC2X, n.control2.getY());
+            }
+            refreshPath();
+        } else {
+            super.flipHorizontal();
+            return;
+        }
+
+        updateSelectionOverlay();
+        if (visualizer != null && visualizer.getHistoryManager() != null) {
+            org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
+            visualizer.getHistoryManager().addCommand(
+                new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
+        }
+    }
+
+    public void flipHorizontalSymmetric(double symmetryAxisX) {
+        double currentCenterX = getBoundsInParent().getMinX() + getBoundsInParent().getWidth() / 2.0;
+        double dx = 2.0 * (symmetryAxisX - currentCenterX);
+        flipHorizontal();
+        setTranslateX(getTranslateX() + dx);
+    }
+
+    public void flipHorizontalAcrossEdge(boolean rightEdge) {
+        double width = getBoundsInParent().getWidth();
+        double dx = rightEdge ? width : -width;
+        flipHorizontal();
+        setTranslateX(getTranslateX() + dx);
+    }
+
+    @Override
+    public void flipVertical() {
+        org.example.pattern.NodeMemento before = new org.example.pattern.NodeMemento(this);
+        showInversionGhost(false);
+
+        if (state.bezierNodes != null && !state.bezierNodes.isEmpty()) {
+            double h = state.height;
+            for (org.example.model.BezierNode n : state.bezierNodes) {
+                double newAnchorY = h - n.anchor.getY();
+                double newC1Y = h - n.control2.getY();
+                double newC2Y = h - n.control1.getY();
+                n.anchor = new javafx.geometry.Point2D(n.anchor.getX(), newAnchorY);
+                n.control1 = new javafx.geometry.Point2D(n.control1.getX(), newC1Y);
+                n.control2 = new javafx.geometry.Point2D(n.control2.getX(), newC2Y);
+            }
+            refreshPath();
+        } else {
+            super.flipVertical();
+            return;
+        }
+
+        updateSelectionOverlay();
+        if (visualizer != null && visualizer.getHistoryManager() != null) {
+            org.example.pattern.NodeMemento after = new org.example.pattern.NodeMemento(this);
+            visualizer.getHistoryManager().addCommand(
+                new org.example.pattern.TransformCommand(this, before, after, getActiveZone()));
+        }
+    }
 
     public void convertPrimitiveToPath() {
         if (state.type == ShapeType.CUSTOM_PATH && (state.bezierNodes == null || state.bezierNodes.isEmpty())) {
@@ -449,10 +536,55 @@ public class ShapeLayer extends AbstractGraphicLayer {
     public Color getFillColor() { return state.fillColor; }
     public void setFillRule(javafx.scene.shape.FillRule rule) { this.state.fillRule = rule; renderShape(); updateVisuals(); }
     public javafx.scene.shape.FillRule getFillRule() { return state.fillRule; }
-    public void setStrokeColor(Color c) { this.state.strokeColor = c; if (currentShapeNode != null) currentShapeNode.setStroke(c); }
+    public void setStrokeColor(Color c) {
+        if (c == null || Color.TRANSPARENT.equals(c) || c.getOpacity() == 0) {
+            this.state.strokeColor = Color.TRANSPARENT;
+            this.state.strokeWidth = 0.0;
+        } else {
+            this.state.strokeColor = c;
+            if (this.state.strokeWidth <= 0) {
+                this.state.strokeWidth = 1.0;
+            }
+        }
+        if (currentShapeNode != null) {
+            if (Color.TRANSPARENT.equals(this.state.strokeColor) || this.state.strokeWidth <= 0) {
+                currentShapeNode.setStroke(null);
+                currentShapeNode.setStrokeWidth(0);
+            } else {
+                currentShapeNode.setStroke(this.state.strokeColor);
+                currentShapeNode.setStrokeWidth(this.state.strokeWidth);
+            }
+        }
+        updateVisuals();
+    }
     public Color getStrokeColor() { return state.strokeColor; }
-    public void setStrokeWidth(double w) { this.state.strokeWidth = w; if (currentShapeNode != null) currentShapeNode.setStrokeWidth(w); }
-    public double getStrokeWidth() { return state.strokeWidth; }
+    public void setStrokeLineCap(StrokeLineCap cap) { this.state.strokeLineCap = cap; renderShape(); updateVisuals(); }
+
+    public void setStrokeWidth(double w) {
+        double newWidth = Math.max(0, w);
+        this.state.strokeWidth = newWidth;
+        if (newWidth <= 0) {
+            this.state.strokeColor = Color.TRANSPARENT;
+        } else if (Color.TRANSPARENT.equals(this.state.strokeColor) || this.state.strokeColor == null || this.state.strokeColor.getOpacity() == 0) {
+            this.state.strokeColor = Color.BLACK;
+        }
+        if (currentShapeNode != null) {
+            if (this.state.strokeWidth <= 0 || Color.TRANSPARENT.equals(this.state.strokeColor)) {
+                currentShapeNode.setStroke(null);
+                currentShapeNode.setStrokeWidth(0);
+            } else {
+                currentShapeNode.setStroke(this.state.strokeColor);
+                currentShapeNode.setStrokeWidth(this.state.strokeWidth);
+            }
+        }
+        updateVisuals();
+    }
+    public double getStrokeWidth() {
+        if (state.strokeColor == null || Color.TRANSPARENT.equals(state.strokeColor) || state.strokeColor.getOpacity() == 0) {
+            return 0.0;
+        }
+        return state.strokeWidth;
+    }
     public void setArcWidth(double w) { this.state.arcWidth = w; renderShape(); updateVisuals(); }
     public double getArcWidth() { return state.arcWidth; }
     public void setArcHeight(double h) { this.state.arcHeight = h; renderShape(); updateVisuals(); }

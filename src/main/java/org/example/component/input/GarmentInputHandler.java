@@ -204,21 +204,11 @@ public class GarmentInputHandler {
             
             if (isC || isE) {
                 int selCount = layerManager.getSelectedNodes().size();
-                javafx.scene.Node activeAnchor = visualizer.getActiveReferenceAnchor();
                 boolean hasSelection = (selCount > 0);
-                boolean multiSelection = (selCount > 1 || (selCount == 1 && activeAnchor != null));
                 String type = isC ? "C" : "E";
 
-                // CRITICAL FIX: Alignment logic for C/E
-                boolean shouldAlign = false;
-                if (hasSelection) {
-                    if (isAltDown) shouldAlign = true;
-                    // If anchor is active, BOTH C and Ctrl+C should align (as requested)
-                    // But we MUST check if the anchor is actually there.
-                    else if (activeAnchor != null) shouldAlign = true; 
-                    else if (isE && isControlDown) shouldAlign = true;
-                    else if (!isControlDown && multiSelection) shouldAlign = true;
-                }
+                // Permitir centrado directo al presionar C o E sin requerir Ctrl/Alt cuando hay elementos seleccionados
+                boolean shouldAlign = hasSelection && (!isControlDown || isC || isE);
 
                 if (shouldAlign) {
                     visualizer.alignSelected(type);
@@ -227,8 +217,7 @@ public class GarmentInputHandler {
                     return;
                 }
                 
-                // Block typing C/E in side panel IF we have a multi-selection
-                if (inSidePanel && !isControlDown && !isAltDown && multiSelection) {
+                if (inSidePanel && !isControlDown && !isAltDown && hasSelection) {
                     e.consume();
                     return;
                 }
@@ -305,6 +294,18 @@ public class GarmentInputHandler {
                 }
 
                 // I will remove the background lock shortcut from Ctrl+B to prevent accidental unlocks.
+            }
+
+            // ----------------------------------------------------------------
+            // 2.5 SPACE → Finalizar Bezier abierto sin cerrar
+            // ----------------------------------------------------------------
+            if (e.getCode() == javafx.scene.input.KeyCode.SPACE) {
+                org.example.component.helper.ShapeInteractionHelper sh = visualizer.getShapeHelper();
+                if (sh != null && sh.isCreatingBezier()) {
+                    sh.finishOpenBezierShape();
+                    e.consume();
+                    return;
+                }
             }
 
             // ----------------------------------------------------------------
@@ -656,9 +657,16 @@ public class GarmentInputHandler {
                             isOverlay = true;
                             break;
                         }
-                        // Allow Finish Button (Check by Reference OR ID)
+                        // Allow Finish & Add Silhouette Buttons (Check by Reference OR ID)
+                        if (visualizer.getVisualizerUiController() != null &&
+                                (temp == visualizer.getVisualizerUiController().getBtnAddSilhouette() ||
+                                 temp == visualizer.getVisualizerUiController().getEditOverlayBox())) {
+                            isOverlay = true;
+                            break;
+                        }
                         if ((visualizer.getUiController() != null && temp == visualizer.getUiController().getFinishEditButton())
-                                || "btnFinishEditOverlay".equals(temp.getId())) {
+                                || "btnFinishEditOverlay".equals(temp.getId())
+                                || "btnAddSilhouette".equals(temp.getId())) {
                             isOverlay = true;
                             break;
                         }
@@ -741,17 +749,9 @@ public class GarmentInputHandler {
                             // activeZone + ")");
                             e.consume(); // BLOCK everything else ONLY if it's not the zone background OR the void
                         } else if (isVoidClick) {
-                            // Explicitly clear selection if clicking void
+                            // Explicitly clear selection when clicking void space (PowerClip edit mode remains active until clicking LISTO)
                             layerManager.clearSelection();
                             visualizer.deselectAllNames();
-                            // Optional: e.consume() if we want to stop other processing?
-                            // Usually background click handler does this, but isolation filter might block
-                            // it reaching there?
-                            // Actually, isolation filter is on Visualizer, so it runs before Scene
-                            // handlers?
-                            // Let's just allow it to bubble if we want standard beahvior, OR force deselect
-                            // here.
-                            // Forcing here is safer since we are in a special mode.
                         }
                     }
                 }
@@ -940,6 +940,12 @@ public class GarmentInputHandler {
             if (available.contains("PECHO")) {
                 addNodeZoneMenuItem(pcMenu, layer, "PECHO", "mdi2t-tshirt-crew", "#2c3e50", true);
                 addNodeZoneMenuItem(pcMenu, layer, "ESPALDA", "mdi2t-tshirt-crew-outline", "#2c3e50", false);
+            }
+            if (available.contains("CUELLO_FRONTAL")) {
+                pcMenu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+                addNodeZoneMenuItem(pcMenu, layer, "CUELLO_FRONTAL", "mdi2o-oval", "#8e44ad", true);
+                addNodeZoneMenuItem(pcMenu, layer, "CUELLO_POSTERIOR", "mdi2o-oval", "#8e44ad", false);
+                addNodeZoneMenuItem(pcMenu, layer, "CUELLO", "mdi2o-oval", "#8e44ad", false);
             }
             if (available.contains("MANGA_DELANTERA")) {
                 pcMenu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
@@ -1151,8 +1157,8 @@ public class GarmentInputHandler {
         transMenu.getItems().addAll(rot90, flipH, flipV, new javafx.scene.control.SeparatorMenuItem(), resetTrans);
         menu.getItems().add(transMenu);
 
-        // Extract (if in zone)
-        if (isClipped) {
+        // Extract (if in zone, but NOT for CUELLO — silhouettes must stay clipped)
+        if (isClipped && !layer.getActiveZone().startsWith("CUELLO")) {
             MenuItem extractItem = new MenuItem("Extraer del Contenedor");
             extractItem.setGraphic(UIFactory.crearIcono("mdi2e-eject", 16, "#555"));
             extractItem.setOnAction(ev -> visualizer.applySmartPowerClip(layer, null, false));
@@ -1227,6 +1233,12 @@ public class GarmentInputHandler {
                     if (available.contains("PECHO")) {
                         addMultiZoneMenuItem(multiPcMenu, "PECHO", "mdi2t-tshirt-crew", "#2c3e50", true);
                         addMultiZoneMenuItem(multiPcMenu, "ESPALDA", "mdi2t-tshirt-crew-outline", "#2c3e50", false);
+                    }
+                    if (available.contains("CUELLO_FRONTAL")) {
+                        multiPcMenu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+                        addMultiZoneMenuItem(multiPcMenu, "CUELLO_FRONTAL", "mdi2o-oval", "#8e44ad", true);
+                        addMultiZoneMenuItem(multiPcMenu, "CUELLO_POSTERIOR", "mdi2o-oval", "#8e44ad", false);
+                        addMultiZoneMenuItem(multiPcMenu, "CUELLO", "mdi2o-oval", "#8e44ad", false);
                     }
                     if (available.contains("MANGA_DELANTERA")) {
                         multiPcMenu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
@@ -1351,6 +1363,12 @@ public class GarmentInputHandler {
             if (available.contains("PECHO")) {
                 addNodeZoneMenuItem(pcMenu, layer, "PECHO", "mdi2t-tshirt-crew", "#2c3e50", true);
                 addNodeZoneMenuItem(pcMenu, layer, "ESPALDA", "mdi2t-tshirt-crew-outline", "#2c3e50", false);
+            }
+            if (available.contains("CUELLO_FRONTAL")) {
+                pcMenu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
+                addNodeZoneMenuItem(pcMenu, layer, "CUELLO_FRONTAL", "mdi2o-oval", "#8e44ad", true);
+                addNodeZoneMenuItem(pcMenu, layer, "CUELLO_POSTERIOR", "mdi2o-oval", "#8e44ad", false);
+                addNodeZoneMenuItem(pcMenu, layer, "CUELLO", "mdi2o-oval", "#8e44ad", false);
             }
             if (available.contains("MANGA_DELANTERA")) {
                 pcMenu.getItems().add(new javafx.scene.control.SeparatorMenuItem());
@@ -1478,7 +1496,7 @@ public class GarmentInputHandler {
         menu.getItems().add(transMenu);
 
         // Extract
-        if (isClipped) {
+        if (isClipped && !layer.getActiveZone().startsWith("CUELLO")) {
             MenuItem extractItem = new MenuItem("Extraer del Contenedor");
             extractItem.setGraphic(UIFactory.crearIcono("mdi2e-eject", 16, "#555"));
             extractItem.setOnAction(ev -> visualizer.applySmartPowerClip(layer, null, false));
@@ -1580,6 +1598,21 @@ public class GarmentInputHandler {
                 return "Pecho";
             case "ESPALDA":
                 return "Espalda";
+            case "CUELLO_1":
+            case "CUELLO_FRONTAL_PECHO":
+            case "CUELLO_FRONTAL":
+                return "Cuello: 1. Frontal Pecho";
+            case "CUELLO_2":
+            case "CUELLO_FRONTAL_ESPALDA":
+            case "CUELLO_INTERIOR":
+                return "Cuello: 2. Espalda Pecho";
+            case "CUELLO_3":
+            case "CUELLO_POSTERIOR":
+            case "CUELLO_TRASERO":
+            case "CUELLO_ESPALDA":
+                return "Cuello: 3. Espalda";
+            case "CUELLO":
+                return "Cuello Completo";
             case "MANGA_DELANTERA":
                 return "Manga Delantera";
             case "MANGA_TRASERA":

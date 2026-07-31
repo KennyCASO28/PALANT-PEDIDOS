@@ -114,6 +114,7 @@ public final class PrendaGoalkeeperDesignCoordinator {
         arqueroShirtRenderer.addToGroup(contentGroup);
         moveNodeToIndex(contentGroup, arqueroShirtRenderer.getGroup(), userLayerIndex);
         moveNodeToTop(contentGroup, arqueroShirtRenderer.getDetailGroup());
+        moveNodeToTop(contentGroup, arqueroShirtRenderer.getCuffsGroup());
     }
 
     private static void insertGoalkeeperLowerGarments(
@@ -134,6 +135,8 @@ public final class PrendaGoalkeeperDesignCoordinator {
 
         moveNodeToTop(contentGroup, arqueroSocksRenderer.getDetailGroup());
         moveNodeToTop(contentGroup, arqueroShortsRenderer.getDetailGroup());
+        moveNodeToTop(contentGroup, arqueroSocksRenderer.getCuffsGroup());
+        moveNodeToTop(contentGroup, arqueroShortsRenderer.getCuffsGroup());
     }
 
     private static void moveNodeToIndex(Group contentGroup, Node node, int index) {

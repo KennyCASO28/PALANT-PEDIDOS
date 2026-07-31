@@ -65,24 +65,37 @@ public class ShapeStyleOrchestrator {
         contourGroup.getChildren().clear();
         if (steps <= 0 || distance <= 0 || currentShapeNode == null) return;
 
-        double baseStroke = strokeWidth > 0 ? strokeWidth : 0;
-        Color baseColor = (fillColor != null && !Color.TRANSPARENT.equals(fillColor)) ? fillColor
-                        : (strokeColor != null ? strokeColor : Color.TRANSPARENT);
+        double baseStroke = strokeWidth > 0 ? strokeWidth : 1.5;
+        Color baseCol = (color != null && !Color.TRANSPARENT.equals(color)) ? color : (strokeColor != null ? strokeColor : Color.web("#e74c3c"));
+
+        Color[] stepPalette = new Color[]{
+            baseCol,
+            Color.web("#f1c40f"), // Gold / Yellow
+            Color.web("#3498db"), // Blue
+            Color.web("#e67e22"), // Orange
+            Color.web("#2ecc71"), // Green
+            Color.web("#9b59b6"), // Purple
+            Color.WHITE,
+            Color.BLACK
+        };
 
         for (int i = steps; i >= 1; i--) {
             Shape clone = createSilhouetteClone(currentShapeNode);
             if (clone == null) continue;
 
-            double offset = distance * i;
-            Color stepColor = baseColor.interpolate(color, (double) i / steps);
+            double offset = distance * i * 0.5;
 
-            clone.setFill(stepColor);
-            clone.setStroke(stepColor);
-            clone.setStrokeLineJoin(join);
-            clone.setStrokeMiterLimit(2.0);
-            clone.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
-            clone.setStrokeType(StrokeType.CENTERED);
-            clone.setStrokeWidth(baseStroke + offset);
+            // Apply distinct high-contrast color per step so lines never unify
+            Color stepCol = (steps > 1) ? stepPalette[(i - 1) % stepPalette.length] : baseCol;
+
+            // ÚNICAMENTE TRAZO (sin relleno interior) con remate recto (BUTT) sin punta ovalada
+            clone.setFill(null);
+            clone.setStroke(stepCol);
+            clone.setStrokeLineJoin(join != null ? join : StrokeLineJoin.MITER);
+            clone.setStrokeMiterLimit(10.0);
+            clone.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.BUTT);
+            clone.setStrokeType(StrokeType.OUTSIDE);
+            clone.setStrokeWidth(offset);
             clone.setMouseTransparent(true);
 
             contourGroup.getChildren().add(clone);
@@ -108,11 +121,20 @@ public class ShapeStyleOrchestrator {
             SVGPath s = (SVGPath) source;
             SVGPath svg = new SVGPath();
             svg.setContent(s.getContent());
-            svg.setScaleX(s.getScaleX());
-            svg.setScaleY(s.getScaleY());
-            svg.setTranslateX(s.getTranslateX());
-            svg.setTranslateY(s.getTranslateY());
+            svg.setFillRule(s.getFillRule());
             clone = svg;
+        }
+        if (clone != null && source != null) {
+            clone.setLayoutX(source.getLayoutX());
+            clone.setLayoutY(source.getLayoutY());
+            clone.setTranslateX(source.getTranslateX());
+            clone.setTranslateY(source.getTranslateY());
+            clone.setScaleX(source.getScaleX());
+            clone.setScaleY(source.getScaleY());
+            clone.setRotate(source.getRotate());
+            if (!source.getTransforms().isEmpty()) {
+                clone.getTransforms().setAll(source.getTransforms());
+            }
         }
         return clone;
     }
@@ -125,12 +147,30 @@ public class ShapeStyleOrchestrator {
         List<ShapeLayer> newLayers = new ArrayList<>();
         if (steps <= 0 || distance <= 0) return newLayers;
 
-        double baseStroke = strokeWidth > 0 ? strokeWidth : 1;
-        Color baseColor = (fillColor != null && !Color.TRANSPARENT.equals(fillColor)) ? fillColor
-                        : (strokeColor != null ? strokeColor : Color.TRANSPARENT);
+        Color baseCol = (color != null && !Color.TRANSPARENT.equals(color)) ? color
+                      : (fillColor != null && !Color.TRANSPARENT.equals(fillColor)) ? fillColor
+                      : (strokeColor != null ? strokeColor : Color.web("#e74c3c"));
 
-        for (int i = 1; i <= steps; i++) {
-            ShapeLayer nl = new ShapeLayer(type, Color.TRANSPARENT, color, baseStroke);
+        // Same palette as renderContour so visual matches exactly
+        Color[] stepPalette = new Color[]{
+            baseCol,
+            Color.web("#f1c40f"), // Gold / Yellow
+            Color.web("#3498db"), // Blue
+            Color.web("#e67e22"), // Orange
+            Color.web("#2ecc71"), // Green
+            Color.web("#9b59b6"), // Purple
+            Color.WHITE,
+            Color.BLACK
+        };
+
+        // Create from outermost (step N) to innermost (step 1) so stacking order is correct
+        for (int i = steps; i >= 1; i--) {
+            Color stepColor = (steps > 1) ? stepPalette[(i - 1) % stepPalette.length] : baseCol;
+            double stepDist = distance * i * 0.5;
+
+            // Real solid vector — fill + OUTSIDE stroke, no contour overlay.
+            // This makes each step behave as a normal editable vector shape.
+            ShapeLayer nl = new ShapeLayer(type, stepColor, stepColor, stepDist);
             nl.setTranslateX(layer.getTranslateX());
             nl.setTranslateY(layer.getTranslateY());
             nl.setRotate(layer.getRotate());
@@ -156,11 +196,16 @@ public class ShapeStyleOrchestrator {
             }
 
             nl.refreshShapeVisuals();
-            Color stepColor = baseColor.interpolate(color, (double) i / steps);
             nl.setFillColor(stepColor);
             nl.setStrokeColor(stepColor);
-            nl.setStrokeWidth(baseStroke + (distance * i));
-            
+            nl.setStrokeWidth(stepDist);
+            nl.setStrokeType(javafx.scene.shape.StrokeType.OUTSIDE);
+            nl.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.BUTT);
+            nl.setContourLineJoin(join != null ? join : StrokeLineJoin.MITER);
+            // NO applyContour — the shape IS the vector, not a contour overlay
+            nl.applyContour(0, 0, Color.TRANSPARENT);
+            nl.setUserLocked(false);
+
             newLayers.add(nl);
         }
         return newLayers;

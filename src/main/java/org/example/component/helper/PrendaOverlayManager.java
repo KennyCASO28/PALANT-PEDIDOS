@@ -105,9 +105,29 @@ public class PrendaOverlayManager {
         if (zone == null || zone.isEmpty())
             return;
 
-        String content = "";
+        String content = getZoneContent(zone, hasShirt, hasShorts, currentCorteShort, shirtRenderer, shortsRenderer);
 
-        // Logic extracted from PrendaVisualizer
+        if (content != null && !content.isEmpty()) {
+            overlayStroke = new SVGPath();
+            overlayStroke.setContent(content);
+            overlayStroke.setStroke(Color.web("#00A8FF")); // Azul notorio y vibrante
+            overlayStroke.setStrokeWidth(1.0); // Línea fina y precisa
+            overlayStroke.getStrokeDashArray().clear();
+            overlayStroke.setFill(Color.TRANSPARENT);
+            overlayStroke.setMouseTransparent(true);
+
+            overlayGroup.getChildren().add(overlayStroke);
+        }
+    }
+
+    public String getZoneContent(String zone,
+            boolean hasShirt,
+            boolean hasShorts,
+            TipoCorte currentCorteShort,
+            org.example.component.renderer.GarmentRenderer shirtRenderer,
+            ShortsRenderer shortsRenderer) {
+        if (zone == null || zone.isEmpty()) return "";
+        String content = "";
         if (hasShirt) {
             if ("PECHO".equals(zone)) {
                 content = getSplitZoneContent(shirtRenderer.getBody(), true);
@@ -117,28 +137,51 @@ public class PrendaOverlayManager {
                 content = getSplitZoneContent(shirtRenderer.getSleeves(), true);
             } else if ("MANGA_TRASERA".equals(zone)) {
                 content = getSplitZoneContent(shirtRenderer.getSleeves(), false);
+            } else if ("CUELLO_1".equals(zone) || "CUELLO_FRONTAL_PECHO".equals(zone) || "CUELLO_FRONTAL".equals(zone)) {
+                if (shirtRenderer instanceof org.example.component.renderer.ShirtRenderer) {
+                    content = getCollarPieceContent(shirtRenderer.getCollar(), ((org.example.component.renderer.ShirtRenderer) shirtRenderer).getCanezuLayer(), 1);
+                } else if (shirtRenderer != null) {
+                    content = getCollarPieceContent(shirtRenderer.getCollar(), null, 1);
+                }
+            } else if ("CUELLO_2".equals(zone) || "CUELLO_FRONTAL_ESPALDA".equals(zone) || "CUELLO_INTERIOR".equals(zone)) {
+                if (shirtRenderer instanceof org.example.component.renderer.ShirtRenderer) {
+                    content = getCollarPieceContent(shirtRenderer.getCollar(), ((org.example.component.renderer.ShirtRenderer) shirtRenderer).getCanezuLayer(), 2);
+                } else if (shirtRenderer != null) {
+                    content = getCollarPieceContent(shirtRenderer.getCollar(), null, 2);
+                }
+            } else if ("CUELLO_3".equals(zone) || "CUELLO_POSTERIOR".equals(zone) || "CUELLO_TRASERO".equals(zone) || "CUELLO_ESPALDA".equals(zone)) {
+                if (shirtRenderer instanceof org.example.component.renderer.ShirtRenderer) {
+                    content = getCollarPieceContent(shirtRenderer.getCollar(), ((org.example.component.renderer.ShirtRenderer) shirtRenderer).getCanezuLayer(), 3);
+                } else if (shirtRenderer != null) {
+                    content = getCollarPieceContent(shirtRenderer.getCollar(), null, 3);
+                }
+            } else if ("CUELLO".equals(zone)) {
+                if (shirtRenderer != null && shirtRenderer.getCollar() != null) {
+                    content = shirtRenderer.getCollar().getContent();
+                }
             }
         }
 
-        if (hasShorts && currentCorteShort != TipoCorte.PANTALONETA
-                && currentCorteShort != TipoCorte.LICRA) {
+        if (hasShorts && currentCorteShort != TipoCorte.PANTALONETA) {
             if ("SHORT_FRONT".equals(zone)) {
                 content = getSplitZoneContentForShorts(shortsRenderer.getShorts(), true);
             } else if ("SHORT_BACK".equals(zone)) {
                 content = getSplitZoneContentForShorts(shortsRenderer.getShorts(), false);
             }
         }
+        return content;
+    }
 
-        if (content != null && !content.isEmpty()) {
-            overlayStroke = new SVGPath();
-            overlayStroke.setContent(content);
-            overlayStroke.setFill(Color.TRANSPARENT);
-            overlayStroke.setStroke(Color.web("#FF3B30")); // Rojo vibrante moderno
-            overlayStroke.setStrokeWidth(1.5); // Más delgado y elegante
-            overlayStroke.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND); // Guiones redondeados
-            overlayStroke.setMouseTransparent(true);
-            overlayGroup.getChildren().add(overlayStroke);
+    public String getZoneContent(String zone, org.example.component.PrendaVisualizer visualizer) {
+        if (visualizer == null || visualizer.getStateManager() == null || visualizer.getStateManager().getActiveState() == null) return "";
+        if (zone != null && zone.startsWith("CUELLO")) {
+            String collarVector = visualizer.getCollarVectorContent(zone);
+            if (collarVector != null && !collarVector.trim().isEmpty()) {
+                return collarVector;
+            }
         }
+        org.example.model.PrendaState state = visualizer.getStateManager().getActiveState();
+        return getZoneContent(zone, state.hasShirt(), state.hasShorts(), state.getCorteShort(), visualizer.getActiveShirtRenderer(), visualizer.getActiveShortsRenderer());
     }
 
     /**
@@ -178,7 +221,8 @@ public class PrendaOverlayManager {
             }
         }
 
-        return sb.toString().trim();
+        String result = sb.toString().trim();
+        return !result.isEmpty() ? result : fullContent;
     }
 
     public String getSplitZoneContentForShorts(javafx.scene.shape.SVGPath sourcePath, boolean isFront) {
@@ -237,6 +281,80 @@ public class PrendaOverlayManager {
         }
 
         return isFrontPiece(startX);
+    }
+
+    /**
+     * Extracts exact collar sub-piece SVG content for pieces 1, 2, and 3.
+     * Piece 1: Frontal Pecho (lower front V area)
+     * Piece 2: Espalda Pecho (upper back band area)
+     * Piece 3: Cuello de Espalda (rear collar ring)
+     */
+    public String getCollarPieceContent(SVGPath collarNode, SVGPath canezuNode, int pieceIndex) {
+        if (collarNode == null) return "";
+        String fullContent = collarNode.getContent();
+        if (fullContent == null || fullContent.isEmpty()) return "";
+
+        String[] parts = fullContent.split("(?=[Mm])");
+        java.util.List<String> frontPieces = new java.util.ArrayList<>();
+        java.util.List<String> backPieces = new java.util.ArrayList<>();
+
+        double boundsCenter = 450.0;
+        double lastMoveX = 0.0;
+        double lastMoveY = 0.0;
+
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) continue;
+            String absolutePart = org.example.utils.SVGUtils.absoluteifyPiece(part, lastMoveX, lastMoveY);
+            double[] absCoords = org.example.utils.SVGUtils.parseCoordinatePair(absolutePart.substring(1));
+            lastMoveX = absCoords[0];
+            lastMoveY = absCoords[1];
+
+            boolean isLeftPiece = lastMoveX < boundsCenter;
+            boolean pieceIsFront = isFrontOnLeft ? isLeftPiece : !isLeftPiece;
+
+            if (pieceIsFront) {
+                frontPieces.add(absolutePart);
+            } else {
+                backPieces.add(absolutePart);
+            }
+        }
+
+        // Sort front pieces by Y coordinate (ascending) so get(0) is TOP (Espalda Pecho) and get(1) is BOTTOM (Frontal Pecho)
+        frontPieces.sort((p1, p2) -> {
+            try {
+                double y1 = org.example.utils.SVGUtils.parseCoordinatePair(p1.trim().substring(1))[1];
+                double y2 = org.example.utils.SVGUtils.parseCoordinatePair(p2.trim().substring(1))[1];
+                return Double.compare(y1, y2);
+            } catch (Exception e) {
+                return 0;
+            }
+        });
+
+        if (pieceIndex == 1) {
+            // Piece 1: Frontal Pecho - lower front V/U collar area (Bottom piece = highest Y)
+            if (frontPieces.size() >= 2) {
+                return frontPieces.get(1).trim();
+            } else if (!frontPieces.isEmpty()) {
+                return frontPieces.get(0).trim();
+            }
+        } else if (pieceIndex == 2) {
+            // Piece 2: Espalda Pecho - upper back band area inside neck hole (Top piece = lowest Y)
+            if (!frontPieces.isEmpty()) {
+                return frontPieces.get(0).trim();
+            } else if (canezuNode != null && canezuNode.getContent() != null && !canezuNode.getContent().isEmpty()) {
+                return canezuNode.getContent().trim();
+            }
+        } else if (pieceIndex == 3) {
+            // Piece 3: Cuello de Espalda
+            if (!backPieces.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                for (String bp : backPieces) sb.append(bp).append(" ");
+                return sb.toString().trim();
+            }
+        }
+
+        return fullContent;
     }
 
 }

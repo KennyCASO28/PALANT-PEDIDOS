@@ -128,6 +128,63 @@ public class UIFactory {
     }
 
     /**
+     * Genera un icono vectorial 2D exclusivo y preciso para las piezas de cuello.
+     */
+    public static Node crearIconoCuello(String tipo, int size, String colorHex) {
+        javafx.scene.Group group = new javafx.scene.Group();
+        Color color = Color.web(colorHex);
+
+        if ("CUELLO_1".equals(tipo) || "FRONTAL_PECHO".equals(tipo)) {
+            // 1. Frontal Pecho: Franja frontal del cuello
+            javafx.scene.shape.SVGPath p = new javafx.scene.shape.SVGPath();
+            p.setContent("M 2 5 C 4 14, 16 14, 18 5 C 14 11, 6 11, 2 5 Z");
+            p.setFill(color);
+            p.setStroke(color.darker());
+            p.setStrokeWidth(0.5);
+            group.getChildren().add(p);
+        } else if ("CUELLO_2".equals(tipo) || "FRONTAL_ESPALDA".equals(tipo)) {
+            // 2. Frontal Espalda (Interior): Cuello interior en cavidad
+            javafx.scene.shape.SVGPath backArc = new javafx.scene.shape.SVGPath();
+            backArc.setContent("M 4 7 C 8 11, 12 11, 16 7 C 13 9, 7 9, 4 7 Z");
+            backArc.setFill(color);
+            backArc.setStroke(color.darker());
+            backArc.setStrokeWidth(0.5);
+            group.getChildren().add(backArc);
+        } else if ("CUELLO_3".equals(tipo) || "ESPALDA".equals(tipo)) {
+            // 3. Cuello de Espalda: Franja posterior
+            javafx.scene.shape.SVGPath rearBand = new javafx.scene.shape.SVGPath();
+            rearBand.setContent("M 3 10 C 7 5, 13 5, 17 10 C 13 7, 7 7, 3 10 Z");
+            rearBand.setFill(color);
+            rearBand.setStroke(color.darker());
+            rearBand.setStrokeWidth(0.5);
+            group.getChildren().add(rearBand);
+        } else {
+            // Cuello Completo: Anillo total
+            javafx.scene.shape.SVGPath frontRing = new javafx.scene.shape.SVGPath();
+            frontRing.setContent("M 2 5 C 4 14, 16 14, 18 5 C 14 11, 6 11, 2 5 Z");
+            frontRing.setFill(color);
+
+            javafx.scene.shape.SVGPath backRing = new javafx.scene.shape.SVGPath();
+            backRing.setContent("M 4 7 C 8 11, 12 11, 16 7 C 13 9, 7 9, 4 7 Z");
+            backRing.setFill(color);
+            backRing.setOpacity(0.7);
+
+            group.getChildren().addAll(backRing, frontRing);
+        }
+
+        double scale = size / 20.0;
+        group.setScaleX(scale);
+        group.setScaleY(scale);
+
+        StackPane wrapper = new StackPane(group);
+        wrapper.setPrefSize(size, size);
+        wrapper.setMaxSize(size, size);
+        wrapper.setMinSize(size, size);
+        wrapper.setAlignment(Pos.CENTER);
+        return wrapper;
+    }
+
+    /**
      * Crea un manipulador circular moderno con icono.
      */
     public static StackPane crearStackHandle(String iconCode, int size, String iconColor, String bgColor,

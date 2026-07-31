@@ -1,6 +1,7 @@
 package org.example.model;
 
 import javafx.scene.paint.Color;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.shape.StrokeLineJoin;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ public class ShapeLayerState {
     public Color strokeColor = Color.BLACK;
     public double strokeWidth = 1.0;
     public StrokeLineJoin strokeLineJoin = StrokeLineJoin.ROUND;
+    public StrokeLineCap strokeLineCap = StrokeLineCap.ROUND;
     public javafx.scene.shape.StrokeType strokeType = javafx.scene.shape.StrokeType.CENTERED;
     public javafx.scene.shape.FillRule fillRule = javafx.scene.shape.FillRule.NON_ZERO;
 
@@ -33,6 +35,12 @@ public class ShapeLayerState {
     public List<BezierNode> bezierNodes = new ArrayList<>();
     public List<BezierNode> originalBezierNodes = new ArrayList<>();
     public List<Double> customPoints = new ArrayList<>();
+
+    // Trajectory Line (CorelDRAW style fit-to-path)
+    public boolean isTrajectoryLine = false;
+    public String targetVectorPathData = "";
+    public double trajectoryVerticalRatio = 0.5;
+    public double trajectoryHorizontalRatio = 0.0;
 
     // Contour / Outer Glow
     public int contourSteps = 0;
@@ -66,6 +74,7 @@ public class ShapeLayerState {
         copy.strokeColor = this.strokeColor;
         copy.strokeWidth = this.strokeWidth;
         copy.strokeLineJoin = this.strokeLineJoin;
+        copy.strokeLineCap = this.strokeLineCap;
         copy.strokeType = this.strokeType;
         copy.fillRule = this.fillRule;
         copy.svgPathData = this.svgPathData;

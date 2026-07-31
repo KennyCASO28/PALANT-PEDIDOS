@@ -148,27 +148,61 @@ public class ShapeManagerUIOrchestrator {
             currentPopup.hide();
         }
         currentPopup = new Popup();
-        currentPopup.setAutoHide(true);
+        currentPopup.setAutoHide(false);
 
         VBox root = new VBox(5);
         root.setPadding(new javafx.geometry.Insets(10));
         root.setStyle(
-                "-fx-background-color: white; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 10, 0, 0, 0); -fx-border-color: #bdc3c7; -fx-border-width: 1; -fx-background-radius: 4;");
+                "-fx-background-color: white; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 10, 0, 0, 0); -fx-border-color: #bdc3c7; -fx-border-width: 1; -fx-background-radius: 6;");
 
+        HBox header = new HBox(10);
+        header.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         Label lblTitle = new Label(title);
-        lblTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #95a5a6;");
-        root.getChildren().addAll(lblTitle, new Separator(), content);
+        lblTitle.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #2c3e50;");
+        HBox.setHgrow(lblTitle, javafx.scene.layout.Priority.ALWAYS);
+        lblTitle.setMaxWidth(Double.MAX_VALUE);
+
+        Button btnClose = new Button("✕");
+        btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: #95a5a6; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 4;");
+        btnClose.setOnAction(e -> {
+            if (currentPopup != null) currentPopup.hide();
+        });
+
+        header.getChildren().addAll(lblTitle, btnClose);
+        root.getChildren().addAll(header, new Separator(), content);
 
         currentPopup.getContent().add(root);
 
-        javafx.geometry.Point2D p = anchor.localToScreen(0, 0);
-        currentPopup.show(anchor.getScene().getWindow());
+        javafx.scene.Scene scene = (anchor != null && anchor.getScene() != null) ? anchor.getScene() : (visualizer != null ? visualizer.getScene() : null);
+        javafx.stage.Window window = (scene != null) ? scene.getWindow() : null;
+
+        javafx.geometry.Point2D p = (anchor != null && anchor.getScene() != null) ? anchor.localToScreen(0, 0) : null;
 
         javafx.application.Platform.runLater(() -> {
-            if (currentPopup.isShowing()) {
-                double w = root.getWidth();
-                currentPopup.setX(p.getX() - w - 10);
-                currentPopup.setY(p.getY());
+            javafx.stage.Window targetWindow = window;
+            if (targetWindow == null && visualizer != null && visualizer.getScene() != null) {
+                targetWindow = visualizer.getScene().getWindow();
+            }
+            if (targetWindow != null) {
+                currentPopup.show(targetWindow);
+                double w = root.getWidth() > 0 ? root.getWidth() : 250;
+                double windowX = targetWindow.getX();
+                double targetX = (p != null) ? p.getX() - w - 10 : windowX + 200;
+                if (targetX < windowX + 10) {
+                    double anchorWidth = (anchor != null && anchor.getBoundsInParent() != null) ? anchor.getBoundsInParent().getWidth() : 50;
+                    targetX = (p != null) ? p.getX() + anchorWidth + 10 : windowX + 200;
+                }
+                if (targetX < windowX + 10) {
+                    targetX = windowX + 100;
+                }
+                double targetY = (p != null) ? p.getY() - 50 : targetWindow.getY() + 150;
+                targetY = Math.max(targetWindow.getY() + 50, targetY);
+                currentPopup.setX(targetX);
+                currentPopup.setY(targetY);
+
+                javafx.application.Platform.runLater(() -> {
+                    if (currentPopup != null) currentPopup.setAutoHide(true);
+                });
             }
         });
     }
@@ -297,15 +331,29 @@ public class ShapeManagerUIOrchestrator {
                 }
                 
                 if (clone != null) {
-                    double offsetX = node.getBoundsInParent().getWidth();
-                    clone.setTranslateX(node.getTranslateX() + offsetX);
-                    clone.setTranslateY(node.getTranslateY());
+                    if (clone instanceof ShapeLayer) {
+                        ShapeLayer sl = (ShapeLayer) clone;
+                        double shirtCenter = 450.0;
+                        if (visualizer.getOverlayManager() != null) {
+                            shirtCenter = visualizer.getOverlayManager().getSleeveThreshold();
+                        }
+                        sl.flipHorizontalSymmetric(shirtCenter);
+                    } else if (clone instanceof GroupLayerV2) {
+                        ((GroupLayerV2) clone).flipHorizontal();
+                        double offsetX = node.getBoundsInParent().getWidth();
+                        clone.setTranslateX(node.getTranslateX() + offsetX);
+                    } else if (clone instanceof org.example.component.AbstractGraphicLayer) {
+                        ((org.example.component.AbstractGraphicLayer) clone).flipHorizontal();
+                        double offsetX = node.getBoundsInParent().getWidth();
+                        clone.setTranslateX(node.getTranslateX() + offsetX);
+                    }
                     
                     if (node.getParent() instanceof javafx.scene.Group) {
                         visualizer.getUserLayerManager().addLayerToContainer(clone, (javafx.scene.Group)node.getParent(), false);
                     } else {
                         visualizer.getUserLayerManager().addLayer(clone);
                     }
+                    visualizer.getUserLayerManager().selectNode(clone);
                 }
             }
         });
@@ -317,87 +365,199 @@ public class ShapeManagerUIOrchestrator {
     }
 
     public void showStrokePopup(Node anchor) {
-        VBox box = new VBox(10);
-        box.setMinWidth(200);
+        VBox box = new VBox(8);
+        box.setMinWidth(230);
 
         ShapeLayer active = controller.getActiveShapeLayer();
-        Label lblWidth = new Label("Grosor del Borde:");
-        Slider slWidth = new Slider(0, 50, (active != null) ? active.getStrokeWidth() : 2);
-        Label lblVal = new Label(String.format("%.1f px", slWidth.getValue()));
+        double currentWidth = (active != null) ? active.getStrokeWidth() : 2.0;
 
-        final Double[] widthStart = { 0.0 };
-        slWidth.setOnMousePressed(e -> widthStart[0] = slWidth.getValue());
+        // ── Header label ──────────────────────────────────────────────
+        Label lblWidth = new Label("Grosor del Borde:");
+        lblWidth.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #2c3e50;");
+
+        // ── TextField + spinner arrows ─────────────────────────────────
+        // Converts raw slider position [0..1] ↔ real px using a log-like scale
+        // that spends ~60% of the slider on [0..5] px (the most-used range).
+        final double MAX_PX = 50.0;
+
+        // px → slider pos [0..1]
+        java.util.function.DoubleUnaryOperator toSlider = px -> {
+            double clamped = Math.max(0, Math.min(MAX_PX, px));
+            // split: first 60% of slider covers 0-5px, remaining 40% covers 5-50px
+            if (clamped <= 5.0) return (clamped / 5.0) * 0.60;
+            else return 0.60 + ((clamped - 5.0) / 45.0) * 0.40;
+        };
+        // slider pos [0..1] → px
+        java.util.function.DoubleUnaryOperator toPx = pos -> {
+            double clamped = Math.max(0, Math.min(1.0, pos));
+            if (clamped <= 0.60) return (clamped / 0.60) * 5.0;
+            else return 5.0 + ((clamped - 0.60) / 0.40) * 45.0;
+        };
+
+        Slider slWidth = new Slider(0, 1, toSlider.applyAsDouble(currentWidth));
+        slWidth.setShowTickMarks(false);
+        slWidth.setShowTickLabels(false);
+        slWidth.setPrefWidth(200);
+        slWidth.setStyle("-fx-padding: 4 0;");
+
+        TextField tfVal = new TextField(String.format("%.1f", currentWidth));
+        tfVal.setPrefWidth(60);
+        tfVal.setAlignment(Pos.CENTER_RIGHT);
+        tfVal.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-background-radius: 4; " +
+                "-fx-border-color: #bdc3c7; -fx-border-radius: 4; -fx-padding: 2 6;");
+
+        Label lblPx = new Label("px");
+        lblPx.setStyle("-fx-text-fill: #7f8c8d; -fx-font-size: 11px;");
+
+        final boolean[] updatingFromSlider = {false};
+        final boolean[] updatingFromField  = {false};
+        final Double[]  widthStart         = {currentWidth};
+
+        // Helper: apply value to shapes and sync both controls
+        Consumer<Double> applyValue = px -> {
+            double v = Math.max(0, Math.min(MAX_PX, px));
+            if (!updatingFromSlider[0]) {
+                updatingFromSlider[0] = true;
+                slWidth.setValue(toSlider.applyAsDouble(v));
+                updatingFromSlider[0] = false;
+            }
+            if (!updatingFromField[0]) {
+                updatingFromField[0] = true;
+                tfVal.setText(String.format("%.1f", v));
+                updatingFromField[0] = false;
+            }
+            if (!controller.isUpdatingUI()) {
+                controller.getActionHandler().applyToSelection(layer -> layer.setStrokeWidth(v));
+                controller.getStrokeWidthSlider().setValue(v);
+            }
+        };
+
+        // Slider changes
+        slWidth.setOnMousePressed(e -> widthStart[0] = toPx.applyAsDouble(slWidth.getValue()));
         slWidth.setOnMouseReleased(e -> {
-            double newVal = slWidth.getValue();
+            double newVal = toPx.applyAsDouble(slWidth.getValue());
             if (!Objects.equals(widthStart[0], newVal)) {
                 Double capturedStart = widthStart[0];
-                controller.getActionHandler().recordPropertyChange("Stroke Width", layer -> capturedStart,
-                        ShapeLayer::setStrokeWidth, newVal);
+                controller.getActionHandler().recordPropertyChange("Stroke Width",
+                        layer -> capturedStart, ShapeLayer::setStrokeWidth, newVal);
             }
         });
-
         slWidth.valueProperty().addListener((o, old, v) -> {
-            lblVal.setText(String.format("%.1f px", v.doubleValue()));
-            if (!controller.isUpdatingUI()) {
-                controller.getActionHandler().applyToSelection(layer -> layer.setStrokeWidth(v.doubleValue()));
-                controller.getStrokeWidthSlider().setValue(v.doubleValue());
+            if (!updatingFromSlider[0]) {
+                updatingFromSlider[0] = true;
+                applyValue.accept(toPx.applyAsDouble(v.doubleValue()));
+                updatingFromSlider[0] = false;
             }
         });
 
+        // TextField: commit on Enter or focus loss
+        Runnable commitField = () -> {
+            try {
+                double v = Double.parseDouble(tfVal.getText().replace(",", ".").trim());
+                Double capturedStart = widthStart[0];
+                applyValue.accept(v);
+                if (!Objects.equals(capturedStart, v)) {
+                    controller.getActionHandler().recordPropertyChange("Stroke Width",
+                            layer -> capturedStart, ShapeLayer::setStrokeWidth, v);
+                    widthStart[0] = v;
+                }
+            } catch (NumberFormatException ignored) {
+                tfVal.setText(String.format("%.1f", toPx.applyAsDouble(slWidth.getValue())));
+            }
+        };
+        tfVal.setOnAction(e -> commitField.run());
+        tfVal.focusedProperty().addListener((o, old, focused) -> { if (!focused) commitField.run(); });
+
+        // Keyboard arrows on TextField:  ↑/↓ = ±0.1 | Shift = ±1 | Ctrl = ±5
+        tfVal.setOnKeyPressed(e -> {
+            double delta = 0;
+            switch (e.getCode()) {
+                case UP:   delta = e.isControlDown() ? 5.0 : e.isShiftDown() ? 1.0 : 0.1; break;
+                case DOWN: delta = e.isControlDown() ? -5.0 : e.isShiftDown() ? -1.0 : -0.1; break;
+                default: return;
+            }
+            e.consume();
+            double cur = toPx.applyAsDouble(slWidth.getValue());
+            applyValue.accept(Math.round((cur + delta) * 10.0) / 10.0);
+        });
+
+        HBox inputRow = new HBox(6, slWidth, tfVal, lblPx);
+        inputRow.setAlignment(Pos.CENTER_LEFT);
+
+        // ── Presets row ────────────────────────────────────────────────
+        double[] presets = {0, 0.1, 0.5, 1, 2, 3, 5, 10, 20};
+        FlowPane presetsPane = new FlowPane(4, 4);
+        presetsPane.setPrefWrapLength(225);
+        String PRESET_STYLE = "-fx-background-radius: 3; -fx-padding: 2 6; -fx-cursor: hand; " +
+                "-fx-background-color: #ecf0f1; -fx-border-color: #bdc3c7; -fx-border-radius: 3; " +
+                "-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #34495e;";
+        String PRESET_HOVER = "-fx-background-radius: 3; -fx-padding: 2 6; -fx-cursor: hand; " +
+                "-fx-background-color: #d6eaf8; -fx-border-color: #3498db; -fx-border-radius: 3; " +
+                "-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #2563eb;";
+
+        for (double p : presets) {
+            String label = (p == (int) p) ? ((int) p + " px") : (p + " px");
+            Button btn = new Button(label);
+            btn.setStyle(PRESET_STYLE);
+            btn.setOnMouseEntered(e -> btn.setStyle(PRESET_HOVER));
+            btn.setOnMouseExited(e -> btn.setStyle(PRESET_STYLE));
+            btn.setOnAction(e -> {
+                Double capturedStart = toPx.applyAsDouble(slWidth.getValue());
+                applyValue.accept(p);
+                controller.getActionHandler().recordPropertyChange("Stroke Width",
+                        layer -> capturedStart, ShapeLayer::setStrokeWidth, p);
+                widthStart[0] = p;
+            });
+            presetsPane.getChildren().add(btn);
+        }
+
+        // ── Alineación del Borde ───────────────────────────────────────
         Label lblType = new Label("Alineación del Borde:");
         lblType.setStyle("-fx-font-weight: bold; -fx-font-size: 11px; -fx-text-fill: #2c3e50;");
 
-        ToggleButton btnInside = new ToggleButton("Interior");
+        ToggleButton btnInside   = new ToggleButton("Interior");
         ToggleButton btnCentered = new ToggleButton("Compartido");
-        ToggleButton btnOutside = new ToggleButton("Exterior");
+        ToggleButton btnOutside  = new ToggleButton("Exterior");
 
-        String TOGGLE_STYLE = "-fx-background-radius: 4; -fx-padding: 4 8; -fx-cursor: hand; -fx-background-color: transparent; -fx-border-color: #ccc; -fx-border-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #475569;";
+        String TOGGLE_STYLE    = "-fx-background-radius: 4; -fx-padding: 4 8; -fx-cursor: hand; -fx-background-color: transparent; -fx-border-color: #ccc; -fx-border-radius: 4; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #475569;";
         String TOGGLE_SELECTED = "-fx-background-radius: 4; -fx-padding: 4 8; -fx-cursor: hand; -fx-background-color: #d6eaf8; -fx-border-color: #3498db; -fx-border-radius: 4; -fx-font-size: 11px; -fx-font-weight: 900; -fx-text-fill: #2563eb;";
 
-        btnInside.setStyle(TOGGLE_STYLE);
-        btnCentered.setStyle(TOGGLE_STYLE);
-        btnOutside.setStyle(TOGGLE_STYLE);
+        btnInside.setStyle(TOGGLE_STYLE); btnCentered.setStyle(TOGGLE_STYLE); btnOutside.setStyle(TOGGLE_STYLE);
 
         ToggleGroup typeGroup = new ToggleGroup();
-        btnInside.setToggleGroup(typeGroup);
-        btnCentered.setToggleGroup(typeGroup);
-        btnOutside.setToggleGroup(typeGroup);
+        btnInside.setToggleGroup(typeGroup); btnCentered.setToggleGroup(typeGroup); btnOutside.setToggleGroup(typeGroup);
 
         javafx.scene.shape.StrokeType currentType = (active != null) ? active.getStrokeType() : javafx.scene.shape.StrokeType.CENTERED;
-        if (currentType == javafx.scene.shape.StrokeType.INSIDE) {
-            btnInside.setSelected(true);
-            btnInside.setStyle(TOGGLE_SELECTED);
-        } else if (currentType == javafx.scene.shape.StrokeType.OUTSIDE) {
-            btnOutside.setSelected(true);
-            btnOutside.setStyle(TOGGLE_SELECTED);
-        } else {
-            btnCentered.setSelected(true);
-            btnCentered.setStyle(TOGGLE_SELECTED);
-        }
+        if      (currentType == javafx.scene.shape.StrokeType.INSIDE)   { btnInside.setSelected(true);   btnInside.setStyle(TOGGLE_SELECTED); }
+        else if (currentType == javafx.scene.shape.StrokeType.OUTSIDE)  { btnOutside.setSelected(true);  btnOutside.setStyle(TOGGLE_SELECTED); }
+        else                                                             { btnCentered.setSelected(true); btnCentered.setStyle(TOGGLE_SELECTED); }
 
         typeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal == null) {
-                typeGroup.selectToggle(oldVal);
-                return;
-            }
+            if (newVal == null) { typeGroup.selectToggle(oldVal); return; }
             javafx.scene.shape.StrokeType type = javafx.scene.shape.StrokeType.CENTERED;
-            if (newVal == btnInside) type = javafx.scene.shape.StrokeType.INSIDE;
+            if (newVal == btnInside)  type = javafx.scene.shape.StrokeType.INSIDE;
             else if (newVal == btnOutside) type = javafx.scene.shape.StrokeType.OUTSIDE;
-
             btnInside.setStyle(newVal == btnInside ? TOGGLE_SELECTED : TOGGLE_STYLE);
             btnCentered.setStyle(newVal == btnCentered ? TOGGLE_SELECTED : TOGGLE_STYLE);
             btnOutside.setStyle(newVal == btnOutside ? TOGGLE_SELECTED : TOGGLE_STYLE);
-
             if (!controller.isUpdatingUI()) {
                 javafx.scene.shape.StrokeType finalType = type;
-                controller.getActionHandler().recordPropertyChange("Alineación del Borde", ShapeLayer::getStrokeType, ShapeLayer::setStrokeType, finalType);
+                controller.getActionHandler().recordPropertyChange("Alineación del Borde",
+                        ShapeLayer::getStrokeType, ShapeLayer::setStrokeType, finalType);
             }
         });
 
         HBox typeBox = new HBox(5, btnInside, btnCentered, btnOutside);
         typeBox.setAlignment(Pos.CENTER);
 
-        box.getChildren().addAll(lblWidth, slWidth, lblVal, new Separator(), lblType, typeBox);
+        box.getChildren().addAll(
+                lblWidth,
+                inputRow,
+                presetsPane,
+                new Separator(),
+                lblType,
+                typeBox
+        );
         showPopup(anchor, box, "BORDE / TRAZO");
     }
 
@@ -469,18 +629,36 @@ public class ShapeManagerUIOrchestrator {
 
     public void showContourPopup(Node anchor) {
         VBox box = new VBox(10);
-        ShapeLayer active = controller.getActiveShapeLayer();
+        ShapeLayer active = null;
+        if (visualizer != null && visualizer.getLayerManager() != null) {
+            Node sel = visualizer.getLayerManager().getSelectedNode();
+            if (sel instanceof ShapeLayer) {
+                active = (ShapeLayer) sel;
+                controller.setActiveShapeLayer(active);
+            }
+        }
+        if (active == null) {
+            active = controller.getActiveShapeLayer();
+        }
+        final ShapeLayer currentActive = active;
 
+        boolean hasContour = (currentActive != null && currentActive.getContourSteps() > 0);
         CheckBox chk = new CheckBox("Silueta");
-        chk.setSelected(active != null && active.getContourSteps() > 0);
+        chk.setSelected(hasContour);
 
-        Slider slSteps = new Slider(1, 10, (active != null) ? Math.max(1, active.getContourSteps()) : 3);
-        Slider slDist = new Slider(1, 40, (active != null) ? Math.max(1, active.getContourDistance()) : 5);
-        Color contourColor = (active != null) ? active.getContourColor() : Color.GRAY;
+        double initialSteps = (currentActive != null && currentActive.getContourSteps() > 0) ? currentActive.getContourSteps() : 3;
+        double initialDist = (currentActive != null && currentActive.getContourDistance() > 0) ? currentActive.getContourDistance() : 5;
+        Color initialColor = (currentActive != null && currentActive.getContourColor() != null && !Color.TRANSPARENT.equals(currentActive.getContourColor())) 
+                ? currentActive.getContourColor() 
+                : Color.web("#e74c3c");
+
+        Slider slSteps = new Slider(1, 10, initialSteps);
+        Slider slDist = new Slider(1, 40, initialDist);
 
         final MenuButton[] btnColorRef = new MenuButton[1];
-        MenuButton btnColor = controller.getButtonFactory().createColorMenuButton("mdi2b-border-outside", contourColor, "Color de Silueta",
+        MenuButton btnColor = controller.getButtonFactory().createColorMenuButton("mdi2b-border-outside", initialColor, "Color de Silueta",
                 c -> {
+                    btnColorRef[0].setUserData(c);
                     if (!controller.isUpdatingUI()) {
                         controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor,
                                 (layer, val) -> {
@@ -488,10 +666,26 @@ public class ShapeManagerUIOrchestrator {
                                 }, c);
                     }
                 },
-                c -> controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c),
-                () -> controller.activateEyedropper(c -> { controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c); controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor, (layer, val) -> { layer.applyContour((int) slSteps.getValue(), slDist.getValue(), val); }, c); }),
-                () -> org.example.utils.UIFactory.showColorSelector(btnColorRef[0].getScene().getWindow(), (Color)btnColorRef[0].getUserData(), c -> { controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c); controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor, (layer, val) -> { layer.applyContour((int) slSteps.getValue(), slDist.getValue(), val); }, c); }, c -> { controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c); controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor, (layer, val) -> { layer.applyContour((int) slSteps.getValue(), slDist.getValue(), val); }, c); }));
+                c -> {
+                    btnColorRef[0].setUserData(c);
+                    controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c);
+                },
+                () -> controller.activateEyedropper(c -> {
+                    btnColorRef[0].setUserData(c);
+                    controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c);
+                    controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor, (layer, val) -> { layer.applyContour((int) slSteps.getValue(), slDist.getValue(), val); }, c);
+                }),
+                () -> org.example.utils.UIFactory.showColorSelector(btnColorRef[0].getScene().getWindow(), (Color)btnColorRef[0].getUserData(), c -> {
+                    btnColorRef[0].setUserData(c);
+                    controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c);
+                    controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor, (layer, val) -> { layer.applyContour((int) slSteps.getValue(), slDist.getValue(), val); }, c);
+                }, c -> {
+                    btnColorRef[0].setUserData(c);
+                    controller.getButtonFactory().updatePickerGraphic(btnColorRef[0], c);
+                    controller.getActionHandler().recordPropertyChange("Contour Color", ShapeLayer::getContourColor, (layer, val) -> { layer.applyContour((int) slSteps.getValue(), slDist.getValue(), val); }, c);
+                }));
         btnColorRef[0] = btnColor;
+        btnColor.setUserData(initialColor);
 
         chk.selectedProperty().addListener(o -> {
             if (!controller.isUpdatingUI()) {
@@ -500,7 +694,7 @@ public class ShapeManagerUIOrchestrator {
                         (layer, val) -> {
                             Color currentColor = (Color) btnColorRef[0].getUserData();
                             if (currentColor == null)
-                                currentColor = contourColor;
+                                currentColor = initialColor;
                             if (val)
                                 layer.applyContour((int) slSteps.getValue(), slDist.getValue(), currentColor);
                             else
@@ -509,15 +703,17 @@ public class ShapeManagerUIOrchestrator {
             }
         });
 
-        // Sliders with transactional undo
-        setupTransactionalSlider(slSteps, "Contour Steps", val -> (double) active.getContourSteps(), (layer, val) -> {
-            Color currentColor = (Color) btnColor.getUserData();
-            layer.applyContour(val.intValue(), slDist.getValue(), (currentColor != null ? currentColor : contourColor));
+        // Sliders with transactional undo and real-time canvas update
+        setupTransactionalSlider(slSteps, "Contour Steps", v -> (currentActive != null ? (double) currentActive.getContourSteps() : 3.0), (layer, val) -> {
+            Color currentColor = (Color) btnColorRef[0].getUserData();
+            layer.applyContour(val.intValue(), slDist.getValue(), (currentColor != null ? currentColor : initialColor));
+            if (visualizer != null) visualizer.notifyStateChanged();
         });
 
-        setupTransactionalSlider(slDist, "Contour Distance", val -> active.getContourDistance(), (layer, val) -> {
-            Color currentColor = (Color) btnColor.getUserData();
-            layer.applyContour((int) slSteps.getValue(), val, (currentColor != null ? currentColor : contourColor));
+        setupTransactionalSlider(slDist, "Contour Distance", v -> (currentActive != null ? currentActive.getContourDistance() : 5.0), (layer, val) -> {
+            Color currentColor = (Color) btnColorRef[0].getUserData();
+            layer.applyContour((int) slSteps.getValue(), val, (currentColor != null ? currentColor : initialColor));
+            if (visualizer != null) visualizer.notifyStateChanged();
         });
 
         TextField txtSteps = createValueField(slSteps, "");
@@ -526,29 +722,76 @@ public class ShapeManagerUIOrchestrator {
         // Corner Style Logic
         HBox styleBox = createCornerStyleSelector();
 
+        Button btnRemove = new Button("Eliminar Silueta");
+        btnRemove.setStyle(
+                "-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-border-radius: 4; -fx-background-radius: 4;");
+        btnRemove.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(btnRemove, javafx.scene.layout.Priority.ALWAYS);
+        btnRemove.setOnAction(e -> {
+            if (!controller.isUpdatingUI()) {
+                ShapeLayer targetLayer = currentActive != null ? currentActive : controller.getActiveShapeLayer();
+                if (targetLayer != null && targetLayer.getActiveZone() != null && targetLayer.getActiveZone().startsWith("CUELLO")) {
+                    if (visualizer != null) {
+                        visualizer.getPowerClipManager().extractFromContainer(targetLayer);
+                        visualizer.removeUserLayer(targetLayer);
+                        visualizer.getUserLayerManager().clearSelection();
+                        if (visualizer.getVisualizerUiController() != null && visualizer.getVisualizerUiController().getBtnAddSilhouette() != null) {
+                            visualizer.getVisualizerUiController().getBtnAddSilhouette().setText("+ AÑADIR SILUETA");
+                        }
+                        if (currentPopup != null) currentPopup.hide();
+                        visualizer.notifyStateChanged();
+                    }
+                    return;
+                }
+                if (currentActive != null) {
+                    controller.getActionHandler().applyToSelection(layer -> layer.applyContour(0, 0, Color.TRANSPARENT));
+                    controller.setIsUpdatingUI(true);
+                    chk.setSelected(false);
+                    slSteps.setValue(1);
+                    controller.setIsUpdatingUI(false);
+                    if (visualizer != null) visualizer.notifyStateChanged();
+                }
+            }
+        });
+
         Button btnSeparate = new Button("Separar Contornos");
         btnSeparate.setStyle(
-                "-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+                "-fx-background-color: #f39c12; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-border-radius: 4; -fx-background-radius: 4;");
         btnSeparate.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(btnSeparate, javafx.scene.layout.Priority.ALWAYS);
         btnSeparate.setOnAction(e -> {
-            if (active != null) {
-                java.util.List<ShapeLayer> newLayers = active.separateContours();
-                Node prev = active;
+            ShapeLayer targetLayer = currentActive != null ? currentActive : controller.getActiveShapeLayer();
+            if (targetLayer != null) {
+                String activeZone = targetLayer.getActiveZone();
+                java.util.List<ShapeLayer> newLayers = targetLayer.separateContours();
+                Node prev = targetLayer;
                 java.util.List<Node> allNodes = new java.util.ArrayList<>();
-                allNodes.add(active);
+                allNodes.add(targetLayer);
                 for (ShapeLayer nl : newLayers) {
-                    visualizer.addShapeLayer(nl);
-                    visualizer.getLayerManager().moveNodeBehind(nl, prev);
+                    if (activeZone != null && activeZone.startsWith("CUELLO")) {
+                        visualizer.getPowerClipManager().restoreToContainer(nl, activeZone);
+                        visualizer.getLayerManager().moveNodeBehind(nl, prev);
+                        // Apply collar boundary clip so separated layers don't bleed outside the collar shape
+                        String collarBoundary = visualizer.getCollarVectorContent(activeZone);
+                        if (collarBoundary != null && !collarBoundary.trim().isEmpty()) {
+                            nl.setContourClip(collarBoundary);
+                        }
+                    } else {
+                        visualizer.addShapeLayer(nl);
+                        visualizer.getLayerManager().moveNodeBehind(nl, prev);
+                    }
                     allNodes.add(nl);
                     prev = nl;
                 }
                 controller.setIsUpdatingUI(true);
-                slSteps.setValue(0);
+                chk.setSelected(false);
+                slSteps.setValue(1);
                 controller.setIsUpdatingUI(false);
                 visualizer.getLayerManager().clearSelection();
                 for (Node n : allNodes) {
                     visualizer.getLayerManager().addToSelection(n);
                 }
+                if (visualizer != null) visualizer.notifyStateChanged();
             }
         });
 
@@ -557,7 +800,8 @@ public class ShapeManagerUIOrchestrator {
                 new HBox(10, new Label("Distancia"), txtDist), slDist,
                 new HBox(10, new Label("Color"), btnColor),
                 new HBox(10, new Label("Bordes"), styleBox),
-                new Separator(), btnSeparate);
+                new Separator(),
+                new HBox(10, btnRemove, btnSeparate));
 
         showPopup(anchor, box, "SILUETA / CONTORNO");
     }

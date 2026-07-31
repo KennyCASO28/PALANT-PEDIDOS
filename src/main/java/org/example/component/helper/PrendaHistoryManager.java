@@ -214,11 +214,15 @@ public class PrendaHistoryManager {
         try {
             // Context-aware zone handling
             String zone = cmd.getContextZone();
-            if (zone != null && visualizer != null) {
-                boolean isEditing = visualizer.getPowerClipManager().isEditing();
-                String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
-                if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
-                    visualizer.getPowerClipManager().enterEditMode(zone);
+            if (visualizer != null) {
+                if (zone != null) {
+                    boolean isEditing = visualizer.getPowerClipManager().isEditing();
+                    String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                    if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
+                        visualizer.getPowerClipManager().enterEditMode(zone);
+                    }
+                } else if (visualizer.getPowerClipManager().isEditing()) {
+                    visualizer.getPowerClipManager().finishEditMode();
                 }
             }
 
@@ -253,11 +257,15 @@ public class PrendaHistoryManager {
 
         try {
             String zone = cmd.getContextZone();
-            if (zone != null && visualizer != null) {
-                boolean isEditing = visualizer.getPowerClipManager().isEditing();
-                String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
-                if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
-                    visualizer.getPowerClipManager().enterEditMode(zone);
+            if (visualizer != null) {
+                if (zone != null) {
+                    boolean isEditing = visualizer.getPowerClipManager().isEditing();
+                    String currentZone = visualizer.getPowerClipManager().getCurrentEditingZone();
+                    if (!isEditing || (currentZone != null && !currentZone.equals(zone))) {
+                        visualizer.getPowerClipManager().enterEditMode(zone);
+                    }
+                } else if (visualizer.getPowerClipManager().isEditing()) {
+                    visualizer.getPowerClipManager().finishEditMode();
                 }
             }
 

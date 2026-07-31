@@ -31,6 +31,7 @@ public class SmartZoneContainer extends Group {
     private final Group contentGroup;
     private final SVGPath borderShape; // Visual feedback during edit
     private final SVGPath clipShape; // The actual mask
+    private final SVGPath backgroundShape; // Semi-transparent fill highlight for active editing zone
 
     private boolean isEditing = false;
 
@@ -48,13 +49,21 @@ public class SmartZoneContainer extends Group {
         // 2. Aux Shapes
         this.clipShape = new SVGPath();
         this.borderShape = new SVGPath();
+        this.backgroundShape = new SVGPath();
 
-        // Config Border (Visual only)
+        backgroundShape.setFill(Color.TRANSPARENT);
+        backgroundShape.setStroke(Color.TRANSPARENT);
+        backgroundShape.setMouseTransparent(true);
+        backgroundShape.setVisible(false);
+        this.getChildren().add(0, backgroundShape);
+
+        // Config Border (Visual only - Solid Thin Blue Line)
         borderShape.setFill(Color.TRANSPARENT);
-        borderShape.setStroke(Color.web("#3498db")); // Azul moderno para edición
-        borderShape.setStrokeWidth(1.2); // Delgado
-        borderShape.getStrokeDashArray().setAll(6.0, 4.0); // Punteado
-        borderShape.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND); // Guiones redondeados
+        borderShape.setStroke(Color.web("#00A8FF")); // Azul notorio y vibrante
+        borderShape.setStrokeWidth(1.0); // Línea fina y precisa
+        borderShape.getStrokeDashArray().clear(); // Línea sólida
+        borderShape.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+        borderShape.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
         borderShape.setMouseTransparent(true);
         borderShape.setVisible(false); // Hidden by default
 
@@ -72,6 +81,7 @@ public class SmartZoneContainer extends Group {
 
         clipShape.setContent(svgContent);
         borderShape.setContent(svgContent);
+        backgroundShape.setContent(svgContent);
 
         refreshClipState();
     }
@@ -99,25 +109,31 @@ public class SmartZoneContainer extends Group {
         contentGroup.getChildren().remove(item);
     }
 
+    public javafx.scene.shape.SVGPath getBorderShape() {
+        return borderShape;
+    }
+
     /**
      * Enters "Edit Content" mode.
      * - Disables Clip.
-     * - Shows Red Border.
-     * - Unlocks Content.
+     * - Shows Solid Border & Translucent Highlight Fill.
+     * - Unlocks Content for moving and editing.
      */
     public void setEditMode(boolean enable) {
         this.isEditing = enable;
 
-        // 1. Toggle Border
+        // 1. Toggle Border (Show ONLY solid cyan border line around active zone piece, NO background fill highlight)
         borderShape.setVisible(enable);
+        backgroundShape.setFill(Color.TRANSPARENT);
+        backgroundShape.setVisible(false);
 
         // 2. Toggle Clip
         refreshClipState();
 
-        // 3. Toggle Interactivity (Lockout when not editing)
+        // 3. Toggle Interactivity (Allow interaction when editing, lock when finished)
         contentGroup.setMouseTransparent(!enable);
 
-        // 4. Update Children Lock State (Visual feedback mostly)
+        // 4. Update Children Lock State (Unlock items when editing)
         for (Node n : contentGroup.getChildren()) {
             updateItemState(n);
         }
@@ -129,15 +145,9 @@ public class SmartZoneContainer extends Group {
 
     private void refreshClipState() {
         if (isEditing) {
-            contentGroup.setClip(null); // Unclipped to see "outside" parts
+            contentGroup.setClip(null); // Unclipped during PowerClip edit mode to move/transform items freely
         } else {
-            // Re-use current clip shape logic
-            // We need a COPY for the clip node because a Node can't be added twice or used
-            // as clip if in scene?
-            // Actually reusing the same SVGPath object as clip allows dynamic updates IF
-            // it's not in the scene graph as a child.
-            // Our 'clipShape' is NOT added to children, so it's safe to use as clip.
-            contentGroup.setClip(clipShape);
+            contentGroup.setClip(clipShape); // Recortados exactamente a la pieza al hacer clic en LISTO
         }
     }
 

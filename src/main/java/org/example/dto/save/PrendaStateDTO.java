@@ -15,6 +15,7 @@ public class PrendaStateDTO {
     private TipoCorte currentCorteShort;
     private TipoLargo currentLargo;
     private TipoCuello currentCuello;
+    private org.example.model.CollarDesignConfig collarDesignConfig;
     private TipoTela currentTela;
     private String customTela = "";
     private TipoMedias currentTipoMedias;
@@ -269,6 +270,14 @@ public class PrendaStateDTO {
 
     public void setCurrentCuello(TipoCuello currentCuello) {
         this.currentCuello = currentCuello;
+    }
+
+    public org.example.model.CollarDesignConfig getCollarDesignConfig() {
+        return collarDesignConfig;
+    }
+
+    public void setCollarDesignConfig(org.example.model.CollarDesignConfig collarDesignConfig) {
+        this.collarDesignConfig = collarDesignConfig;
     }
 
     public String getCurrentGarmentType() {

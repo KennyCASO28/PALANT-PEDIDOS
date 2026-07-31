@@ -180,9 +180,11 @@ public class GarmentClipboardService {
                 layerFactory.addUserLayer(node);
                 layerManager.setPerformingHistoryAction(false);
                 
-                // Restore the intended translation (overriding any auto-centering by LayerFactory)
-                node.setTranslateX(targetX);
-                node.setTranslateY(targetY);
+                // Restore the intended translation ONLY if staying within the same space boundary
+                if (!crossBoundary) {
+                    node.setTranslateX(targetX);
+                    node.setTranslateY(targetY);
+                }
                 
                 // Play spring pop-in animation
                 playPasteAnimation(node);
@@ -234,7 +236,15 @@ public class GarmentClipboardService {
         try {
             for (int i = 0; i < freshClones.size(); i++) {
                 Node node = freshClones.get(i);
-                // Save the exact translation from the clone (which matches original)
+                Node originalNode = centralClipboard.get(i);
+
+                String originZone = getZoneOfNode(originalNode);
+                String destZone = (powerClipManager != null && powerClipManager.isEditing()) 
+                                ? powerClipManager.getCurrentEditingZone() : null;
+                boolean crossBoundary = (originZone == null && destZone != null) ||
+                                        (originZone != null && destZone == null) ||
+                                        (originZone != null && destZone != null && !originZone.equals(destZone));
+
                 double targetX = node.getTranslateX();
                 double targetY = node.getTranslateY();
 
@@ -242,9 +252,10 @@ public class GarmentClipboardService {
                 layerFactory.addUserLayer(node);
                 layerManager.setPerformingHistoryAction(false);
                 
-                // Restore the intended translation (overriding any auto-centering by LayerFactory)
-                node.setTranslateX(targetX);
-                node.setTranslateY(targetY);
+                if (!crossBoundary) {
+                    node.setTranslateX(targetX);
+                    node.setTranslateY(targetY);
+                }
                 
                 // Play spring pop-in animation
                 playPasteAnimation(node);

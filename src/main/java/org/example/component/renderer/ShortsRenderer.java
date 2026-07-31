@@ -62,8 +62,12 @@ public class ShortsRenderer extends BaseGarmentRenderer {
         // GROUP 2: Details (On Top of User Images)
         detailGroup.getChildren().addAll(
                 shortsStripe, shortsPicket, shortsWaist, shortsElastic,
-                shortsCuff, shortsCord, shortsShadow, shortsDetail, shortCrest,
+                shortsCord, shortsShadow, shortsDetail, shortCrest,
                 brandBase, brandDetail);
+
+        // GROUP 3: CUFFS / PUÑOS (Always in front of user drawings)
+        cuffsGroup.getChildren().addAll(shortsCuff);
+        cuffsGroup.setMouseTransparent(true);
     }
 
     @Override

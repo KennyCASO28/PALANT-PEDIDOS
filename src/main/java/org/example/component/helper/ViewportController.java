@@ -58,11 +58,10 @@ public class ViewportController {
     private boolean zoomFollowsCursor = true;
     private double zoomAnchorSceneX = -1;
     private double zoomAnchorSceneY = -1;
-    private double zoomBeforeScale = 1.0;
-    private double layoutOffsetX_old = 0;
-    private double layoutOffsetY_old = 0;
-    private double translateX_old = 0;
-    private double translateY_old = 0;
+    private double zoomAnchorLocalX = 0;
+    private double zoomAnchorLocalY = 0;
+    private double zoomAnchorDesignX = 0;
+    private double zoomAnchorDesignY = 0;
 
     public void setPanningEnabled(boolean enabled) {
         this.panningEnabled = enabled;
@@ -187,33 +186,25 @@ public class ViewportController {
                 double delta = event.getDeltaY();
                 double scaleChange = (delta > 0) ? 1.1 : 0.9;
 
-                // Cursor-aware zoom: solo si la pantalla está desbloqueada (panningEnabled)
-                if (panningEnabled) {
-                    zoomAnchorSceneX = event.getSceneX();
-                    zoomAnchorSceneY = event.getSceneY();
-                    zoomBeforeScale = finalScale;
-                    layoutOffsetX_old = layoutOffsetX;
-                    layoutOffsetY_old = layoutOffsetY;
-                    translateX_old = translateX;
-                    translateY_old = translateY;
-                } else {
-                    zoomAnchorSceneX = -1;
-                    zoomAnchorSceneY = -1;
-                }
+                zoomAnchorSceneX = event.getSceneX();
+                zoomAnchorSceneY = event.getSceneY();
+
+                javafx.geometry.Point2D localMouse = container.sceneToLocal(zoomAnchorSceneX, zoomAnchorSceneY);
+                zoomAnchorLocalX = localMouse.getX();
+                zoomAnchorLocalY = localMouse.getY();
+
+                zoomAnchorDesignX = screenToDesignX(zoomAnchorLocalX);
+                zoomAnchorDesignY = screenToDesignY(zoomAnchorLocalY);
 
                 zoomFactor = zoomFactor * scaleChange;
 
-                // Clamp Zoom - UNIFIED TO MAX_ZOOM (User Request)
+                // Clamp Zoom
                 if (zoomFactor < MIN_ZOOM)
                     zoomFactor = MIN_ZOOM;
                 if (zoomFactor > MAX_ZOOM)
                     zoomFactor = MAX_ZOOM;
 
-                // Debounce zoom updates to prevent UI freeze during rapid scrolling
-                if (!isZoomPending) {
-                    isZoomPending = true;
-                    zoomCacheTimer.playFromStart();
-                }
+                autoScale();
             }
         });
 
@@ -229,8 +220,9 @@ public class ViewportController {
         container.setOnMouseDragged(event -> {
             if (!panningEnabled || !event.isPrimaryButtonDown())
                 return;
-            double deltaX = (event.getSceneX() - lastX) * 0.7;
-            double deltaY = (event.getSceneY() - lastY) * 0.7;
+            // 1:1 Pixel-Perfect Mouse Tracking (No lag / no dampening offset)
+            double deltaX = event.getSceneX() - lastX;
+            double deltaY = event.getSceneY() - lastY;
 
             translateX += deltaX;
             translateY += deltaY;
@@ -446,20 +438,10 @@ public class ViewportController {
             double layoutOffsetX = viewportCenterX - (pivotX + (contentCenterX - pivotX) * finalScale);
             double layoutOffsetY = viewportCenterY - (pivotY + (contentCenterY - pivotY) * finalScale);
 
-            // --- 5. Ajuste por zoom hacia el cursor ---
-            if (panningEnabled && zoomAnchorSceneX >= 0 && zoomBeforeScale > 0) {
-                // Punto del contenido que estaba bajo el ratón ANTES del zoom
-                double oldEffectiveX = zoomAnchorSceneX;
-                double oldEffectiveY = zoomAnchorSceneY;
-                // Convertir a coordenadas de contenido antes del zoom
-                double contentX = (oldEffectiveX - layoutOffsetX_old - translateX_old) / zoomBeforeScale;
-                double contentY = (oldEffectiveY - layoutOffsetY_old - translateY_old) / zoomBeforeScale;
-                // Dónde debería estar ese punto después del zoom
-                double expectedScreenX = contentX * finalScale + layoutOffsetX + translateX;
-                double expectedScreenY = contentY * finalScale + layoutOffsetY + translateY;
-                // Ajustar translate para que coincida
-                translateX += (oldEffectiveX - expectedScreenX);
-                translateY += (oldEffectiveY - expectedScreenY);
+            // --- 5. Precise Professional Zoom Towards Cursor ---
+            if (zoomAnchorSceneX >= 0) {
+                translateX = zoomAnchorLocalX - (zoomAnchorDesignX * finalScale) - layoutOffsetX - (pivotX * (1.0 - finalScale));
+                translateY = zoomAnchorLocalY - (zoomAnchorDesignY * finalScale) - layoutOffsetY - (pivotY * (1.0 - finalScale));
                 zoomAnchorSceneX = -1;
             }
 

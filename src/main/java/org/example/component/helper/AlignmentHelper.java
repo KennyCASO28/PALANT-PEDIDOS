@@ -1,6 +1,7 @@
 package org.example.component.helper;
 
 import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.scene.Node;
 import org.example.component.ShapeLayer;
 import org.example.component.ImageLayer;
@@ -13,6 +14,18 @@ import java.util.List;
  * Supports: Left, Center (Horz), Right, Top, Middle (Vert), Bottom.
  */
 public class AlignmentHelper {
+
+    private static Point2D getLogicalCenter(Node n) {
+        if (n instanceof ShapeLayer sl) {
+            return new Point2D(sl.getVisualMinX() + sl.getLogicalWidth() / 2.0, sl.getVisualMinY() + sl.getLogicalHeight() / 2.0);
+        } else if (n instanceof ImageLayer il) {
+            return new Point2D(il.getLogicalWidth() / 2.0, il.getLogicalHeight() / 2.0);
+        } else if (n instanceof TextLayer) {
+            return new Point2D(0, 0);
+        }
+        Bounds b = n.getBoundsInLocal();
+        return new Point2D(b.getMinX() + b.getWidth() / 2.0, b.getMinY() + b.getHeight() / 2.0);
+    }
 
     // --- Horizontal Alignment ---
 
@@ -107,11 +120,102 @@ public class AlignmentHelper {
         }
     }
 
-    public static void alignCenterHorizontal(List<Node> nodes, Node anchor) {
-        if (nodes == null || nodes.size() < 2 || anchor == null)
-            return;
+    public static void centerNodeInParentHorizontally(Node node) {
+        if (node == null || node.getParent() == null) return;
+        Bounds parentBounds = node.getParent().getBoundsInLocal();
+        double parentCenterX = parentBounds.getMinX() + parentBounds.getWidth() / 2.0;
 
-        double targetCenterX = getCenterInScene(anchor).getX();
+        Point2D nodeCenterInScene = getCenterInScene(node);
+        Point2D parentCenterInScene = node.getParent().localToScene(parentCenterX, parentBounds.getMinY() + parentBounds.getHeight() / 2.0);
+
+        double deltaX = parentCenterInScene.getX() - nodeCenterInScene.getX();
+
+        Point2D p0 = node.getParent().sceneToLocal(0, 0);
+        Point2D p1 = node.getParent().sceneToLocal(deltaX, 0);
+        if (p0 != null && p1 != null) {
+            node.setTranslateX(node.getTranslateX() + (p1.getX() - p0.getX()));
+        } else {
+            node.setTranslateX(node.getTranslateX() + deltaX);
+        }
+    }
+
+    public static void centerNodeInParentVertically(Node node) {
+        if (node == null || node.getParent() == null) return;
+        Bounds parentBounds = node.getParent().getBoundsInLocal();
+        double parentCenterY = parentBounds.getMinY() + parentBounds.getHeight() / 2.0;
+
+        Point2D nodeCenterInScene = getCenterInScene(node);
+        Point2D parentCenterInScene = node.getParent().localToScene(parentBounds.getMinX() + parentBounds.getWidth() / 2.0, parentCenterY);
+
+        double deltaY = parentCenterInScene.getY() - nodeCenterInScene.getY();
+
+        Point2D p0 = node.getParent().sceneToLocal(0, 0);
+        Point2D p1 = node.getParent().sceneToLocal(0, deltaY);
+        if (p0 != null && p1 != null) {
+            node.setTranslateY(node.getTranslateY() + (p1.getY() - p0.getY()));
+        } else {
+            node.setTranslateY(node.getTranslateY() + deltaY);
+        }
+    }
+
+    public static void alignCombinedCenterHorizontal(List<Node> nodes) {
+        if (nodes == null || nodes.isEmpty()) return;
+
+        double sumX = 0;
+        for (Node n : nodes) {
+            sumX += getCenterInScene(n).getX();
+        }
+        double targetCenterX = sumX / nodes.size();
+
+        for (Node n : nodes) {
+            double currentCenterX = getCenterInScene(n).getX();
+            double deltaX = targetCenterX - currentCenterX;
+
+            if (n.getParent() != null) {
+                Point2D p0 = n.getParent().sceneToLocal(0, 0);
+                Point2D p1 = n.getParent().sceneToLocal(deltaX, 0);
+                if (p0 != null && p1 != null) {
+                    n.setTranslateX(n.getTranslateX() + (p1.getX() - p0.getX()));
+                }
+            } else {
+                n.setTranslateX(n.getTranslateX() + deltaX);
+            }
+        }
+    }
+
+    public static void alignCombinedMiddleVertical(List<Node> nodes) {
+        if (nodes == null || nodes.isEmpty()) return;
+
+        double sumY = 0;
+        for (Node n : nodes) {
+            sumY += getCenterInScene(n).getY();
+        }
+        double targetCenterY = sumY / nodes.size();
+
+        for (Node n : nodes) {
+            double currentCenterY = getCenterInScene(n).getY();
+            double deltaY = targetCenterY - currentCenterY;
+
+            if (n.getParent() != null) {
+                Point2D p0 = n.getParent().sceneToLocal(0, 0);
+                Point2D p1 = n.getParent().sceneToLocal(0, deltaY);
+                if (p0 != null && p1 != null) {
+                    n.setTranslateY(n.getTranslateY() + (p1.getY() - p0.getY()));
+                }
+            } else {
+                n.setTranslateY(n.getTranslateY() + deltaY);
+            }
+        }
+    }
+
+    public static void alignCenterHorizontal(List<Node> nodes, Node anchor) {
+        if (nodes == null || nodes.isEmpty()) return;
+        if (nodes.size() == 1) {
+            centerNodeInParentHorizontally(nodes.get(0));
+            return;
+        }
+
+        double targetCenterX = anchor != null ? getCenterInScene(anchor).getX() : getCenterInScene(nodes.get(0)).getX();
 
         for (Node n : nodes) {
             if (n == anchor) continue;
@@ -132,10 +236,13 @@ public class AlignmentHelper {
     }
 
     public static void alignMiddleVertical(List<Node> nodes, Node anchor) {
-        if (nodes == null || nodes.size() < 2 || anchor == null)
+        if (nodes == null || nodes.isEmpty()) return;
+        if (nodes.size() == 1) {
+            centerNodeInParentVertically(nodes.get(0));
             return;
+        }
 
-        double targetCenterY = getCenterInScene(anchor).getY();
+        double targetCenterY = anchor != null ? getCenterInScene(anchor).getY() : getCenterInScene(nodes.get(0)).getY();
 
         for (Node n : nodes) {
             if (n == anchor) continue;

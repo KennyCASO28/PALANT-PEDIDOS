@@ -65,6 +65,14 @@ public class VisualizerRenderOrchestrator {
             contentGroup.getChildren().add(newRenderer.getDetailGroup());
         }
         newRenderer.getDetailGroup().setMouseTransparent(true);
+
+        int cuffIndex = contentGroup.getChildren().indexOf(referenceRenderer.getCuffsGroup());
+        if (cuffIndex >= 0) {
+            contentGroup.getChildren().add(cuffIndex, newRenderer.getCuffsGroup());
+        } else {
+            contentGroup.getChildren().add(newRenderer.getCuffsGroup());
+        }
+        newRenderer.getCuffsGroup().setMouseTransparent(true);
     }
 
     public BaseGarmentRenderer getActiveShirtRenderer(boolean editandoArquero) {
@@ -121,22 +129,28 @@ public class VisualizerRenderOrchestrator {
 
         shirtRenderer.getGroup().setVisible(mainActive && state.hasShirt());
         shirtRenderer.getDetailGroup().setVisible(mainActive && state.hasShirt());
+        shirtRenderer.getCuffsGroup().setVisible(mainActive && state.hasShirt());
         shortsRenderer.getGroup().setVisible(mainActive && state.hasShorts());
         shortsRenderer.getDetailGroup().setVisible(mainActive && state.hasShorts());
+        shortsRenderer.getCuffsGroup().setVisible(mainActive && state.hasShorts());
         socksRenderer.getGroup().setVisible(mainActive && state.hasSocks());
         socksRenderer.getDetailGroup().setVisible(mainActive && state.hasSocks());
+        socksRenderer.getCuffsGroup().setVisible(mainActive && state.hasSocks());
 
         if (arqueroShirtRenderer != null) {
             arqueroShirtRenderer.getGroup().setVisible(arqActive && state.hasShirt());
             arqueroShirtRenderer.getDetailGroup().setVisible(arqActive && state.hasShirt());
+            arqueroShirtRenderer.getCuffsGroup().setVisible(arqActive && state.hasShirt());
         }
         if (arqueroShortsRenderer != null) {
             arqueroShortsRenderer.getGroup().setVisible(arqActive && state.hasShorts());
             arqueroShortsRenderer.getDetailGroup().setVisible(arqActive && state.hasShorts());
+            arqueroShortsRenderer.getCuffsGroup().setVisible(arqActive && state.hasShorts());
         }
         if (arqueroSocksRenderer != null) {
             arqueroSocksRenderer.getGroup().setVisible(arqActive && state.hasSocks());
             arqueroSocksRenderer.getDetailGroup().setVisible(arqActive && state.hasSocks());
+            arqueroSocksRenderer.getCuffsGroup().setVisible(arqActive && state.hasSocks());
         }
     }
 

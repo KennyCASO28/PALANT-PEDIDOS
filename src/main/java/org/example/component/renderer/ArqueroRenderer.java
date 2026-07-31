@@ -30,6 +30,8 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
     private final SVGPath collar = new SVGPath();
     private final SVGPath collarShadow = new SVGPath();
     private final SVGPath collarDetail = new SVGPath();
+    private final SVGPath canezuLayer = new SVGPath();
+    private final javafx.scene.Group collarStripeGroup = new javafx.scene.Group();
 
     private final SVGPath mesh = new SVGPath();
     private final SVGPath cuffs = new SVGPath();
@@ -46,6 +48,7 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
 
     private boolean telaNatural = false;
     private String currentCollarType = "V";
+    private org.example.model.CollarDesignConfig collarDesignConfig;
 
     public ArqueroRenderer() {
         Color baseColor = Color.WHITE;
@@ -68,6 +71,9 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
         configureDetailLayer(bodyDetail, strokeColor);
         configureDetailLayer(sleevesDetail, strokeColor);
         configureDetailLayer(collarDetail, Color.WHITE);
+        configureDetailLayer(canezuLayer, Color.web("#4a4a4a"));
+        canezuLayer.setVisible(false);
+        canezuLayer.setFillRule(javafx.scene.shape.FillRule.EVEN_ODD);
 
         configureLayer(collar, Color.WHITE, strokeColor);
         collar.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
@@ -98,14 +104,18 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
         group.getChildren().addAll(backingLayer, body, sleeves, shirtLinea);
 
         // GROUP 2: DETAILS (On Top of User Images)
+        // Jerarquía del cuello (de abajo hacia arriba): collarDetail (_detalle), canezuLayer (canesú), collarShadow (_reforsado), collar (v o redondo)
         detailGroup.getChildren().addAll(
                 bodyShadow, sleevesShadow,
                 bodyOutline, sleevesOutline,
                 bodyDetail, sleevesDetail,
                 mesh,
-                collarShadow, collar, collarDetail,
-                cuffsShadow, cuffs, cuffsDetail,
+                collarDetail, canezuLayer, collarShadow, collar, collarStripeGroup,
                 brandBase, brandDetail);
+
+        // GROUP 3: CUFFS / PUÑOS (Always in front of user drawings)
+        cuffsGroup.getChildren().addAll(cuffs, cuffsShadow, cuffsDetail);
+        cuffsGroup.setMouseTransparent(true);
     }
 
     @Override
@@ -140,9 +150,22 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
         // Collar
         String genderFolder = genero == TipoGenero.MUJER ? "mujer" : "varon";
         String cutFolder = corte.name().toLowerCase();
+        String subfolder = "";
+        if (collarType.toUpperCase().startsWith("V")) {
+            subfolder = "CUELLO_V/";
+        } else if (collarType.toUpperCase().startsWith("REDONDO")) {
+            subfolder = "CUELLO_REDONDO/";
+        }
         String collarFilename = collarType.replace(" ", "_").toLowerCase() + ".svg";
-        String collarPath = ("/vectors/" + genderFolder + "/cuellos/" + cutFolder + "/" + collarFilename).toLowerCase();
+        String collarPath = ("/vectors/" + genderFolder + "/cuellos/" + cutFolder + "/" + subfolder + collarFilename).toLowerCase();
         loadLayerWithExtras(collar, collarShadow, collarDetail, collarPath);
+
+        // CANEZU Layer
+        String canezuFilename = "REDONDO".equalsIgnoreCase(collarType) ? "canezu-R.svg" : "canezu.svg";
+        String canezuPath = ("/vectors/" + genderFolder + "/cuellos/" + cutFolder + "/" + subfolder + canezuFilename).toLowerCase();
+        safeSetContent(canezuLayer, SVGCache.loadPath(canezuPath));
+        boolean isVOrRedondo = "V".equalsIgnoreCase(collarType) || "REDONDO".equalsIgnoreCase(collarType);
+        canezuLayer.setVisible(isVOrRedondo);
 
         // Linea decorativa (carga el vector _linea.svg del arquero si existe)
         String lineaPath = arqueroShirtPath.replace(".svg", "_linea.svg");
@@ -216,8 +239,23 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
         Map<String, String> paths = org.example.utils.SVGCache.loadCategorizedPaths(basePath);
 
         layer.setContent(paths.getOrDefault("base", SVGCache.loadPath(basePath)));
-        shadow.setContent(paths.getOrDefault("sombra", ""));
-        detail.setContent(paths.getOrDefault("detalle", ""));
+        String shadowContent = paths.getOrDefault("sombra", "");
+        if (shadowContent.isEmpty()) {
+            shadowContent = SVGCache.loadOptionalPath(basePath.replace(".svg", "_sombra.svg"));
+        }
+        if (shadowContent.isEmpty()) {
+            shadowContent = SVGCache.loadOptionalPath(basePath.replace(".svg", "_reforsado.svg"));
+        }
+        if (shadowContent.isEmpty()) {
+            shadowContent = SVGCache.loadOptionalPath(basePath.replace(".svg", "_reforzado.svg"));
+        }
+        shadow.setContent(shadowContent);
+
+        String detailContent = paths.getOrDefault("detalle", "");
+        if (detailContent.isEmpty()) {
+            detailContent = SVGCache.loadOptionalPath(basePath.replace(".svg", "_detalle.svg"));
+        }
+        detail.setContent(detailContent);
     }
 
     /**
@@ -328,6 +366,80 @@ public class ArqueroRenderer extends BaseGarmentRenderer {
             }
         } else {
             collarDetail.setFill(Color.WHITE);
+        }
+
+        Color bodyColorForCanezu = colorState.get("body");
+        if (bodyColorForCanezu != null && isDarkColor(bodyColorForCanezu) && !isBlackColor(bodyColorForCanezu)) {
+            canezuLayer.setFill(Color.web("#888888"));
+        } else {
+            canezuLayer.setFill(Color.web("#4a4a4a"));
+        }
+
+        applyCollarCustomization();
+    }
+
+    public void setCollarDesignConfig(org.example.model.CollarDesignConfig config) {
+        this.collarDesignConfig = config;
+        applyCollarCustomization();
+    }
+
+    public void applyCollarCustomization() {
+        collarStripeGroup.getChildren().clear();
+
+        if (collarDesignConfig != null && collarDesignConfig.isEnabled()) {
+            Color baseCol = Color.web(collarDesignConfig.getBaseColor());
+            collar.setFill(baseCol);
+
+            if (collarDesignConfig.getStripes() != null && !collarDesignConfig.getStripes().isEmpty()
+                    && collar.getContent() != null && !collar.getContent().isEmpty()) {
+
+                // Clip mask matching exact collar boundary
+                SVGPath clipMask = new SVGPath();
+                clipMask.setContent(collar.getContent());
+                collarStripeGroup.setClip(clipMask);
+
+                boolean isV = "V".equalsIgnoreCase(currentCollarType);
+
+                // Exact SVG Centerline paths passing right through the middle of the front V collar band and back collar band
+                String frontCenterline = isV
+                    ? "M221.5,36.2 Q237.0,54.0 252.46,71.65 Q268.0,54.0 283.1,36.2"
+                    : "M224.5,32.5 Q252.46,62.5 280.5,32.5";
+
+                String backCenterline = isV
+                    ? "M225.46,34.5 Q252.2,39.5 278.92,34.5"
+                    : "M224.9,31.0 Q252.4,35.0 279.94,31.0";
+
+                for (org.example.model.CollarDesignConfig.CollarStripe stripe : collarDesignConfig.getStripes()) {
+                    if (stripe == null || stripe.getColor() == null) continue;
+
+                    Color stripeColor = Color.web(stripe.getColor());
+                    double width = Math.max(3.0, stripe.getThicknessRatio() * 14.0);
+
+                    // 1. Front Collar Centerline Stripe (Left arm -> V point -> Right arm)
+                    SVGPath frontStripe = new SVGPath();
+                    frontStripe.setContent(frontCenterline);
+                    frontStripe.setFill(null);
+                    frontStripe.setStroke(stripeColor);
+                    frontStripe.setStrokeWidth(width);
+                    frontStripe.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
+                    frontStripe.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+                    collarStripeGroup.getChildren().add(frontStripe);
+
+                    // 2. Back Collar Centerline Stripe (Back neck band)
+                    SVGPath backStripe = new SVGPath();
+                    backStripe.setContent(backCenterline);
+                    backStripe.setFill(null);
+                    backStripe.setStroke(stripeColor);
+                    backStripe.setStrokeWidth(width);
+                    backStripe.setStrokeLineJoin(javafx.scene.shape.StrokeLineJoin.ROUND);
+                    backStripe.setStrokeLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
+                    collarStripeGroup.getChildren().add(backStripe);
+                }
+            } else {
+                collarStripeGroup.setClip(null);
+            }
+        } else {
+            collarStripeGroup.setClip(null);
         }
     }
 

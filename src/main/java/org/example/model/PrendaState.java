@@ -15,6 +15,7 @@ public class PrendaState {
     private TipoCorte currentCorteShort = TipoCorte.CUADRADO;
     private TipoLargo currentLargo = TipoLargo.MANGA_CORTA;
     private TipoCuello currentCuello = TipoCuello.V;
+    private CollarDesignConfig collarDesignConfig = new CollarDesignConfig();
     private String currentGarmentType = "";
     private TipoTela currentTela = TipoTela.WIN;
     private String customTela = "";
@@ -204,6 +205,15 @@ public class PrendaState {
 
     public void setCuello(TipoCuello cuello) {
         this.currentCuello = cuello;
+    }
+
+    public CollarDesignConfig getCollarDesignConfig() {
+        if (collarDesignConfig == null) collarDesignConfig = new CollarDesignConfig();
+        return collarDesignConfig;
+    }
+
+    public void setCollarDesignConfig(CollarDesignConfig config) {
+        this.collarDesignConfig = config != null ? config : new CollarDesignConfig();
     }
 
     public String getGarmentType() {
@@ -713,6 +723,7 @@ public class PrendaState {
         this.currentCorteShort = source.currentCorteShort;
         this.currentLargo = source.currentLargo;
         this.currentCuello = source.currentCuello;
+        this.collarDesignConfig = new CollarDesignConfig(source.collarDesignConfig);
         this.currentGarmentType = source.currentGarmentType;
         this.currentTela = source.currentTela;
         this.customTela = source.customTela;

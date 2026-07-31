@@ -233,10 +233,8 @@ public class PrendaLayerFactory {
             // Smart Insertion for Shape
             boolean insertedInPowerClip = false;
             String zone = layer.getActiveZone();
-            if (zone == null && visualizer.getPowerClipManager().isEditing()) {
-                if (layer.getState().svgPathData == null || layer.getState().svgPathData.isEmpty()) {
-                    zone = visualizer.getPowerClipManager().getCurrentEditingZone();
-                }
+            if (visualizer.getPowerClipManager().isEditing()) {
+                zone = visualizer.getPowerClipManager().getCurrentEditingZone();
             }
             if (zone != null) {
                 visualizer.getPowerClipManager().addToContainer(layer, zone, false);

@@ -60,6 +60,11 @@ public class MarqueeSelectionHandler {
             return;
         }
 
+        // Do not trigger marquee selection if screen is unlocked / panning enabled
+        if (visualizer.getViewportController() != null && visualizer.getViewportController().isPanningEnabled()) {
+            return;
+        }
+
         // Do not trigger marquee selection if the user is currently drawing or editing a shape
         if (visualizer.getShapeHelper() != null && 
            (visualizer.getShapeHelper().isCreatingShape() || visualizer.getShapeHelper().isNodeEditing())) {
